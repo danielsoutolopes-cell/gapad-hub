@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import './globals.css';
+import { QueryProvider } from '@/components/providers/query-provider';
 
 export const metadata: Metadata = {
   title: 'GADAP Hub - Gestão e Inteligência Fiscal para Obras e Serviços',
@@ -28,7 +29,7 @@ export default function RootLayout({
       <body className="min-h-screen bg-[#090d16] text-slate-100 antialiased selection:bg-emerald-500 selection:text-white">
         <div className="fixed inset-0 -z-10 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(16,185,129,0.15),rgba(255,255,255,0))]" />
         <div className="fixed inset-0 -z-10 bg-[radial-gradient(ellipse_60%_60%_at_80%_60%,rgba(59,130,246,0.08),rgba(255,255,255,0))]" />
-        {children}
+        <QueryProvider>{children}</QueryProvider>
       </body>
     </html>
   );
