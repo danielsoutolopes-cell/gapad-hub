@@ -6,6 +6,9 @@ from pydantic import BaseModel, Field
 from app.core.config import settings
 from app.services.evolution_whatsapp import EvolutionWhatsAppClient
 from app.api.v1.endpoints.clients import router as clients_router
+from app.api.v1.endpoints.suppliers import router as suppliers_router
+from app.api.v1.endpoints.products import router as products_router
+from app.api.v1.endpoints.services import router as services_router
 
 # Configuração de Logs
 logging.basicConfig(
@@ -44,6 +47,21 @@ app.include_router(
     clients_router,
     prefix=f"{settings.API_V1_STR}/clients",
     tags=["Clientes (Módulo Comercial)"],
+)
+app.include_router(
+    suppliers_router,
+    prefix=f"{settings.API_V1_STR}/suppliers",
+    tags=["Fornecedores (Módulo Comercial)"],
+)
+app.include_router(
+    products_router,
+    prefix=f"{settings.API_V1_STR}/products",
+    tags=["Produtos e Insumos (Módulo Comercial)"],
+)
+app.include_router(
+    services_router,
+    prefix=f"{settings.API_V1_STR}/services",
+    tags=["Serviços de Engenharia (Módulo Comercial)"],
 )
 
 

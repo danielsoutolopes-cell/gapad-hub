@@ -258,6 +258,93 @@ async function runSeed() {
       }
     }
 
+    // -------------------------------------------------------------------------
+    // 5. Cadastrar Fornecedor, Produto e Serviço demonstrativos
+    // -------------------------------------------------------------------------
+    console.log('\n📦 Passo 5: Cadastrando Fornecedor, Produto e Serviço demonstrativos...');
+
+    // Fornecedor
+    const { data: existingSupplier } = await supabase
+      .from('suppliers')
+      .select('id')
+      .eq('tenant_id', tenantId)
+      .eq('document', '11222333000199')
+      .maybeSingle();
+
+    if (!existingSupplier) {
+      await supabase.from('suppliers').insert({
+        tenant_id: tenantId,
+        person_type: 'PJ',
+        document: '11222333000199',
+        name: 'Distribuidora de Cimento Central Ltda',
+        trade_name: 'Cimento Central',
+        category: 'materiais_construcao',
+        email: 'vendas@cimentocentral.com.br',
+        phone: '11988887777',
+        contact_name: 'Marcos Vinicius',
+        address_city: 'São Paulo',
+        address_state: 'SP',
+        is_active: true,
+      });
+      console.log('   ✓ Fornecedor demonstrativo cadastrado: Distribuidora de Cimento Central Ltda');
+    } else {
+      console.log('   ✓ Fornecedor demonstrativo já presente.');
+    }
+
+    // Produto
+    const { data: existingProduct } = await supabase
+      .from('products')
+      .select('id')
+      .eq('tenant_id', tenantId)
+      .eq('code', 'MAT-CIM-001')
+      .maybeSingle();
+
+    if (!existingProduct) {
+      await supabase.from('products').insert({
+        tenant_id: tenantId,
+        code: 'MAT-CIM-001',
+        name: 'Cimento CP-II 50kg Votoran',
+        description: 'Cimento Portland composto com escória granulada de alto-forno',
+        ncm: '25232910',
+        unit_of_measure: 'SC',
+        base_cost: 38.50,
+        sale_price: 45.00,
+        category: 'aglomerantes',
+        is_active: true,
+      });
+      console.log('   ✓ Produto demonstrativo cadastrado: Cimento CP-II 50kg Votoran (NCM 25232910)');
+    } else {
+      console.log('   ✓ Produto demonstrativo já presente.');
+    }
+
+    // Serviço
+    const { data: existingService } = await supabase
+      .from('services')
+      .select('id')
+      .eq('tenant_id', tenantId)
+      .eq('code', 'SRV-ALV-001')
+      .maybeSingle();
+
+    if (!existingService) {
+      await supabase.from('services').insert({
+        tenant_id: tenantId,
+        code: 'SRV-ALV-001',
+        name: 'Alvenaria Estrutural Bloco de Concreto',
+        description: 'Execução de alvenaria estrutural armada com blocos vazados de concreto 14x19x39 cm',
+        nbs_code: '1.0101.10.00',
+        lc116_code: '07.02',
+        base_cost: 42.00,
+        default_price: 65.00,
+        unit_of_measure: 'M2',
+        iss_aliquota: 5.0,
+        inss_retencao_aliquota: 11.0,
+        is_active: true,
+      });
+      console.log('   ✓ Serviço demonstrativo cadastrado: Alvenaria Estrutural (NBS 1.0101.10.00 / LC 116 07.02)');
+    } else {
+      console.log('   ✓ Serviço demonstrativo já presente.');
+    }
+
     console.log('\n====================================================');
     console.log('🎉 SEED EXECUTADO COM SUCESSO TOTAL!');
     console.log('====================================================');
