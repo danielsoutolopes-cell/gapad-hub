@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useTransition } from 'react';
+import Link from 'next/link';
 import {
   Building2,
   ShieldCheck,
@@ -11,30 +12,45 @@ import {
   Mail,
   CheckCircle2,
   Sparkles,
-  Layers,
-  FileSpreadsheet
+  AlertCircle,
+  KeyRound,
 } from 'lucide-react';
+import { login } from '@/app/actions/auth';
 
 export default function HomePage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleQuickFill = () => {
+    setEmail('admin@teste.com');
+    setPassword('Gadap2026!');
+    setErrorMessage(null);
+  };
+
+  const handleLoginSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setIsLoading(true);
-    setFeedbackMessage(null);
+    setErrorMessage(null);
 
-    // Simulação visual de envio de autenticação
-    setTimeout(() => {
-      setIsLoading(false);
-      setFeedbackMessage('Credenciais validadas. Redirecionando para o painel de obras...');
-    }, 1200);
+    const formData = new FormData(e.currentTarget);
+
+    startTransition(async () => {
+      try {
+        const result = await login(formData);
+        if (result?.error) {
+          setErrorMessage(result.error);
+        }
+      } catch (err: any) {
+        if (err?.message && !err.message.includes('NEXT_REDIRECT')) {
+          setErrorMessage(err.message || 'Erro inesperado ao realizar autenticação.');
+        }
+      }
+    });
   };
 
   return (
-    <main className="min-h-screen flex flex-col justify-between">
+    <main className="min-h-screen flex flex-col justify-between bg-[#090d16]">
       {/* Barra de Navegação Superior */}
       <header className="border-b border-slate-800/80 bg-slate-950/40 backdrop-blur-md sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
@@ -53,6 +69,12 @@ export default function HomePage() {
           </div>
 
           <div className="flex items-center gap-3">
+            <Link
+              href="/dashboard/obras"
+              className="text-xs text-slate-300 hover:text-white px-3 py-1.5 rounded-lg border border-slate-800 hover:border-slate-700 transition-colors"
+            >
+              Dashboard
+            </Link>
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
               V0 Baseline Operacional
@@ -133,9 +155,9 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* Coluna da Direita: Card de Acesso / Login */}
+          {/* Coluna da Direita: Card de Acesso / Login com Server Action */}
           <div className="lg:col-span-5 flex justify-center">
-            <div className="w-full max-w-md glass-panel p-8 rounded-2xl shadow-2xl relative overflow-hidden border border-slate-800/90">
+            <div className="w-full max-w-md glass-panel p-8 rounded-2xl shadow-2xl relative overflow-hidden border border-slate-800/90 backdrop-blur-xl">
               <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 rounded-full blur-2xl -mr-10 -mt-10 pointer-events-none" />
 
               <div className="mb-6">
@@ -145,7 +167,15 @@ export default function HomePage() {
                 </p>
               </div>
 
-              <form onSubmit={handleLogin} className="space-y-4">
+              {/* Mensagem de Erro */}
+              {errorMessage && (
+                <div className="p-3 mb-4 rounded-xl bg-red-500/10 border border-red-500/30 flex items-start gap-2.5 text-red-400 text-xs animate-fade-in">
+                  <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                  <span className="leading-relaxed">{errorMessage}</span>
+                </div>
+              )}
+
+              <form onSubmit={handleLoginSubmit} className="space-y-4">
                 <div>
                   <label className="block text-xs font-medium text-slate-300 mb-1.5" htmlFor="email-input">
                     E-mail Corporativo
@@ -154,9 +184,11 @@ export default function HomePage() {
                     <Mail className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
                     <input
                       id="email-input"
+                      name="email"
                       type="email"
                       required
-                      placeholder="engenharia@construtora.com.br"
+                      autoComplete="email"
+                      placeholder="admin@teste.com"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       className="w-full bg-slate-900/90 border border-slate-700/80 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition-all"
@@ -172,8 +204,10 @@ export default function HomePage() {
                     <Lock className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
                     <input
                       id="password-input"
+                      name="password"
                       type="password"
                       required
+                      autoComplete="current-password"
                       placeholder="••••••••••••"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
@@ -187,20 +221,20 @@ export default function HomePage() {
                     <input type="checkbox" defaultChecked className="rounded bg-slate-900 border-slate-700 text-emerald-500 focus:ring-0" />
                     Lembrar credencial
                   </label>
-                  <a href="#recuperar" className="text-emerald-400 hover:underline">
-                    Esqueceu a senha?
-                  </a>
+                  <Link href="/login" className="text-emerald-400 hover:underline">
+                    Tela de login dedicada
+                  </Link>
                 </div>
 
                 <button
                   type="submit"
-                  disabled={isLoading}
-                  className="w-full mt-2 bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-slate-950 font-bold py-2.5 px-4 rounded-xl text-sm flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/25 transition-all duration-200 disabled:opacity-60"
+                  disabled={isPending}
+                  className="w-full mt-2 bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-slate-950 font-bold py-2.5 px-4 rounded-xl text-sm flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/25 transition-all duration-200 disabled:opacity-60 active:scale-[0.99]"
                 >
-                  {isLoading ? (
+                  {isPending ? (
                     <span className="inline-flex items-center gap-2">
                       <span className="w-4 h-4 border-2 border-slate-950 border-t-transparent rounded-full animate-spin" />
-                      Autenticando...
+                      Autenticando sessão...
                     </span>
                   ) : (
                     <>
@@ -209,18 +243,19 @@ export default function HomePage() {
                     </>
                   )}
                 </button>
-
-                {feedbackMessage && (
-                  <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs text-center animate-fade-in">
-                    {feedbackMessage}
-                  </div>
-                )}
               </form>
 
-              <div className="mt-6 pt-5 border-t border-slate-800 text-center">
-                <span className="text-xs text-slate-500">
-                  Primeiro acesso? Contate o Administrador da sua Empresa para obter seu convite.
-                </span>
+              {/* Botão de Preenchimento Rápido com Seed */}
+              <div className="mt-5 pt-4 border-t border-slate-800 flex items-center justify-between">
+                <span className="text-[11px] text-slate-400">Usuário do Seed:</span>
+                <button
+                  type="button"
+                  onClick={handleQuickFill}
+                  className="px-2.5 py-1 text-[11px] font-medium text-emerald-300 hover:text-white bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 rounded-lg transition-colors flex items-center gap-1"
+                >
+                  <KeyRound className="w-3 h-3" />
+                  Preencher admin@teste.com
+                </button>
               </div>
             </div>
           </div>
