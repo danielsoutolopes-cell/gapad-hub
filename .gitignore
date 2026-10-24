@@ -23,6 +23,7 @@ ENV/
 out/
 build/
 dist/
+*.tsbuildinfo
 
 # Cloudflare
 .wrangler/
