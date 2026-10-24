@@ -1,0 +1,650 @@
+'use client';
+
+import React, { useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  Truck,
+  Plus,
+  Search,
+  Mail,
+  Phone,
+  Building2,
+  User,
+  Filter,
+  CheckCircle2,
+  AlertCircle,
+  X,
+  Loader2,
+  MapPin,
+  ExternalLink,
+  MessageCircle,
+  Copy,
+  Check,
+} from 'lucide-react';
+import { createClient } from '@/lib/supabase/client';
+
+// -----------------------------------------------------------------------------
+// 1. Schema de Validação com Zod
+// -----------------------------------------------------------------------------
+const supplierFormSchema = z
+  .object({
+    person_type: z.enum(['PF', 'PJ'], {
+      required_error: 'Selecione o tipo de fornecedor.',
+    }),
+    document: z
+      .string()
+      .min(1, 'Documento (CPF ou CNPJ) é obrigatório.')
+      .refine(
+        (val) => {
+          const clean = val.replace(/\D/g, '');
+          return clean.length === 11 || clean.length === 14;
+        },
+        {
+          message: 'Documento inválido. Informe CPF (11 dígitos) ou CNPJ (14 dígitos).',
+        }
+      ),
+    name: z
+      .string()
+      .min(2, 'O Nome ou Razão Social deve ter no mínimo 2 caracteres.')
+      .max(255),
+    trade_name: z.string().max(255).optional(),
+    category: z.string().max(100).optional(),
+    email: z.string().email('E-mail inválido.').or(z.literal('')).optional(),
+    phone: z.string().min(8, 'Telefone inválido.').or(z.literal('')).optional(),
+    contact_name: z.string().max(100).optional(),
+    state_registration: z.string().max(30).optional(),
+    municipal_registration: z.string().max(30).optional(),
+    address_street: z.string().max(255).optional(),
+    address_number: z.string().max(30).optional(),
+    address_city: z.string().max(100).optional(),
+    address_state: z.string().max(2).optional(),
+    notes: z.string().optional(),
+    is_active: z.boolean().default(true),
+  })
+  .refine(
+    (data) => {
+      const clean = data.document.replace(/\D/g, '');
+      if (data.person_type === 'PF') return clean.length === 11;
+      if (data.person_type === 'PJ') return clean.length === 14;
+      return true;
+    },
+    {
+      message: 'O comprimento do documento não corresponde ao tipo selecionado (PF=11, PJ=14).',
+      path: ['document'],
+    }
+  );
+
+type SupplierFormData = z.infer<typeof supplierFormSchema>;
+
+interface SupplierItem {
+  id: string;
+  tenant_id: string;
+  person_type: 'PF' | 'PJ';
+  document: string;
+  name: string;
+  trade_name?: string | null;
+  category?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  contact_name?: string | null;
+  state_registration?: string | null;
+  municipal_registration?: string | null;
+  address_city?: string | null;
+  address_state?: string | null;
+  is_active: boolean;
+  created_at: string;
+}
+
+const CATEGORIES = [
+  { value: 'materiais_construcao', label: 'Materiais de Construção' },
+  { value: 'subempreiteira', label: 'Subempreiteira / Mão de Obra' },
+  { value: 'locacao_equipamentos', label: 'Locação de Equipamentos' },
+  { value: 'servicos_especializados', label: 'Serviços Especializados' },
+  { value: 'outros', label: 'Outros Suprimentos' },
+];
+
+export function FornecedoresClient() {
+  const queryClient = useQueryClient();
+  const supabase = createClient();
+
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const {
+    register,
+    handleSubmit,
+    setValue,
+    watch,
+    reset,
+    formState: { errors },
+  } = useForm<SupplierFormData>({
+    resolver: zodResolver(supplierFormSchema),
+    defaultValues: {
+      person_type: 'PJ',
+      document: '',
+      name: '',
+      trade_name: '',
+      category: 'materiais_construcao',
+      email: '',
+      phone: '',
+      contact_name: '',
+      state_registration: '',
+      municipal_registration: '',
+      address_city: '',
+      address_state: '',
+      is_active: true,
+    },
+  });
+
+  const selectedPersonType = watch('person_type');
+
+  // Token JWT para autorização da API FastAPI
+  const getAuthToken = async (): Promise<string> => {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (!session?.access_token) {
+      throw new Error('Sessão expirada. Faça login novamente.');
+    }
+    return session.access_token;
+  };
+
+  // ---------------------------------------------------------------------------
+  // TanStack Query: Listagem de Fornecedores
+  // ---------------------------------------------------------------------------
+  const {
+    data: suppliers = [],
+    isLoading,
+    isError,
+    error,
+  } = useQuery<SupplierItem[]>({
+    queryKey: ['suppliers', searchTerm, selectedCategory],
+    queryFn: async () => {
+      const token = await getAuthToken();
+      const url = new URL('/api/v1/suppliers', window.location.origin);
+      if (searchTerm.trim()) {
+        url.searchParams.set('search', searchTerm.trim());
+      }
+      if (selectedCategory && selectedCategory !== 'all') {
+        url.searchParams.set('category', selectedCategory);
+      }
+
+      const response = await fetch(url.toString(), {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.detail || 'Falha ao buscar fornecedores da API.');
+      }
+
+      return response.json();
+    },
+  });
+
+  // ---------------------------------------------------------------------------
+  // Mutação: Cadastro de Fornecedor
+  // ---------------------------------------------------------------------------
+  const createMutation = useMutation({
+    mutationFn: async (formData: SupplierFormData) => {
+      const token = await getAuthToken();
+      const response = await fetch('/api/v1/suppliers', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.detail || 'Falha ao cadastrar fornecedor.');
+      }
+
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['suppliers'] });
+      reset();
+      setIsModalOpen(false);
+      setErrorMessage(null);
+    },
+    onError: (err: any) => {
+      setErrorMessage(err.message || 'Erro inesperado ao cadastrar fornecedor.');
+    },
+  });
+
+  const onSubmit = (data: SupplierFormData) => {
+    setErrorMessage(null);
+    createMutation.mutate(data);
+  };
+
+  const formatDocument = (doc: string, type: 'PF' | 'PJ') => {
+    const clean = doc.replace(/\D/g, '');
+    if (type === 'PF' && clean.length === 11) {
+      return clean.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+    }
+    if (type === 'PJ' && clean.length === 14) {
+      return clean.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5');
+    }
+    return doc;
+  };
+
+  const handleCopy = (text: string, id: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  // KPIs
+  const totalCount = suppliers.length;
+  const materiaisCount = suppliers.filter((s) => s.category === 'materiais_construcao').length;
+  const subempreiteirasCount = suppliers.filter((s) => s.category === 'subempreiteira').length;
+  const activeCount = suppliers.filter((s) => s.is_active).length;
+
+  return (
+    <div className="space-y-6">
+      {/* Título & Ações */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2 text-xs text-slate-400 mb-1">
+            <span>Catálogo Geral</span>
+            <span>/</span>
+            <span className="text-emerald-400 font-medium">Fornecedores & Subempreiteiras</span>
+          </div>
+          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
+            Fornecedores e Parceiros
+          </h1>
+          <p className="text-xs sm:text-sm text-slate-400 mt-1">
+            Gestão de distribuidores de insumos, prestadores terceirizados e subempreiteiras de obras.
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => {
+            setErrorMessage(null);
+            reset();
+            setIsModalOpen(true);
+          }}
+          className="inline-flex items-center gap-2 bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-slate-950 font-bold px-4 py-2.5 rounded-xl text-xs sm:text-sm shadow-lg shadow-emerald-500/20 transition-all duration-200"
+        >
+          <Plus className="w-4 h-4 stroke-[2.5]" />
+          Novo Fornecedor
+        </button>
+      </div>
+
+      {/* Cards de Métricas */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div className="glass-panel p-4 rounded-xl border border-slate-800">
+          <span className="text-xs font-medium text-slate-400">Total de Parceiros</span>
+          <p className="text-2xl font-bold text-white mt-1">{totalCount}</p>
+        </div>
+        <div className="glass-panel p-4 rounded-xl border border-slate-800">
+          <span className="text-xs font-medium text-slate-400">Materiais de Obra</span>
+          <p className="text-2xl font-bold text-emerald-400 mt-1">{materiaisCount}</p>
+        </div>
+        <div className="glass-panel p-4 rounded-xl border border-slate-800">
+          <span className="text-xs font-medium text-slate-400">Subempreiteiras</span>
+          <p className="text-2xl font-bold text-teal-400 mt-1">{subempreiteirasCount}</p>
+        </div>
+        <div className="glass-panel p-4 rounded-xl border border-slate-800">
+          <span className="text-xs font-medium text-slate-400">Fornecedores Ativos</span>
+          <p className="text-2xl font-bold text-emerald-400 mt-1">{activeCount}</p>
+        </div>
+      </div>
+
+      {/* Barra de Filtros */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="relative flex-1">
+          <Search className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+          <input
+            type="text"
+            placeholder="Buscar por razão social, nome fantasia, documento ou contato..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full bg-slate-900/90 border border-slate-800 rounded-xl pl-10 pr-4 py-2 text-xs sm:text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+          />
+        </div>
+
+        <select
+          value={selectedCategory}
+          onChange={(e) => setSelectedCategory(e.target.value)}
+          className="bg-slate-900/90 border border-slate-800 rounded-xl px-3 py-2 text-xs sm:text-sm text-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+        >
+          <option value="all">Todas as Categorias</option>
+          {CATEGORIES.map((c) => (
+            <option key={c.value} value={c.value}>
+              {c.label}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {/* Tabela de Fornecedores */}
+      <div className="glass-panel rounded-2xl border border-slate-800 overflow-hidden shadow-xl">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse text-xs sm:text-sm">
+            <thead>
+              <tr className="border-b border-slate-800 bg-slate-900/50 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                <th className="py-3 px-4">Fornecedor</th>
+                <th className="py-3 px-4">CNPJ / CPF</th>
+                <th className="py-3 px-4">Categoria</th>
+                <th className="py-3 px-4">Contato / Contratação</th>
+                <th className="py-3 px-4">Localização</th>
+                <th className="py-3 px-4 text-center">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-800/60">
+              {isLoading ? (
+                <tr>
+                  <td colSpan={6} className="py-12 text-center text-slate-400">
+                    <Loader2 className="w-6 h-6 animate-spin mx-auto text-emerald-400 mb-2" />
+                    Carregando fornecedores do tenant...
+                  </td>
+                </tr>
+              ) : isError ? (
+                <tr>
+                  <td colSpan={6} className="py-10 text-center text-red-400">
+                    <AlertCircle className="w-6 h-6 mx-auto mb-2 text-red-400" />
+                    {error instanceof Error ? error.message : 'Falha ao consultar fornecedores.'}
+                  </td>
+                </tr>
+              ) : suppliers.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="py-12 text-center text-slate-500">
+                    Nenhum fornecedor cadastrado. Clique no botão acima para adicionar.
+                  </td>
+                </tr>
+              ) : (
+                suppliers.map((sup) => (
+                  <tr key={sup.id} className="hover:bg-slate-800/30 transition-colors">
+                    <td className="py-3.5 px-4">
+                      <div className="font-semibold text-white">{sup.name}</div>
+                      {sup.trade_name && (
+                        <div className="text-xs text-slate-400">{sup.trade_name}</div>
+                      )}
+                    </td>
+                    <td className="py-3.5 px-4 font-mono text-xs text-slate-300">
+                      <div className="flex items-center gap-1.5">
+                        <span>{formatDocument(sup.document, sup.person_type)}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleCopy(sup.document, sup.id)}
+                          className="text-slate-500 hover:text-emerald-400 transition-colors"
+                          title="Copiar documento limpo"
+                        >
+                          {copiedId === sup.id ? (
+                            <Check className="w-3.5 h-3.5 text-emerald-400" />
+                          ) : (
+                            <Copy className="w-3.5 h-3.5" />
+                          )}
+                        </button>
+                      </div>
+                      <span className="text-[10px] text-slate-500 block uppercase">
+                        {sup.person_type === 'PJ' ? 'Pessoa Jurídica' : 'Pessoa Física'}
+                      </span>
+                    </td>
+                    <td className="py-3.5 px-4">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-slate-800 text-slate-300 border border-slate-700">
+                        {CATEGORIES.find((c) => c.value === sup.category)?.label || sup.category || 'Geral'}
+                      </span>
+                    </td>
+                    <td className="py-3.5 px-4">
+                      {sup.contact_name && (
+                        <div className="text-xs font-medium text-slate-200">{sup.contact_name}</div>
+                      )}
+                      <div className="flex items-center gap-3 text-xs text-slate-400 mt-0.5">
+                        {sup.phone && (
+                          <span className="flex items-center gap-1">
+                            <Phone className="w-3 h-3 text-slate-500" />
+                            {sup.phone}
+                          </span>
+                        )}
+                        {sup.email && (
+                          <span className="flex items-center gap-1 truncate max-w-[160px]">
+                            <Mail className="w-3 h-3 text-slate-500" />
+                            {sup.email}
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="py-3.5 px-4 text-xs text-slate-400">
+                      {sup.address_city && sup.address_state ? (
+                        <span className="flex items-center gap-1">
+                          <MapPin className="w-3 h-3 text-slate-500" />
+                          {sup.address_city} - {sup.address_state}
+                        </span>
+                      ) : (
+                        <span className="text-slate-600">—</span>
+                      )}
+                    </td>
+                    <td className="py-3.5 px-4 text-center">
+                      <span
+                        className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${
+                          sup.is_active
+                            ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                            : 'bg-slate-800 text-slate-400 border border-slate-700'
+                        }`}
+                      >
+                        <span
+                          className={`w-1.5 h-1.5 rounded-full ${
+                            sup.is_active ? 'bg-emerald-400 animate-pulse' : 'bg-slate-500'
+                          }`}
+                        />
+                        {sup.is_active ? 'Ativo' : 'Inativo'}
+                      </span>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Modal de Cadastro de Fornecedor */}
+      {isModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in">
+          <div className="w-full max-w-2xl bg-[#0b101b] border border-slate-800 rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
+            <div className="p-5 border-b border-slate-800 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-emerald-500/15 text-emerald-400 flex items-center justify-center">
+                  <Truck className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">Cadastrar Novo Fornecedor</h3>
+                  <p className="text-xs text-slate-400">Preencha os dados do parceiro comercial.</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsModalOpen(false)}
+                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmit(onSubmit)} className="p-6 overflow-y-auto space-y-4 flex-1">
+              {errorMessage && (
+                <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                  <span>{errorMessage}</span>
+                </div>
+              )}
+
+              {/* Tipo de Pessoa */}
+              <div>
+                <label className="block text-xs font-medium text-slate-300 mb-1.5">Tipo de Pessoa</label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setValue('person_type', 'PJ')}
+                    className={`py-2 px-3 rounded-xl border text-xs font-semibold flex items-center justify-center gap-2 transition-all ${
+                      selectedPersonType === 'PJ'
+                        ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300'
+                        : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    <Building2 className="w-4 h-4" />
+                    Pessoa Jurídica (CNPJ)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setValue('person_type', 'PF')}
+                    className={`py-2 px-3 rounded-xl border text-xs font-semibold flex items-center justify-center gap-2 transition-all ${
+                      selectedPersonType === 'PF'
+                        ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300'
+                        : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    <User className="w-4 h-4" />
+                    Pessoa Física (CPF)
+                  </button>
+                </div>
+              </div>
+
+              {/* Razão Social e Fantasia */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-slate-300 mb-1">
+                    {selectedPersonType === 'PJ' ? 'Razão Social *' : 'Nome Completo *'}
+                  </label>
+                  <input
+                    {...register('name')}
+                    placeholder={selectedPersonType === 'PJ' ? 'Ex: Distribuidora Silva Ltda' : 'Ex: João da Silva'}
+                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs sm:text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                  />
+                  {errors.name && <p className="text-red-400 text-[11px] mt-1">{errors.name.message}</p>}
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-slate-300 mb-1">Nome Fantasia</label>
+                  <input
+                    {...register('trade_name')}
+                    placeholder="Ex: Comercial Silva"
+                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs sm:text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                  />
+                </div>
+              </div>
+
+              {/* Documento e Categoria */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-slate-300 mb-1">
+                    {selectedPersonType === 'PJ' ? 'CNPJ (14 dígitos) *' : 'CPF (11 dígitos) *'}
+                  </label>
+                  <input
+                    {...register('document')}
+                    placeholder={selectedPersonType === 'PJ' ? '12.345.678/0001-90' : '123.456.789-00'}
+                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs sm:text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                  />
+                  {errors.document && <p className="text-red-400 text-[11px] mt-1">{errors.document.message}</p>}
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-slate-300 mb-1">Categoria de Fornecimento</label>
+                  <select
+                    {...register('category')}
+                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs sm:text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                  >
+                    {CATEGORIES.map((cat) => (
+                      <option key={cat.value} value={cat.value}>
+                        {cat.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Contatos */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-slate-300 mb-1">Responsável / Contato</label>
+                  <input
+                    {...register('contact_name')}
+                    placeholder="Ex: Carlos Eduardo"
+                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs sm:text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-300 mb-1">E-mail Comercial</label>
+                  <input
+                    {...register('email')}
+                    type="email"
+                    placeholder="comercial@fornecedor.com.br"
+                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs sm:text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-300 mb-1">Telefone / WhatsApp</label>
+                  <input
+                    {...register('phone')}
+                    placeholder="(11) 98888-7777"
+                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs sm:text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                  />
+                </div>
+              </div>
+
+              {/* Localização */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-slate-300 mb-1">Cidade</label>
+                  <input
+                    {...register('address_city')}
+                    placeholder="São Paulo"
+                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs sm:text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-300 mb-1">Estado (UF)</label>
+                  <input
+                    {...register('address_state')}
+                    maxLength={2}
+                    placeholder="SP"
+                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs sm:text-sm text-white uppercase placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-4 border-t border-slate-800 flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsModalOpen(false)}
+                  className="px-4 py-2 rounded-xl text-xs sm:text-sm font-medium text-slate-400 hover:text-white transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={createMutation.isPending}
+                  className="inline-flex items-center gap-2 bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-slate-950 font-bold px-5 py-2 rounded-xl text-xs sm:text-sm shadow-lg shadow-emerald-500/20 transition-all disabled:opacity-60"
+                >
+                  {createMutation.isPending ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Gravando...
+                    </>
+                  ) : (
+                    'Salvar Fornecedor'
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

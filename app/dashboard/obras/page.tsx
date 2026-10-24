@@ -19,6 +19,7 @@ import {
   MessageSquare,
   ArrowLeft
 } from 'lucide-react';
+import { DashboardNav } from '@/components/dashboard/dashboard-nav';
 
 interface Project {
   id: string;
@@ -180,45 +181,7 @@ export default async function ObrasPage() {
 
   return (
     <div className="min-h-screen bg-[#090d16] text-slate-100 flex flex-col">
-      {/* Barra de Navegação Superior do Dashboard */}
-      <header className="border-b border-slate-800/80 bg-slate-950/60 backdrop-blur-md sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Link
-              href="/"
-              className="text-slate-400 hover:text-white transition-colors flex items-center gap-1.5 text-xs font-medium"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              Início
-            </Link>
-            <span className="text-slate-700">|</span>
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold">
-                <HardHat className="w-4 h-4" />
-              </div>
-              <span className="text-sm font-bold text-white tracking-tight">
-                Módulo Comercial
-              </span>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3">
-            {/* Informações de Isolamento do Tenant */}
-            <div className="hidden sm:flex items-center gap-2 px-3 py-1 rounded-lg bg-slate-900 border border-slate-800 text-xs text-slate-400">
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Tenant:</span>
-              <code className="text-emerald-400 font-mono text-[11px] truncate max-w-[120px]">
-                {String(tenantId)}
-              </code>
-            </div>
-
-            <div className="flex items-center gap-2 text-xs text-slate-300 pl-2 border-l border-slate-800">
-              <span className="w-2 h-2 rounded-full bg-emerald-400" />
-              <span className="truncate max-w-[150px]">{user.email}</span>
-            </div>
-          </div>
-        </div>
-      </header>
+      <DashboardNav />
 
       {/* Conteúdo Principal */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 w-full space-y-6">

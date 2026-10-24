@@ -28,6 +28,7 @@ import {
   Check,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+import { DashboardNav } from '@/components/dashboard/dashboard-nav';
 
 // -----------------------------------------------------------------------------
 // 1. Schema de Validação com Zod
@@ -251,36 +252,7 @@ export default function ClientesPage() {
 
   return (
     <div className="min-h-screen bg-[#090d16] text-slate-100 flex flex-col">
-      {/* Barra de Navegação Superior */}
-      <header className="border-b border-slate-800/80 bg-slate-950/60 backdrop-blur-md sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Link
-              href="/dashboard/obras"
-              className="text-slate-400 hover:text-white transition-colors flex items-center gap-1.5 text-xs font-medium"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              Obras
-            </Link>
-            <span className="text-slate-700">|</span>
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold">
-                <Users className="w-4 h-4" />
-              </div>
-              <span className="text-sm font-bold text-white tracking-tight">
-                Módulo Comercial
-              </span>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              FastAPI: /api/v1/clients
-            </span>
-          </div>
-        </div>
-      </header>
+      <DashboardNav />
 
       {/* Conteúdo Principal */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 w-full space-y-6">
