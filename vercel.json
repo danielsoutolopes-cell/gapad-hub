@@ -1,20 +1,20 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "services": {
-    "frontend": {
+    "web": {
       "root": ".",
       "framework": "nextjs",
       "bindings": [
         {
           "type": "service",
-          "service": "backend",
+          "service": "api",
           "format": "url",
-          "env": "BACKEND_URL"
+          "env": "API_URL"
         }
       ]
     },
-    "backend": {
-      "root": "backend",
+    "api": {
+      "root": "api",
       "framework": "fastapi"
     }
   },
@@ -22,13 +22,13 @@
     {
       "source": "/api/(.*)",
       "destination": {
-        "service": "backend"
+        "service": "api"
       }
     },
     {
       "source": "/(.*)",
       "destination": {
-        "service": "frontend"
+        "service": "web"
       }
     }
   ]
