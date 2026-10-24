@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from app.core.config import settings
 from app.services.evolution_whatsapp import EvolutionWhatsAppClient
+from app.api.v1.endpoints.clients import router as clients_router
 
 # Configuração de Logs
 logging.basicConfig(
@@ -37,6 +38,13 @@ app.add_middleware(
 
 # Instanciação do Cliente de WhatsApp
 whatsapp_client = EvolutionWhatsAppClient()
+
+# Registro de Rotas de Módulos Corporativos
+app.include_router(
+    clients_router,
+    prefix=f"{settings.API_V1_STR}/clients",
+    tags=["Clientes (Módulo Comercial)"],
+)
 
 
 # ------------------------------------------------------------------------------
