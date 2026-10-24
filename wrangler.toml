@@ -1,0 +1,6 @@
+name = "gadap-hub"
+compatibility_date = "2026-10-24"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+NEXT_PUBLIC_APP_ENV = "production"
