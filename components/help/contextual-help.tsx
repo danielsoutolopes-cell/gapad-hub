@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 
-export type HelpTopic = 'medicoes' | 'bdi_orcamentos' | 'custom';
+export type HelpTopic = 'medicoes' | 'bdi_orcamentos' | 'subcontratos' | 'custom';
 
 interface ContextualHelpProps {
   topic?: HelpTopic;
@@ -37,6 +37,59 @@ export function ContextualHelp({
 
   // Renderizador do Conteúdo pré-configurado por tópico
   const renderTopicContent = () => {
+    if (topic === 'subcontratos') {
+      return (
+        <div className="space-y-4 text-xs sm:text-sm text-slate-300 leading-relaxed">
+          {/* Card 1: Modelo Farol */}
+          <div className="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 space-y-1.5">
+            <h4 className="font-bold text-white flex items-center gap-2 text-xs uppercase tracking-wider text-emerald-400">
+              <ShieldCheck className="w-4 h-4 text-emerald-400" />
+              1. O que é o Modelo Farol de Subcontratados?
+            </h4>
+            <p className="text-slate-300 text-xs leading-relaxed">
+              O <strong>Modelo Farol</strong> monitora em tempo real a correlação entre os <em>desembolsos financeiros efetuados</em> e o <em>avanço físico medido em campo</em>:
+            </p>
+            <div className="space-y-1 text-xs pt-1">
+              <div className="flex items-center gap-2 text-emerald-400 font-medium">
+                <span>🟢 Farol Verde (Equilibrado):</span>
+                <span className="text-slate-300">Pagamentos cobertos por medições físicas aprovadas.</span>
+              </div>
+              <div className="flex items-center gap-2 text-amber-400 font-medium">
+                <span>🟡 Farol Amarelo (Atenção):</span>
+                <span className="text-slate-300">Pagamentos superam a medição, mas permanecem abaixo de 80% do contrato.</span>
+              </div>
+              <div className="flex items-center gap-2 text-rose-400 font-medium">
+                <span>🔴 Farol Vermelho (Risco Crítico):</span>
+                <span className="text-slate-300">Pagamentos superam a medição e já atingiram &ge; 80% do valor global sem entrega.</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Card 2: Política Zero Travas */}
+          <div className="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 space-y-1.5">
+            <h4 className="font-bold text-white flex items-center gap-2 text-xs uppercase tracking-wider text-amber-400">
+              <AlertTriangle className="w-4 h-4 text-amber-400" />
+              2. Política Zero Travas (Agilidade de Canteiro)
+            </h4>
+            <p className="text-slate-300 text-xs leading-relaxed">
+              Diferente de ERPs burocráticos tradicionais, o GADAP Hub <strong>nunca trava</strong> a liberação de vales, diárias ou compras de insumos para os parceiros. Lançamentos de pagamento ocorrem de forma fluida e direta, alimentando o Contas a Pagar sem exigir medição prévia. O sistema sinaliza o risco visualmente, preservando a governança com total autonomia decisória da engenharia.
+            </p>
+          </div>
+
+          {/* Card 3: Como abater a exposição */}
+          <div className="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 space-y-1.5">
+            <h4 className="font-bold text-white flex items-center gap-2 text-xs uppercase tracking-wider text-teal-300">
+              <Calculator className="w-4 h-4 text-teal-300" />
+              3. Como Abater o Saldo Devedor do Parceiro?
+            </h4>
+            <p className="text-slate-300 text-xs leading-relaxed">
+              Ao clicar no botão <strong>"Registrar Medição"</strong>, a construtora formaliza a entrega do serviço executado pelo parceiro. Esse registro abate imediatamente a <em>exposição financeira</em>, reequilibrando a balança física e retornando o status para o <strong>Farol Verde</strong>.
+            </p>
+          </div>
+        </div>
+      );
+    }
+
     if (topic === 'medicoes') {
       return (
         <div className="space-y-4 text-xs sm:text-sm text-slate-300 leading-relaxed">
@@ -152,6 +205,7 @@ export function ContextualHelp({
 
   const getResolvedTitle = () => {
     if (title) return title;
+    if (topic === 'subcontratos') return 'Ajuda: Gestão de Terceirizados & Modelo Farol';
     if (topic === 'medicoes') return 'Ajuda: Medições & Retenção Técnica';
     if (topic === 'bdi_orcamentos') return 'Ajuda: Fórmula Oficial do BDI Analítico';
     return 'Ajuda Contextual';
@@ -159,6 +213,7 @@ export function ContextualHelp({
 
   const getResolvedTriggerText = () => {
     if (triggerText) return triggerText;
+    if (topic === 'subcontratos') return 'Como funciona o Modelo Farol?';
     if (topic === 'medicoes') return 'Como funciona a Retenção?';
     if (topic === 'bdi_orcamentos') return 'Entenda as taxas do BDI';
     return 'Ajuda';

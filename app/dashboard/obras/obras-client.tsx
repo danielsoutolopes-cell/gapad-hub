@@ -25,6 +25,7 @@ import {
   ChevronRight,
   ExternalLink,
   Layers,
+  Users,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 
@@ -651,6 +652,14 @@ export function ObrasClient() {
 
                       <td className="px-5 py-3.5 text-right">
                         <div className="flex items-center justify-end gap-1.5">
+                          <Link
+                            href={`/dashboard/obras/${project.id}/subcontratos`}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium text-amber-400 hover:text-white bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 transition-colors"
+                            title="Gestão de Subcontratos e Terceirizados (Modelo Farol)"
+                          >
+                            <Users className="w-3.5 h-3.5" />
+                            Terceirizados
+                          </Link>
                           <Link
                             href={`/dashboard/obras/${project.id}/medicoes`}
                             className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium text-emerald-400 hover:text-white bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 transition-colors"
