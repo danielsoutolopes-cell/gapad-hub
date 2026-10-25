@@ -13,6 +13,7 @@ import {
   Wrench,
   LogOut,
   ShieldCheck,
+  BookOpen,
 } from 'lucide-react';
 import { logout } from '@/app/actions/auth';
 
@@ -99,8 +100,17 @@ export function DashboardNav({ tenantName = 'Empresa Teste' }: DashboardNavProps
             </nav>
           </div>
 
-          {/* Lado Direito: Badge RLS e Botão Sair */}
+          {/* Lado Direito: Badge RLS, Guia Rápido e Botão Sair */}
           <div className="flex items-center gap-3">
+            <Link
+              href="/dashboard/ajuda/guia-rapido"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 transition-all hover:scale-[1.02]"
+              title="Guia Rápido de 1ª Utilização"
+            >
+              <BookOpen className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Guia Rápido</span>
+            </Link>
+
             <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
               <ShieldCheck className="w-3.5 h-3.5" />
               <span>RLS Hermético Ativo</span>
