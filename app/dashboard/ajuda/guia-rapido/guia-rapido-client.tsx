@@ -24,6 +24,10 @@ import {
   Clock,
   Sparkle,
   ArrowUpRight,
+  Receipt,
+  Bot,
+  Cpu,
+  Zap,
 } from 'lucide-react';
 
 export function GuiaRapidoClient() {
@@ -31,6 +35,9 @@ export function GuiaRapidoClient() {
     1: false,
     2: false,
     3: false,
+    4: false,
+    5: false,
+    6: false,
   });
 
   const [simuladorValor, setSimuladorValor] = useState<number>(100000);
@@ -55,7 +62,7 @@ export function GuiaRapidoClient() {
   };
 
   const completedCount = Object.values(completedSteps).filter(Boolean).length;
-  const progressPercent = Math.round((completedCount / 3) * 100);
+  const progressPercent = Math.round((completedCount / 6) * 100);
 
   return (
     <div className="space-y-8 max-w-5xl mx-auto pb-16">
@@ -91,10 +98,10 @@ export function GuiaRapidoClient() {
             <div className="flex items-center justify-between text-xs font-medium mb-1.5">
               <span className="text-slate-300 flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                Seu Progresso de Inicialização do MVP
+                Seu Progresso de Inicialização do ERP
               </span>
               <span className="font-mono text-emerald-400 font-bold">
-                {completedCount} de 3 passos concluídos ({progressPercent}%)
+                {completedCount} de 6 passos concluídos ({progressPercent}%)
               </span>
             </div>
             <div className="w-full h-2.5 rounded-full bg-slate-800/80 border border-slate-700 overflow-hidden">
@@ -108,16 +115,16 @@ export function GuiaRapidoClient() {
       </div>
 
       {/* --------------------------------------------------------------------- */}
-      {/* Os 3 Passos Fundamentais do MVP                                       */}
+      {/* Os 6 Passos Fundamentais do Ciclo Operacional                         */}
       {/* --------------------------------------------------------------------- */}
       <div className="space-y-6">
         <div>
           <h2 className="text-xl sm:text-2xl font-bold text-white flex items-center gap-2.5">
             <Layers className="w-6 h-6 text-emerald-400" />
-            A Jornada em 3 Passos: Da Proposta ao Canteiro de Obras
+            A Jornada Completa em 6 Passos: Do Cadastro ao Faturamento Fiscal
           </h2>
           <p className="text-xs sm:text-sm text-slate-400 mt-1">
-            Siga o roteiro passo a passo para cadastrar seu primeiro tomador, iniciar o controle do canteiro e lançar o boletim de medição.
+            Siga o roteiro passo a passo para cadastrar seu tomador, orçar com BDI oficial, controlar o canteiro de obras e emitir a NFS-e Padrão Nacional.
           </p>
         </div>
 
@@ -326,6 +333,223 @@ export function GuiaRapidoClient() {
                   {completedSteps[3] ? 'Desmarcar' : 'Marcar como testado'}
                 </button>
               </div>
+            </div>
+          </div>
+
+          {/* PASSO 4: ELABORAR O ORÇAMENTO COM BDI OFICIAL */}
+          <div
+            className={`glass-panel p-6 sm:p-7 rounded-2xl border transition-all ${
+              completedSteps[4]
+                ? 'border-emerald-500/50 bg-emerald-950/15'
+                : 'border-slate-800 hover:border-slate-700/80'
+            }`}
+          >
+            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-sky-500/20 to-teal-500/20 border border-sky-500/30 flex items-center justify-center text-sky-300 flex-shrink-0 font-extrabold text-lg">
+                  4
+                </div>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className="px-2.5 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider bg-sky-500/10 text-sky-400 border border-sky-500/20">
+                      Passo 4 • Orçamentação
+                    </span>
+                    {completedSteps[4] && (
+                      <span className="inline-flex items-center gap-1 text-xs text-emerald-400 font-semibold">
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        Concluído
+                      </span>
+                    )}
+                  </div>
+
+                  <h3 className="text-lg sm:text-xl font-bold text-white">
+                    Elaborar o Orçamento com Margem BDI Oficial (TCU)
+                  </h3>
+
+                  <p className="text-xs sm:text-sm text-slate-300 leading-relaxed max-w-3xl">
+                    No menu <strong className="text-white">Orçamentos</strong> (`/dashboard/orcamentos`), monte as composições de custos analíticos para serviços e materiais. O GADAP Hub aplica a fórmula oficial do BDI do Acórdão 2622/2013 do TCU (AC, S, R, G, DF, L, I), assegurando margens e cobrindo contingências antes de pactuar o contrato.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-center gap-3 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-800/80">
+                <Link
+                  href="/dashboard/orcamentos/novo"
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-sky-500 to-teal-600 hover:from-sky-400 hover:to-teal-500 text-slate-950 font-bold text-xs sm:text-sm shadow-md shadow-sky-500/20 transition-all hover:scale-[1.02] active:scale-[0.98] whitespace-nowrap"
+                >
+                  <Calculator className="w-4 h-4" />
+                  Novo Orçamento
+                  <ArrowRight className="w-4 h-4" />
+                </Link>
+
+                <button
+                  type="button"
+                  onClick={() => toggleStep(4)}
+                  className={`text-xs font-medium transition-colors ${
+                    completedSteps[4] ? 'text-slate-400 hover:text-white' : 'text-emerald-400 hover:underline'
+                  }`}
+                >
+                  {completedSteps[4] ? 'Desmarcar' : 'Marcar como testado'}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* PASSO 5: CADASTRAR FORNECEDORES E INSUMOS */}
+          <div
+            className={`glass-panel p-6 sm:p-7 rounded-2xl border transition-all ${
+              completedSteps[5]
+                ? 'border-emerald-500/50 bg-emerald-950/15'
+                : 'border-slate-800 hover:border-slate-700/80'
+            }`}
+          >
+            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-500/20 to-teal-500/20 border border-amber-500/30 flex items-center justify-center text-amber-300 flex-shrink-0 font-extrabold text-lg">
+                  5
+                </div>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className="px-2.5 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                      Passo 5 • Suprimentos
+                    </span>
+                    {completedSteps[5] && (
+                      <span className="inline-flex items-center gap-1 text-xs text-emerald-400 font-semibold">
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        Concluído
+                      </span>
+                    )}
+                  </div>
+
+                  <h3 className="text-lg sm:text-xl font-bold text-white">
+                    Cadastrar Fornecedores e Catálogo de Insumos
+                  </h3>
+
+                  <p className="text-xs sm:text-sm text-slate-300 leading-relaxed max-w-3xl">
+                    Registre os parceiros comerciais (usinas de concreto, distribuidoras de aço e locadoras de andaimes) e os materiais com classificação NCM e NBS. Isso alimenta as composições de custos e viabiliza a futura conciliação automática com notas fiscais de entrada.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-center gap-3 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-800/80">
+                <Link
+                  href="/dashboard/fornecedores"
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs sm:text-sm shadow-md transition-all hover:scale-[1.02] active:scale-[0.98] whitespace-nowrap"
+                >
+                  <Users className="w-4 h-4" />
+                  Fornecedores
+                  <ArrowRight className="w-4 h-4" />
+                </Link>
+
+                <button
+                  type="button"
+                  onClick={() => toggleStep(5)}
+                  className={`text-xs font-medium transition-colors ${
+                    completedSteps[5] ? 'text-slate-400 hover:text-white' : 'text-emerald-400 hover:underline'
+                  }`}
+                >
+                  {completedSteps[5] ? 'Desmarcar' : 'Marcar como testado'}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* PASSO 6: FATURANDO A MEDIÇÃO DA OBRA COM NFS-E */}
+          <div
+            className={`glass-panel p-6 sm:p-7 rounded-2xl border transition-all ${
+              completedSteps[6]
+                ? 'border-purple-500/50 bg-purple-950/20'
+                : 'border-slate-800 hover:border-purple-500/40'
+            }`}
+          >
+            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-purple-500/30 to-indigo-500/30 border border-purple-500/40 flex items-center justify-center text-purple-300 flex-shrink-0 font-extrabold text-lg shadow-inner">
+                  6
+                </div>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className="px-2.5 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider bg-purple-500/15 text-purple-300 border border-purple-500/30">
+                      Passo 6 • Faturamento Fiscal & NFS-e
+                    </span>
+                    {completedSteps[6] && (
+                      <span className="inline-flex items-center gap-1 text-xs text-emerald-400 font-semibold">
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        Concluído
+                      </span>
+                    )}
+                  </div>
+
+                  <h3 className="text-lg sm:text-xl font-bold text-white">
+                    Faturando a Medição da Obra com NFS-e (Padrão Nacional)
+                  </h3>
+
+                  <p className="text-xs sm:text-sm text-slate-300 leading-relaxed max-w-3xl">
+                    Com a medição aprovada no painel de Obras (`/dashboard/obras/{'{id}'}/medicoes`), clique no botão <strong className="text-purple-300">"Emitir NFS-e"</strong>. O motor fiscal executa a validação territorial do ISS (LC 116/2003, Art. 3º, III), descriptografa o Certificado A1 estritamente em memória, gera a Chave de Acesso Nacional de 50 dígitos (Módulo 11), salva XML e PDF no Supabase Storage (`xml-fiscais`) e despacha notificação com DANFSE anexo no WhatsApp do cliente via Evolution API.
+                  </p>
+
+                  <div className="p-3.5 rounded-xl bg-purple-950/30 border border-purple-500/20 text-xs text-purple-200 space-y-1.5">
+                    <div className="font-semibold text-purple-300 flex items-center gap-1.5">
+                      <Receipt className="w-4 h-4 text-purple-400" />
+                      Visualização Imediata com Presigned URL:
+                    </div>
+                    <p className="text-slate-400 leading-relaxed">
+                      Assim que autorizada, a medição passa para "Faturada" e o botão "Visualizar PDF" permite abrir o espelho DANFSE em link seguro gerado dinamicamente via Supabase Storage.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-center gap-3 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-800/80">
+                <Link
+                  href="/dashboard/obras"
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold text-xs sm:text-sm shadow-md shadow-purple-500/25 transition-all hover:scale-[1.02] active:scale-[0.98] whitespace-nowrap"
+                >
+                  <Receipt className="w-4 h-4" />
+                  Ir para Medições
+                  <ArrowRight className="w-4 h-4" />
+                </Link>
+
+                <button
+                  type="button"
+                  onClick={() => toggleStep(6)}
+                  className={`text-xs font-medium transition-colors ${
+                    completedSteps[6] ? 'text-slate-400 hover:text-white' : 'text-purple-400 hover:underline'
+                  }`}
+                >
+                  {completedSteps[6] ? 'Desmarcar' : 'Marcar como testado'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* --------------------------------------------------------------------- */}
+      {/* ANÚNCIO DA PRÓXIMA FASE: TAX INTELLIGENCE & IA                        */}
+      {/* --------------------------------------------------------------------- */}
+      <div className="relative overflow-hidden rounded-3xl border border-indigo-500/30 bg-gradient-to-br from-indigo-950/40 via-purple-950/20 to-[#0c0f1d] p-6 sm:p-8 backdrop-blur-xl shadow-2xl">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <span className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                🚀 Próxima Fase
+              </span>
+              <span className="text-xs text-emerald-400 font-semibold flex items-center gap-1">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                Fase 9 (NFS-e) 100% Concluída
+              </span>
+            </div>
+            <h3 className="text-xl sm:text-2xl font-extrabold text-white">
+              FASE 10: TAX INTELLIGENCE (OCR de Comprovantes & IA de Monitoramento Legal)
+            </h3>
+            <p className="text-xs sm:text-sm text-slate-300 max-w-3xl leading-relaxed">
+              Fase 9 (NFS-e) 100% Concluída! O ERP está totalmente operacional. Vamos iniciar agora a FASE 10: TAX INTELLIGENCE (OCR de comprovantes e IA de monitoramento legal).
+            </p>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <div className="w-14 h-14 rounded-2xl bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center text-indigo-400 shadow-inner">
+              <Bot className="w-7 h-7" />
             </div>
           </div>
         </div>

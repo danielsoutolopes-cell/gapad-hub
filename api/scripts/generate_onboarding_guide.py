@@ -3,26 +3,35 @@
 """
 =============================================================================
 GADAP-ERP - Script Gerador da Documentação de Onboarding e Guia Rápido
-Arquivo de saída: GADAP_HUB_Onboarding_e_Guia_Rapido.md
-=============================================================================
-Este script consolida as diretrizes de governança, o Manual do Usuário Vivo,
-o Guia Rápido de 1ª Utilização e o Curso Prático Integrado do GADAP Hub.
-Pode ser executado diretamente em qualquer ambiente com Python 3.
+Gera fisicamente:
+1. GADAP_HUB_Onboarding_e_Guia_Rapido.md
+2. GADAP_HUB_Onboarding_e_Guia_Rapido.pdf (via ReportLab)
 =============================================================================
 """
 
 import os
 import sys
 
+# Garante suporte a UTF-8 no stdout/stderr no Windows
+if sys.stdout.encoding != "utf-8":
+    sys.stdout.reconfigure(encoding="utf-8")
+if sys.stderr.encoding != "utf-8":
+    sys.stderr.reconfigure(encoding="utf-8")
+
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.colors import HexColor
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak, KeepTogether
+
 DOCUMENT_CONTENT = r"""# GADAP Hub • Enterprise Construction ERP
 ## Manual de Onboarding, Guia Rápido de 1ª Utilização e Curso Prático Integrado
 **Documento Oficial de Treinamento e Sucesso do Cliente Piloto**  
-*Versão: 1.0 (Release Piloto) • Publicação: Outubro/2026 • GADAP Technologies*
+*Versão: 2.0 (Release Fiscal & NFS-e) • Publicação: Outubro/2026 • GADAP Technologies*
 
 ---
 
 > ### 📌 NOTA DE GOVERNANÇA & CONFIDENCIALIDADE
-> Este manual foi elaborado pelo time de Engenharia de Sucesso e Arquitetura do **GADAP-ERP** para capacitar novos clientes pilotos, diretores técnicos, engenheiros de campo e gestores financeiros. O conteúdo documenta fielmente os fluxos operacionais, regras determinísticas de cálculo e salvaguardas da plataforma.
+> Este manual foi elaborado pelo time de Engenharia de Sucesso e Arquitetura do **GADAP-ERP** para capacitar novos clientes pilotos, diretores técnicos, engenheiros de campo e gestores financeiros. O conteúdo documenta fielmente os fluxos operacionais, regras determinísticas de cálculo, salvaguardas da plataforma e a emissão oficial de NFS-e no Padrão Nacional da Receita Federal.
 
 ---
 
@@ -36,11 +45,10 @@ DOCUMENT_CONTENT = r"""# GADAP Hub • Enterprise Construction ERP
 2. **PARTE I: Guia Rápido de 1ª Utilização (Do Login ao Primeiro Faturamento)**
    - Passo 1: Acesso Inicial e Configuração do Usuário
    - Passo 2: Cadastro do Primeiro Cliente Tomador (PF / PJ)
-   - Passo 3: Cadastro de Fornecedores e Insumos da Obra
-   - Passo 4: Elaboração do Orçamento e Aplicação da Margem BDI Oficial
-   - Passo 5: Abertura e Vinculação da Obra / Contrato
-   - Passo 6: Lançamento do 1º Boletim de Medição Físico-Financeira
-   - Passo 7: Conferência da Retenção Técnica e Aprovação para Faturamento Financeiro
+   - Passo 3: Cadastro da Obra, Contrato e Insumos
+   - Passo 4: Elaboração do Orçamento com Margem BDI Oficial
+   - Passo 5: Lançamento e Aprovação da Medição de Campo
+   - **Passo 6: Faturando a Medição da Obra com NFS-e (Padrão Nacional)**
 
 3. **PARTE II: Curso Prático Integrado: "Dominando a Gestão de Obras no GADAP Hub"**
    - Módulo 1: Navegando no Dashboard e Visão Geral da Obra
@@ -51,12 +59,14 @@ DOCUMENT_CONTENT = r"""# GADAP Hub • Enterprise Construction ERP
    - 4.1 Torre de Controle Global (God Mode)
    - 4.2 O Botão "Zerar Dados / Reset Ambiente": Finalidade e Limites
    - 4.3 Alerta Crítico de Irreversibilidade Operacional
-   - 4.4 Preservação de Logins e Contas no Supabase Auth
 
 5. **PARTE IV: Glossário Técnico e Tabela de Fórmulas Matemáticas**
    - Fórmula Oficial do BDI (Acórdão 2622/2013 TCU)
    - Retenção Técnica Contratual (Lei 8.212 / IN RFB)
-   - Trava de Exaustão de Contrato (100%)
+   - Regra Territorial do ISS na Construção Civil (LC 116/2003, Art. 3º, III)
+   - Chave de Acesso Nacional da NFS-e (50 Dígitos Módulo 11)
+
+6. **🚀 PRÓXIMA FASE: Fase 10 - Tax Intelligence & IA**
 
 ---
 
@@ -66,32 +76,32 @@ DOCUMENT_CONTENT = r"""# GADAP Hub • Enterprise Construction ERP
 A grande maioria das construtoras e empreiteiras de médio porte no Brasil opera de forma fragmentada:
 - Planilhas paralelas em Excel com fórmulas corrompidas;
 - Divergências recorrentes entre as medições de campo apontadas pelo engenheiro e o faturamento emitido pelo departamento financeiro;
-- Glosas e atrasos de pagamento causados por erro no cálculo de retenções técnicas (5% a 10%);
+- Glosas e atrasos de pagamento causados por erro no cálculo de retenções técnicas (5% a 10%) e bitributação de ISS;
 - Falta de controle sobre o saldo residual dos contratos, levando a estouros orçamentários involuntários.
 
 ### 1.2 A Solução GADAP Hub
-O **GADAP Hub** centraliza o ciclo de vida completo da engenharia e da gestão financeira em uma única plataforma web de alta performance. Os cálculos fiscais, retenções e orçamentos operam através de motores determinísticos no backend, impedindo divergências aritméticas entre a obra e o faturamento.
+O **GADAP Hub** centraliza o ciclo de vida completo da engenharia e da gestão financeira em uma única plataforma web de alta performance. Os cálculos fiscais, retenções e orçamentos operam através de motores determinísticos no backend, impedindo divergências aritméticas entre a obra e o faturamento oficial.
 
 ### 1.3 Arquitetura de Isolamento Hermético Multi-tenant (RLS)
-Cada construtora cliente possui seu ambiente totalmente isolado. No nível de banco de dados, o Supabase PostgreSQL impõe **Row Level Security (RLS)** inegociável em todas as tabelas: nenhum cliente enxerga orçamentos, obras, medições ou lançamentos financeiros de outra empresa.
+Cada construtora cliente possui seu ambiente totalmente isolado. No nível de banco de dados, o Supabase PostgreSQL impõe **Row Level Security (RLS)** inegociável em todas as tabelas: nenhum cliente enxerga orçamentos, obras, medições ou lançamentos fiscais de outra empresa.
 
 ---
 
 # PARTE I: GUIA RÁPIDO DE 1ª UTILIZAÇÃO
-### Passo a Passo Objetivo: Do Login ao Primeiro Faturamento
+### Passo a Passo Objetivo: Do Login à Emissão da NFS-e Oficial
 
 ```
   ┌─────────────┐     ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
-  │ 1. LOGIN    │ ──> │ 2. CLIENTE  │ ──> │ 3. OBRA     │ ──> │ 4. MEDIÇÃO  │
-  │ admin@teste │     │  Cadastrar  │     │  Vincular   │     │  Lançar com │
-  │             │     │  Tomador PJ │     │  Contrato   │     │  Retenção 5%│
+  │ 1. LOGIN    │ ──> │ 2. CLIENTE  │ ──> │ 3. OBRA     │ ──> │ 4. BDI      │
+  │ admin@teste │     │  Cadastrar  │     │  Vincular   │     │  Orçamento  │
+  │             │     │  Tomador PJ │     │  Contrato   │     │  Analítico  │
   └─────────────┘     └─────────────┘     └─────────────┘     └──────┬──────┘
                                                                      │
-                                                              ┌──────▼──────┐
-                                                              │ 5. FINANÇAS │
-                                                              │  Aprovar e  │
-                                                              │  Faturar    │
-                                                              └─────────────┘
+  ┌─────────────┐     ┌─────────────┐     ┌─────────────┐            │
+  │ 6. NFS-e    │ <── │ 5. MEDIÇÃO  │ <───┴─────────────┴────────────┘
+  │  Faturamento│     │  Lançar &   │
+  │  Nacional   │     │  Aprovar    │
+  └─────────────┘     └─────────────┘
 ```
 
 ---
@@ -110,70 +120,72 @@ Antes de cadastrar qualquer obra, é obrigatório registrar o cliente tomador do
 1. No menu superior, clique em **Clientes** (`/dashboard/clientes`).
 2. Clique no botão **"Novo Cliente"**.
 3. Selecione o tipo de pessoa:
-   - **Pessoa Jurídica (PJ):** Informe CNPJ, Razão Social, Nome Fantasia, Inscrição Estadual/Municipal, e-mail do setor de contas a pagar e endereço completo.
+   - **Pessoa Jurídica (PJ):** Informe CNPJ, Razão Social, Nome Fantasia, Inscrição Estadual/Municipal, e-mail do setor financeiro e endereço completo com código IBGE.
    - **Pessoa Física (PF):** Informe Nome Completo, CPF, RG e contato.
 4. Clique em **"Salvar Cliente"**. O cliente agora está disponível no seletor de obras.
 
 > [!TIP]
-> **Dica de Sucesso:** O preenchimento correto do município do cliente é essencial para o correto enquadramento da alíquota do ISS no faturamento posterior.
+> **Dica de Sucesso:** O preenchimento correto do município do cliente e da obra é essencial para o correto enquadramento da alíquota do ISS no faturamento posterior.
 
 ---
 
-### PASSO 3: Cadastro de Fornecedores e Insumos
-1. No menu **Fornecedores** (`/dashboard/fornecedores`), cadastre seus principais parceiros (concreto, aço, locação de andaimes, empreiteiros de mão de obra).
-2. Nos menus **Produtos / Insumos** e **Serviços**, confira a tabela de preços-base utilizada para as composições de custos diretos.
+### PASSO 3: Cadastro da Obra, Contrato e Insumos
+1. No menu **Fornecedores** (`/dashboard/fornecedores`), cadastre seus principais parceiros (concreto, aço, locação de equipamentos).
+2. Acesse **Obras** (`/dashboard/obras`) e clique em **"Nova Obra"**.
+3. Preencha os dados contratuais:
+   - **Nome da Obra:** Ex: *"Residencial Alphaville"* ou *"Ampliação Galpão Logístico"*.
+   - **Cliente Vinculado:** Selecione o cliente cadastrado no Passo 2.
+   - **CNO (Cadastro Nacional de Obras):** Número do registro na Receita Federal.
+   - **Valor Global do Contrato:** Valor total contratado (ex: `R$ 500.000,00`).
+   - **% Retenção Técnica:** Percentual padrão estipulado em contrato (ex: 5,00%).
+4. Clique em **"Salvar Obra"**.
 
 ---
 
 ### PASSO 4: Elaboração do Orçamento com BDI Oficial
 1. Acesse **Orçamentos** (`/dashboard/orcamentos`) e clique em **"Novo Orçamento BDI"**.
-2. Preencha os custos diretos previstos para os insumos e serviços da obra.
-3. Defina os percentuais das taxas do **BDI (Benefícios e Despesas Indiretas)** de acordo com as particularidades da sua construtora:
-   - **AC:** Administração Central (ex: 4,00%)
-   - **S:** Seguro da Obra (ex: 0,80%)
-   - **R:** Riscos e Imprevistos (ex: 1,20%)
-   - **G:** Garantia Contratual (ex: 0,40%)
-   - **DF:** Despesas Financeiras (ex: 1,23%)
-   - **L:** Lucro Bruto Operacional (ex: 7,40%)
-   - **I:** Tributos Incidentes (ISS, PIS, COFINS, CPRB) (ex: 8,65%)
-4. O motor matemático do GADAP calcula o multiplicador BDI e apresenta o preço de venda final sugerido.
+2. Preencha os custos diretos previstos para insumos e serviços.
+3. Parametrize as taxas do **BDI (Benefícios e Despesas Indiretas)** conforme Acórdão 2622/2013 TCU (AC, S, R, G, DF, L, I).
+4. O motor matemático do GADAP calcula o multiplicador BDI e apresenta o preço de venda e margens seguras.
 
 ---
 
-### PASSO 5: Cadastro da Obra / Contrato
-1. Acesse **Obras** (`/dashboard/obras`) e clique em **"Nova Obra"**.
-2. Preencha os dados contratuais:
-   - **Nome da Obra:** Ex: *"Edifício Residencial Alpha"* ou *"Reforma Centro Logístico"*.
-   - **Cliente Vinculado:** Selecione o cliente cadastrado no Passo 2.
-   - **Valor Global do Contrato:** Valor total contratado (ex: `R$ 500.000,00`).
-   - **Data de Início e Prazo Estimado:** Cronograma físico acordado.
-   - **Status:** Selecione *"Em Execução"*.
-3. Clique em **"Salvar Obra"**. A obra passará a constar na tabela central com seus cards de saldo contratual.
+### PASSO 5: Lançamento e Aprovação da Medição de Campo
+1. Na lista de Obras, localize a obra e clique no botão **"Medições"** (`/dashboard/obras/{id}/medicoes`).
+2. Clique em **"Lançar Medição"**.
+3. Informe o período de apuração (início e fim) e o valor bruto medido dos serviços no canteiro.
+4. **Cálculo Determinístico:** O backend Python calcula automaticamente:
+   - Retenção Técnica: `R$ Valor Medido x % Retenção`
+   - Valor Líquido Apurado: `R$ Valor Medido - Retenção`
+5. Salve o boletim (status inicial: *"Rascunho"*).
+6. O engenheiro ou diretor clica em **"Aprovar Medição"**. A medição é consolidada e liberada com status **"Aprovada"**.
 
 ---
 
-### PASSO 6: Lançamento do 1º Boletim de Medição Físico-Financeira
-1. Na lista de Obras, localize a obra cadastrada e clique no botão **"Medições"** (ícone de régua/prancheta).
-2. Você será direcionado para o painel de medições da obra: `/dashboard/obras/{id}/medicoes`.
-3. Clique em **"Lançar Medição"**.
-4. No formulário do boletim:
-   - **Período de Medição:** Defina a data de início e a data de término do período medido (ex: 01/10/2026 a 31/10/2026).
-   - **Valor Medido Bruto:** Digite o valor dos serviços efetivamente executados no campo (ex: `R$ 50.000,00`).
-   - **% de Retenção Técnica:** O sistema sugere o padrão contratual de **5,00%** (editável conforme contrato).
-5. **UX em Tempo Real:** Observe que, enquanto você digita, o GADAP exibe a prévia imediata:
-   - Retenção Técnica: `R$ 2.500,00`
-   - **Valor Líquido a Receber:** `R$ 47.500,00`
-6. Clique em **"Salvar e Enviar Medição"**.
+### PASSO 6: Faturando a Medição da Obra com NFS-e (Padrão Nacional)
+Com a medição aprovada, o GADAP Hub permite transformar o avanço físico em faturamento fiscal oficial em um único clique:
 
----
+1. **Acesso à Ação Fiscal**:
+   - Na tabela de medições da obra, identifique a linha da medição com status **"Aprovada"**.
+   - O sistema habilitará o botão de ação rápida: **"Emitir NFS-e"** (ícone roxo com destaque executivo).
 
-### PASSO 7: Aprovação da Medição e Integração Financeira
-1. A medição recém-criada é exibida com status **"Pendente"**.
-2. O engenheiro responsável ou diretor de operações revisa os apontamentos e clica em **"Aprovar Medição"**.
-3. **Mágica da Integração:** Ao aprovar:
-   - O status da medição muda para **"Aprovada"**;
-   - Uma entrada financeira de **Conta a Receber** é gerada automaticamente no módulo Financeiro (`/dashboard/financeiro`), já com o valor líquido de `R$ 47.500,00` e vencimento parametrizado;
-   - O saldo restante do contrato da obra é reduzido em tempo real, mantendo a integridade contra estouro de saldo.
+2. **Clique e Disparo da Transmissão**:
+   - Ao clicar em **"Emitir NFS-e"**, a aplicação aciona o endpoint `/api/v1/fiscal/invoices/issue-nfse` via TanStack Query.
+   - O backend inicia o pipeline de emissão em tempo real:
+     - **Regra Territorial do ISS (Art. 3º, III da LC 116/2003):** O motor tributário compara o código IBGE do prestador com o município do canteiro da obra. Se forem distintos, o ISS é **obrigatoriamente retido na fonte pelo tomador** (`iss_retained = True`). Se forem iguais, o ISS é recolhido pelo prestador.
+     - **Certificado Digital A1 em Memória:** O certificado ICP-Brasil (.pfx) é descriptografado estritamente em memória RAM. Nenhuma chave privada é salva em disco.
+     - **Chave de Acesso Nacional:** Gera a chave canônica de 50 dígitos calculada com Dígito Verificador Módulo 11 (pesos cíclicos de 2 a 9).
+     - **Geração de XML e JSON Sped Nacional:** Monta o XML canônico da DPS (`<DPS xmlns="http://www.sped.fazenda.gov.br/nfse" versao="1.00">`) e transmite via HTTPS mTLS.
+
+3. **Armazenamento Seguro em Nuvem (Supabase Storage)**:
+   - Uma vez autorizada pela Receita Federal, o XML assinado e o espelho oficial **DANFSE (PDF)** são armazenados no bucket seguro `xml-fiscais` sob o caminho `{tenant_id}/{access_key}.pdf`.
+
+4. **Notificação Proativa via WhatsApp (Evolution API)**:
+   - O tomador do serviço recebe imediatamente em seu WhatsApp um resumo executivo com os dados da medição, valores líquidos, alíquotas retidas e o arquivo PDF do DANFSE em anexo.
+
+5. **Visualização Imediata e Presigned URL**:
+   - A tela de Medições é atualizada automaticamente para o status **"Faturada (NFS-e)"**.
+   - O botão de ação é substituído por **"Visualizar PDF"**. Ao clicar, o sistema gera uma **Presigned URL** do Supabase Storage com validade de 1 hora, abrindo o documento fiscal oficial diretamente no navegador.
 
 ---
 
@@ -181,209 +193,285 @@ Antes de cadastrar qualquer obra, é obrigatório registrar o cliente tomador do
 ## "Dominando a Gestão de Obras no GADAP Hub"
 *Carga Horária Estimada: 15 minutos • Foco: Produtividade, Eliminação de Retrabalho e Compliance Fiscal*
 
----
-
 ### MÓDULO 1: Navegando no Dashboard e Visão Geral da Obra
+- Visão unificada de saúde financeira e física das obras ativas.
+- Cards em tempo real: Contrato Global, Total Medido Acumulado, Saldo Residual e Provisão de Retenções.
+- Gráficos de evolução física baseados em medições reais, eliminando estimativas subjetivas.
 
-#### 1. Contexto e Objetivos de Aprendizagem
-O primeiro desafio de um gestor de obras é ter a visão consolidada de todos os seus canteiros sem precisar abrir dez planilhas distintas. Neste módulo, você aprende a interpretar os indicadores de saúde física e financeira de cada projeto.
+### MÓDULO 2: O Ciclo de Vida da Obra (do Contrato ao Apontamento de Campo)
+- Como evitar glosas de medição: documente as datas de ciclo com precisão.
+- Vinculação de contratos com CNO e ART para garantir rastreabilidade perante auditorias da Receita Federal e Crea.
+- O histórico imutável de medições: cada boletim possui numeração sequencial auditável.
 
-#### 2. Os 3 Pilares da Gestão 360°
-- **Painel Consolidado de Contratos:** Visualize instantaneamente o montante total contratado, o total já medido/faturado e o saldo contratual remanescente.
-- **Filtros Ágeis por Cliente e Andamento:** Localize obras ativas, em planejamento ou concluídas, sabendo exatamente quem é o tomador do serviço.
-- **Previsibilidade de Fluxo de Caixa:** Antecipe o volume de medições a serem faturadas antes do fechamento contábil mensal, evitando surpresas no contas a pagar da construtora.
-
-#### 3. Checklist Prático do Módulo 1
-- [ ] Acessar `/dashboard/obras` e identificar os cards de Valor Global e Status;
-- [ ] Filtrar as obras pelo status "Em Execução";
-- [ ] Navegar até os detalhes do cliente tomador para conferência cadastral.
-
----
-
-### MÓDULO 2: O Ciclo de Vida de uma Obra (do Contrato ao Apontamento de Campo)
-
-#### 1. Da Assinatura do Contrato ao Canteiro
-Uma obra no GADAP Hub não nasce de uma simples estimativa informal; ela segue um ciclo de governança estruturado:
-1. **Cadastro do Tomador:** Vinculação estrita da empresa contratante;
-2. **Orçamento e BDI:** Definição da margem operacional e custos diretos;
-3. **Abertura do Contrato de Obra:** Fixação do teto global financeiro;
-4. **Apontamentos Mensais:** Lançamento de boletins periódicos pelo engenheiro de campo.
-
-#### 2. Eliminação do Telefone sem Fio entre Campo e Escritório
-Tradicionalmente, o engenheiro preenche um caderno de campo ou planilha local, envia por e-mail para a sede, onde um digitador insere os dados no ERP financeiro. Esse processo causa até 18% de divergências aritméticas.  
-No GADAP Hub, o próprio engenheiro ou apontador registra a medição diretamente na interface web da obra. O cálculo é feito pelo servidor em microssegundos.
-
-#### 3. Checklist Prático do Módulo 2
-- [ ] Criar uma nova obra de demonstração vinculada a um cliente existente;
-- [ ] Definir o valor do contrato em R$ 100.000,00 com data de vigência de 6 meses;
-- [ ] Abrir a tela de medições físico-financeiras da obra recém-criada.
+### MÓDULO 3: A Mágica Matemática do Faturamento (Retenções e Trava de 100%)
+- **Retenção Técnica Contratual:** Como ela protege a construtora de riscos trabalhistas e acidentários (Lei 8.212/91).
+- **A Trava de Supermedição (100%):** O sistema impede que a soma das medições ultrapasse o teto contratual pactuado.
+- **Segregação Territorial do ISS:** O fim das multas por recolhimento de ISS no município errado. O sistema audita o local da prestação (canteiro de obras) e define automaticamente quem deve recolher o imposto.
 
 ---
 
-### MÓDULO 3: A Mágica Matemática por trás do Faturamento (Retenções)
-
-#### 1. O que é a Retenção Técnica?
-A **Retenção Técnica** (usualmente entre 5% e 10%) é uma garantia prevista em contratos civis e na legislação previdenciária (IN RFB). O tomador do serviço retém uma parcela do valor medido bruto para assegurar a entrega definitiva da obra e cobrir eventuais encargos trabalhistas de subempreiteiros.
-- **Importante:** A retenção técnica **NÃO é um desconto comercial** nem perda de faturamento. É um valor retido que pertence à sua construtora e que deve ser liberado pelo cliente após a emissão do Termo de Recebimento Definitivo da Obra (TRD).
-
-#### 2. Cálculo Determinístico no Backend
-No GADAP Hub, o frontend nunca envia o valor líquido calculado no navegador. O usuário informa apenas o valor bruto e a taxa contratual:
-$$\text{Valor da Retenção} = \text{Valor Medido Bruto} \times \left(\frac{\%\text{ Retenção}}{100}\right)$$
-$$\text{Valor Líquido a Receber} = \text{Valor Medido Bruto} - \text{Valor da Retenção}$$
-O backend em Python e FastAPI realiza essa operação utilizando precisão decimal estrita (`Decimal` de 4 casas), garantindo exatidão com o que será impresso na Nota Fiscal de Serviço (NFS-e).
-
-#### 3. Simulação Visual de uma Medição Típica
-| Componente da Medição | Valor Base | Explicação Prática |
-| :--- | :--- | :--- |
-| **Valor Medido Bruto** | `R$ 100.000,00` | Total de serviços civis realizados no período |
-| **Retenção Técnica (5%)** | `- R$ 5.000,00` | Caução de garantia retida pelo tomador |
-| **Valor Líquido a Faturar** | **`R$ 95.000,00`** | Montante que entrará no Contas a Receber e na NFS-e |
-
-#### 4. Trava de Proteção dos 100% (Salvaguarda de Saldo)
-Se a soma das medições acumuladas de uma obra ultrapassar o Valor Global do Contrato original, o sistema **bloqueia o registro** automaticamente. Para continuar medindo, a construtora é obrigada a formalizar um **Termo Aditivo Contratual**. Isso protege a construtora contra a prestação de serviços adicionais sem cobertura orçamentária.
-
-#### 5. Checklist Prático do Módulo 3
-- [ ] Simular uma medição de R$ 50.000,00 com 5% de retenção;
-- [ ] Conferir se o valor líquido resultante é exatamente R$ 47.500,00;
-- [ ] Aprovar a medição e verificar o lançamento correspondente no Contas a Receber.
-
----
-
-# PARTE III: MANUAL DO ADMINISTRADOR DA PLATAFORMA
-## Área Restrita (Master) • Backoffice God Mode
-
-O módulo Master é o painel de governança central reservado exclusivamente ao dono da plataforma SaaS ou ao Super Administrador com privilégios `is_superadmin = true`.
-
----
+# PARTE III: MANUAL DO ADMINISTRADOR (ÁREA RESTRITA MASTER)
 
 ### 4.1 Torre de Controle Global (God Mode)
-Acessível pela rota `/backoffice`, o painel Master fornece métricas globais e infraestruturais consolidadas:
-- **Total de Empresas (Tenants):** Número de instâncias ativas no banco de dados;
-- **MRR SaaS Consolidado:** Receita recorrente mensal acumulada da plataforma;
-- **Total de Usuários Globais:** Quantidade de engenheiros, faturistas e administradores cadastrados em todos os tenants;
-- **Obras Ativas Globais:** Total de canteiros em operação no ecossistema;
-- **Tabela de Tenants:** Listagem detalhada de todas as empresas clientes com filtros por Razão Social, CNPJ e e-mail.
+A rota `/backoffice` é restrita exclusivamente a usuários com privilégio de Super Administrador (`is_superadmin = true`).
 
----
-
-### 4.2 O Botão "Zerar Dados / Reset Ambiente"
-Na tabela de instâncias do backoffice, cada linha possui o botão administrativo **"Zerar Dados / Reset Ambiente"**.
-
-#### Qual a finalidade desta ferramenta?
-O botão foi projetado especificamente para:
-1. **Ambientes de Demonstração (Presales):** Limpar dados fictícios de demonstrações comerciais anteriores para receber um novo prospect com a casa limpa;
-2. **Tutoriais e Workshops de Onboarding:** Permitir que novos alunos ou clientes pilotos reiniciem o roteiro prático do zero quantas vezes forem necessárias;
-3. **Homologação:** Sanitizar a base após baterias de testes de estresse.
-
----
+### 4.2 O Botão "Zerar Dados / Reset Ambiente": Finalidade e Limites
+Permite expurgar todos os dados operacionais sintéticos de um Tenant de demonstração (clientes, orçamentos, obras, medições e lançamentos fiscais).
 
 ### 4.3 Alerta Crítico de Irreversibilidade Operacional
-
 > [!CAUTION]
-> ### ⚠️ ATENÇÃO MÁXIMA: AÇÃO DESTRUTIVA IRREVERSÍVEL
-> Ao confirmar o reset de um Tenant, uma rotina atômica em cascata no PostgreSQL expurga **PERMANENTEMENTE** todos os dados operacionais:
-> - **Projetos/Obras:** Todas as obras registradas são excluídas;
-> - **Medições:** Todos os boletins físico-financeiros são apagados;
-> - **Financeiro:** Todos os lançamentos de Contas a Pagar e Contas a Receber são deletados;
-> - **Orçamentos:** Todas as composições de BDI são expurgadas;
-> - **Cadastros:** Todos os Clientes e Fornecedores vinculados à empresa são removidos.
->
-> **NÃO HÁ COMO DESFAZER ESTA OPERAÇÃO APÓS A CONFIRMAÇÃO.**
+> A ação de reset de ambiente é permanente e destrutiva para tabelas operacionais. No entanto, ela **preserva os logins e usuários do Supabase Auth**, permitindo que a equipe volte a operar imediatamente sem necessidade de recriar contas.
 
 ---
 
-### 4.4 Preservação de Logins e Contas de Acesso
-Apesar do expurgo operacional rigoroso, o botão "Zerar Dados" possui uma salvaguarda fundamental:
-- **A empresa continua existindo:** O registro raiz na tabela `companies` permanece intacto com seu CNPJ e razão social;
-- **Os logins continuam funcionando:** Todos os usuários vinculados àquele Tenant e suas credenciais de acesso no Supabase Auth (`auth.users`) **são 100% preservados**.
-- **Resultado Prático:** Nem o administrador nem os faturistas perdem suas senhas. Eles continuam conseguindo logar imediatamente e encontram o ambiente pronto para novo cadastro.
+# PARTE IV: GLOSSÁRIO TÉCNICO E FÓRMULAS MATEMÁTICAS
+
+### 1. Fórmula Oficial do BDI (Acórdão 2622/2013 TCU)
+$$BDI = \left( \frac{(1 + AC + S + R + G) \times (1 + DF) \times (1 + L)}{1 - I} \right) - 1$$
+
+### 2. Retenção Técnica Contratual
+$$Valor\ Retenção = Valor\ Bruto\ Medido \times \left(\frac{\% Retenção}{100}\right)$$
+$$Valor\ Líquido = Valor\ Bruto\ Medido - Valor\ Retenção$$
+
+### 3. Regra de Competência do ISS (Art. 3º, III da LC 116/2003)
+- Se $Município_{Prestador} \neq Município_{Obra} \implies ISS\ Retido\ na\ Fonte = \mathbf{SIM}$
+- Se $Município_{Prestador} = Município_{Obra} \implies ISS\ Retido\ na\ Fonte = \mathbf{NÃO}$
+
+### 4. Chave de Acesso Nacional da NFS-e (50 Dígitos)
+$$\text{Chave} = \text{cMun}(7) + \text{tpInsc}(1) + \text{Doc}(14) + \text{Série}(5) + \text{nDPS}(15) + \text{cSeg}(7) + \mathbf{DV}(1)$$
+Onde o Dígito Verificador ($\mathbf{DV}$) é calculado pelo algoritmo de Módulo 11 com pesos de 2 a 9.
 
 ---
 
-### 4.5 Salvaguardas no Frontend (Shadcn UI)
-Para prevenir acidentes operacionais graves, o backoffice conta com dupla proteção:
-1. **Tooltip Contextual:** Ao repousar o cursor sobre o botão, surge o aviso informativo:
-   > *"Limpa todos os clientes, orçamentos, medições e dados financeiros deste Tenant. Ideal para resetar ambientes de Demonstração e Tutoriais."*
-2. **AlertDialog Modal:** Ao clicar, um modal vermelho de confirmação bloqueia a tela, detalha exatamente o que será excluído e exige confirmação expressa do Super Admin.
+# 🚀 PRÓXIMA FASE
 
----
-
-# PARTE IV: GLOSSÁRIO TÉCNICO & FÓRMULAS OFICIAIS
-
-### 1. Fórmula Oficial do BDI (Acórdão 2622/2013 - Plenário TCU)
-$$BDI = \left[ \frac{(1 + AC + S + R + G) \times (1 + DF) \times (1 + L)}{(1 - I)} \right] - 1$$
-
-Onde:
-- **AC:** Taxa de Administração Central da Construtora
-- **S:** Taxa de Seguros
-- **R:** Taxa de Riscos e Incertezas da Obra
-- **G:** Taxa de Garantias Contratuais
-- **DF:** Taxa de Despesas Financeiras
-- **L:** Margem de Lucro Bruto Operacional
-- **I:** Incidência de Tributos (ISS, PIS, COFINS, CPRB)
-
----
-
-### 2. Retenção Técnica vs Retenção Tributária
-- **Retenção Técnica:** Caução civil contratual (5% a 10%) para assegurar a entrega da obra. Pertence à construtora e é restituída no término do contrato.
-- **Retenção Tributária (INSS / ISS):** Obrigação legal em que o tomador recolhe impostos devidos na fonte diretamente aos cofres públicos (Receita Federal / Prefeitura). O GADAP-ERP separa rigorosamente essas duas naturezas para evitar glosas financeiras.
-
----
-
-### 3. Checklist Rápido de Sucesso do Cliente Piloto
-- [x] Login efetuado com isolamento RLS;
-- [x] Cliente tomador cadastrado com CNPJ e Inscrição Municipal;
-- [x] Obra criada com Valor Global do Contrato fixado;
-- [x] Orçamento com BDI oficial formulado;
-- [x] 1ª Medição físico-financeira apontada com retenção técnica automática;
-- [x] Medição aprovada e Conta a Receber gerada no Financeiro;
-- [x] Governança e Reset compreendidos para manutenção de instâncias.
-
----
-*GADAP-ERP • Construindo o futuro da engenharia civil com tecnologia e integridade.*
+> ### 🚀 DECLARAÇÃO OFICIAL DE PRÓXIMO PASSO
+> **Fase 9 (NFS-e) 100% Concluída! O ERP está totalmente operacional.**  
+> **Vamos iniciar agora a FASE 10: TAX INTELLIGENCE (OCR de comprovantes e IA de monitoramento legal).**
 """
 
 def generate_markdown(output_path: str):
-    """Gera o arquivo Markdown físico estruturado."""
+    """Grava o conteúdo completo em arquivo Markdown (.md)."""
     with open(output_path, "w", encoding="utf-8") as f:
-        f.write(DOCUMENT_CONTENT)
+        f.write(DOCUMENT_CONTENT.strip() + "\n")
     print(f"[OK] Documento Markdown gerado com sucesso em: {output_path}")
 
-def generate_pdf_if_available(markdown_path: str, pdf_path: str):
+def generate_pdf_reportlab(pdf_path: str):
     """
-    Tenta converter o arquivo Markdown para PDF caso bibliotecas
-    compatíveis estejam instaladas (ex: markdown, weasyprint, pdfkit).
-    Caso contrário, registra instruções claras de portabilidade.
+    Gera o documento PDF oficial formatado e diagramado via ReportLab.
     """
-    try:
-        import importlib
-        md_lib = importlib.import_module("markdown")
-        html = getattr(md_lib, "markdown")(DOCUMENT_CONTENT, extensions=["tables", "fenced_code"])
-        
-        # Tentativa com xhtml2pdf se disponível
-        try:
-            pisa_lib = importlib.import_module("xhtml2pdf.pisa")
-            pisa = getattr(pisa_lib, "pisa", None)
-            if pisa and hasattr(pisa, "CreatePDF"):
-                with open(pdf_path, "wb") as pdf_file:
-                    pisa_status = pisa.CreatePDF(html, dest=pdf_file)
-                    if not pisa_status.err:
-                        print(f"[OK] PDF compilado com sucesso via xhtml2pdf em: {pdf_path}")
-                        return True
-        except (ImportError, Exception):
-            pass
+    doc = SimpleDocTemplate(
+        pdf_path,
+        pagesize=A4,
+        rightMargin=36,
+        leftMargin=36,
+        topMargin=36,
+        bottomMargin=36,
+    )
 
-    except (ImportError, Exception):
-        pass
-        
-    print(f"[INFO] Arquivo Markdown gerado perfeitamente para visualização e distribuição (.md).")
-    print(f"[INFO] Para gerar o binário PDF caso desejado: pip install markdown xhtml2pdf")
-    return False
+    styles = getSampleStyleSheet()
+    
+    title_style = ParagraphStyle(
+        "CoverTitle",
+        parent=styles["Heading1"],
+        fontSize=18,
+        leading=22,
+        textColor=HexColor("#065f46"),
+        fontName="Helvetica-Bold",
+        alignment=0,
+    )
+    subtitle_style = ParagraphStyle(
+        "CoverSub",
+        parent=styles["Normal"],
+        fontSize=11,
+        leading=14,
+        textColor=HexColor("#334155"),
+        fontName="Helvetica",
+    )
+    meta_style = ParagraphStyle(
+        "MetaText",
+        parent=styles["Normal"],
+        fontSize=9,
+        leading=12,
+        textColor=HexColor("#64748b"),
+        fontName="Helvetica-Oblique",
+    )
+    h1_style = ParagraphStyle(
+        "Heading1Custom",
+        parent=styles["Heading1"],
+        fontSize=13,
+        leading=16,
+        textColor=HexColor("#0f172a"),
+        fontName="Helvetica-Bold",
+        spaceBefore=12,
+        spaceAfter=6,
+    )
+    h2_style = ParagraphStyle(
+        "Heading2Custom",
+        parent=styles["Heading2"],
+        fontSize=10.5,
+        leading=13,
+        textColor=HexColor("#047857"),
+        fontName="Helvetica-Bold",
+        spaceBefore=8,
+        spaceAfter=4,
+    )
+    body_style = ParagraphStyle(
+        "BodyCustom",
+        parent=styles["Normal"],
+        fontSize=8.5,
+        leading=11.5,
+        textColor=HexColor("#1e293b"),
+        fontName="Helvetica",
+        spaceAfter=4,
+    )
+    bullet_style = ParagraphStyle(
+        "BulletCustom",
+        parent=body_style,
+        leftIndent=14,
+        firstLineIndent=-8,
+        spaceAfter=2,
+    )
+    callout_style = ParagraphStyle(
+        "CalloutText",
+        parent=body_style,
+        fontSize=8,
+        leading=11,
+        textColor=HexColor("#065f46"),
+        fontName="Helvetica",
+    )
+    next_phase_style = ParagraphStyle(
+        "NextPhaseTitle",
+        parent=styles["Heading1"],
+        fontSize=12,
+        leading=15,
+        textColor=HexColor("#4338ca"),
+        fontName="Helvetica-Bold",
+    )
+
+    story = []
+
+    # Cabeçalho Principal
+    story.append(Paragraph("GADAP Hub • Enterprise Construction ERP", title_style))
+    story.append(Spacer(1, 4))
+    story.append(Paragraph("Manual de Onboarding, Guia Rápido de 1ª Utilização e Curso Prático Integrado", subtitle_style))
+    story.append(Paragraph("Documento Oficial de Treinamento e Sucesso do Cliente Piloto • Versão 2.0 (Release Fiscal & NFS-e)", meta_style))
+    story.append(Spacer(1, 10))
+
+    # Box de Governança
+    box_data = [[
+        Paragraph(
+            "<b>NOTA DE GOVERNANÇA:</b> Este manual documenta os fluxos operacionais, regras determinísticas "
+            "de cálculo da Lei Complementar 116/2003, salvaguardas contratuais e a emissão oficial de NFS-e no "
+            "Padrão Nacional da Receita Federal.",
+            callout_style,
+        )
+    ]]
+    t_gov = Table(box_data, colWidths=[520])
+    t_gov.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, -1), HexColor("#ecfdf5")),
+        ("BOX", (0, 0), (-1, -1), 1, HexColor("#a7f3d0")),
+        ("TOPPADDING", (0, 0), (-1, -1), 6),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+        ("LEFTPADDING", (0, 0), (-1, -1), 8),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+    ]))
+    story.append(t_gov)
+    story.append(Spacer(1, 12))
+
+    # PARTE I: GUIA RÁPIDO
+    story.append(Paragraph("PARTE I: GUIA RÁPIDO DE 1ª UTILIZAÇÃO", h1_style))
+    story.append(Paragraph("Passo a passo objetivo para operar a plataforma do login ao faturamento oficial da medição:", body_style))
+    story.append(Spacer(1, 4))
+
+    passos = [
+        ("Passo 1: Acesso Inicial e Boas-Vindas", "Faça login com as credenciais administrativas (admin@teste.com). O sistema valida a sessão JWT e isola o tenant via Row Level Security (RLS)."),
+        ("Passo 2: Cadastro do Cliente Tomador", "No menu Clientes (/dashboard/clientes), cadastre o tomador (PJ ou PF) informando CNPJ, Razão Social e Código IBGE do município."),
+        ("Passo 3: Cadastro da Obra e Contrato", "No menu Obras (/dashboard/obras), cadastre a obra com seu CNO (Cadastro Nacional de Obras), Valor Global e percentual de Retenção Técnica padrão (5%)."),
+        ("Passo 4: Elaboração do Orçamento com BDI", "No menu Orçamentos, monte as composições de custos e aplique a fórmula analítica do BDI conforme Acórdão 2622/2013 do TCU."),
+        ("Passo 5: Lançamento e Aprovação da Medição", "No painel de medições (/dashboard/obras/{id}/medicoes), lance o boletim físico-financeiro. O backend calcula compulsoriamente a retenção e o líquido. Aprove a medição para liberar o faturamento fiscal."),
+        ("Passo 6: Faturando a Medição com NFS-e (Padrão Nacional)", 
+         "Com a medição aprovada, clique no botão <b>'Emitir NFS-e'</b>. O motor fiscal valida a competência territorial do ISS (LC 116/2003, Art. 3º, III), "
+         "descriptografa o Certificado A1 em memória RAM, gera a DPS canônica com Chave de 50 dígitos (Módulo 11), salva XML e PDF no Supabase Storage "
+         "('xml-fiscais') e despacha o comprovante via WhatsApp (Evolution API). O botão passa a exibir <b>'Visualizar PDF'</b> através de Presigned URL segura."),
+    ]
+
+    for titulo, desc in passos:
+        story.append(Paragraph(f"• <b>{titulo}</b>", h2_style))
+        story.append(Paragraph(desc, bullet_style))
+        story.append(Spacer(1, 2))
+
+    # Quebra de página deliberada para equilíbrio visual perfeito
+    story.append(PageBreak())
+
+    # PÁGINA 2
+    story.append(Paragraph("PARTE II: CURSO PRÁTICO INTEGRADO (ACADEMY)", h1_style))
+    story.append(Paragraph("<b>Módulo 1: Navegando no Dashboard</b> — Acompanhe Contrato Global, Saldo Residual e Curva Físico-Financeira em tempo real, sem planilhas paralelas.", body_style))
+    story.append(Paragraph("<b>Módulo 2: Ciclo de Vida da Obra</b> — Rastreabilidade completa com CNO, ART e boletins de medição numerados sequencialmente e auditáveis.", body_style))
+    story.append(Paragraph("<b>Módulo 3: Faturamento Matemático e Compliance</b> — Trava de 100% que impede supermedições e segregação territorial de retenção do ISS.", body_style))
+    story.append(Spacer(1, 10))
+
+    # PARTE III: GLOSSÁRIO E REGRAS FISCAIS
+    story.append(Paragraph("PARTE III: REGRAS DETERMINÍSTICAS E TRIBUTÁRIAS", h1_style))
+    
+    tributos_info = [
+        [Paragraph("<b>Regra / Tributo</b>", body_style), Paragraph("<b>Fundamentação Legal e Aplicação no GADAP Hub</b>", body_style)],
+        [
+            Paragraph("<b>Retenção do ISS</b>", body_style),
+            Paragraph("<b>Art. 3º, III da Lei Complementar nº 116/2003:</b> Se o município da obra for distinto do município do prestador, o ISSQN pertence ao local da obra e é <u>obrigatoriamente retido na fonte</u> pelo tomador.", body_style)
+        ],
+        [
+            Paragraph("<b>Retenção Técnica INSS</b>", body_style),
+            Paragraph("<b>Instrução Normativa RFB nº 2.110/2022:</b> Retenção previdenciária de 5% a 11% sobre o valor medido, garantindo provisão de contingência trabalhista.", body_style)
+        ],
+        [
+            Paragraph("<b>Chave de Acesso Nacional</b>", body_style),
+            Paragraph("50 dígitos estruturados com Código IBGE, Tipo de Inscrição, CNPJ, Série, Número da DPS, Código de Segurança e Dígito Verificador Módulo 11.", body_style)
+        ],
+        [
+            Paragraph("<b>BDI Analítico TCU</b>", body_style),
+            Paragraph("Acórdão 2622/2013 TCU: Aplicação das taxas de Administração Central (AC), Seguros (S), Riscos (R), Garantias (G), Despesas Financeiras (DF), Lucro (L) e Tributos (I).", body_style)
+        ],
+    ]
+    t_trib = Table(tributos_info, colWidths=[130, 390])
+    t_trib.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), HexColor("#f1f5f9")),
+        ("BOX", (0, 0), (-1, -1), 1, HexColor("#cbd5e1")),
+        ("INNERGRID", (0, 0), (-1, -1), 0.5, HexColor("#e2e8f0")),
+        ("TOPPADDING", (0, 0), (-1, -1), 5),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+    ]))
+    story.append(t_trib)
+    story.append(Spacer(1, 14))
+
+    # BLOCO OFICIAL DA PRÓXIMA FASE
+    story.append(Paragraph("🚀 PRÓXIMA FASE", next_phase_style))
+    phase_box = [[
+        Paragraph(
+            "<b>DECLARAÇÃO OFICIAL DE PRÓXIMO PASSO:</b><br/>"
+            "<b>Fase 9 (NFS-e) 100% Concluída! O ERP está totalmente operacional.</b><br/>"
+            "Vamos iniciar agora a <b>FASE 10: TAX INTELLIGENCE</b> (OCR de comprovantes e IA de monitoramento legal).",
+            body_style,
+        )
+    ]]
+    t_phase = Table(phase_box, colWidths=[520])
+    t_phase.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, -1), HexColor("#eef2ff")),
+        ("BOX", (0, 0), (-1, -1), 1.5, HexColor("#6366f1")),
+        ("TOPPADDING", (0, 0), (-1, -1), 10),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 10),
+        ("LEFTPADDING", (0, 0), (-1, -1), 12),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 12),
+    ]))
+    story.append(t_phase)
+
+    # Constrói o PDF físico
+    doc.build(story)
+    print(f"[OK] Documento PDF compilado com sucesso via ReportLab em: {pdf_path}")
 
 def main():
     workspace_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
     
-    # 1. Salvar no diretório raiz do projeto conforme solicitado
     target_md = os.path.join(workspace_root, "GADAP_HUB_Onboarding_e_Guia_Rapido.md")
     target_pdf = os.path.join(workspace_root, "GADAP_HUB_Onboarding_e_Guia_Rapido.pdf")
     
@@ -393,10 +481,12 @@ def main():
     print(f"Diretório Alvo: {workspace_root}")
     
     generate_markdown(target_md)
-    generate_pdf_if_available(target_md, target_pdf)
+    generate_pdf_reportlab(target_pdf)
     
     print("=" * 70)
-    print(f"Sucesso: Documento gerado como '{os.path.basename(target_md)}'")
+    print(f"Sucesso: Arquivos físicos criados:")
+    print(f" - Markdown: {os.path.basename(target_md)} ({os.path.getsize(target_md)} bytes)")
+    print(f" - PDF:      {os.path.basename(target_pdf)} ({os.path.getsize(target_pdf)} bytes)")
     print("=" * 70)
 
 if __name__ == "__main__":
