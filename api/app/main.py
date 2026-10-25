@@ -11,6 +11,7 @@ from app.api.v1.endpoints.products import router as products_router
 from app.api.v1.endpoints.services import router as services_router
 from app.api.v1.endpoints.quotes import router as quotes_router
 from app.api.v1.endpoints.projects import router as projects_router
+from app.api.v1.endpoints.measurements import router as measurements_router
 
 # Configuração de Logs
 logging.basicConfig(
@@ -74,6 +75,11 @@ app.include_router(
     projects_router,
     prefix=f"{settings.API_V1_STR}/projects",
     tags=["Obras & Empreendimentos (Módulo Engenharia)"],
+)
+app.include_router(
+    measurements_router,
+    prefix=f"{settings.API_V1_STR}/measurements",
+    tags=["Medições Físico-Financeiras (Módulo Engenharia)"],
 )
 
 

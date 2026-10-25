@@ -66,6 +66,10 @@ __all__ = [
     "ProjectCreate",
     "ProjectUpdate",
     "ProjectResponse",
+    "MeasurementStatus",
+    "MeasurementCreate",
+    "MeasurementUpdate",
+    "MeasurementResponse",
 ]
 from app.schemas.project import (
     ProjectStatus,
@@ -73,4 +77,10 @@ from app.schemas.project import (
     ProjectCreate,
     ProjectUpdate,
     ProjectResponse,
+)
+from app.schemas.measurement import (
+    MeasurementStatus,
+    MeasurementCreate,
+    MeasurementUpdate,
+    MeasurementResponse,
 )
