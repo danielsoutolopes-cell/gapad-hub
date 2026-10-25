@@ -9,6 +9,7 @@ from app.api.v1.endpoints.clients import router as clients_router
 from app.api.v1.endpoints.suppliers import router as suppliers_router
 from app.api.v1.endpoints.products import router as products_router
 from app.api.v1.endpoints.services import router as services_router
+from app.api.v1.endpoints.quotes import router as quotes_router
 
 # Configuração de Logs
 logging.basicConfig(
@@ -62,6 +63,11 @@ app.include_router(
     services_router,
     prefix=f"{settings.API_V1_STR}/services",
     tags=["Serviços de Engenharia (Módulo Comercial)"],
+)
+app.include_router(
+    quotes_router,
+    prefix=f"{settings.API_V1_STR}/quotes",
+    tags=["Orçamentos & BDI (Módulo Comercial)"],
 )
 
 

@@ -38,10 +38,11 @@ async function run() {
     await client.connect();
     console.log('Conectado ao PostgreSQL do Supabase com sucesso.');
 
-    const migrationPath = path.resolve(process.cwd(), 'supabase/migrations/20261024000001_suppliers_products_services.sql');
+    const targetFile = process.argv[2] || 'supabase/migrations/20261024000002_quotes_and_bdi_engine.sql';
+    const migrationPath = path.resolve(process.cwd(), targetFile);
     const sql = fs.readFileSync(migrationPath, 'utf-8');
 
-    console.log('Aplicando migração 20261024000001_suppliers_products_services.sql...');
+    console.log(`Aplicando migração ${targetFile}...`);
     await client.query(sql);
     console.log('✓ Migração executada com sucesso!');
 
@@ -49,7 +50,7 @@ async function run() {
       SELECT table_name 
       FROM information_schema.tables 
       WHERE table_schema = 'public' 
-        AND table_name IN ('suppliers', 'products', 'services')
+        AND table_name IN ('quotes', 'quote_items', 'suppliers', 'products', 'services')
       ORDER BY table_name;
     `);
 

@@ -24,6 +24,16 @@ from app.schemas.service import (
     ServiceUpdate,
     ServiceResponse,
 )
+from app.schemas.quote import (
+    QuoteStatus,
+    QuoteItemType,
+    QuoteItemCreate,
+    QuoteItemResponse,
+    QuoteBase,
+    QuoteCreate,
+    QuoteUpdate,
+    QuoteResponse,
+)
 
 __all__ = [
     "ClientBase",
@@ -43,4 +53,12 @@ __all__ = [
     "ServiceCreate",
     "ServiceUpdate",
     "ServiceResponse",
+    "QuoteStatus",
+    "QuoteItemType",
+    "QuoteItemCreate",
+    "QuoteItemResponse",
+    "QuoteBase",
+    "QuoteCreate",
+    "QuoteUpdate",
+    "QuoteResponse",
 ]
