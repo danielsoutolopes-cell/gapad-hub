@@ -25,6 +25,8 @@ import {
   ShieldAlert,
   KeyRound,
   Database,
+  Scale,
+  BrainCircuit,
 } from 'lucide-react';
 import {
   Accordion,
@@ -42,11 +44,12 @@ interface AcademyClientProps {
 }
 
 export function AcademyClient({ isSuperAdmin = false }: AcademyClientProps) {
-  // Estado de progresso dos 3 módulos salvo no localStorage
+  // Estado de progresso dos módulos salvo no localStorage
   const [completedModules, setCompletedModules] = useState<ModuleChecklist>({
     modulo1: false,
     modulo2: false,
     modulo3: false,
+    modulo6: false,
   });
 
   const [activeAccordion, setActiveAccordion] = useState<string>('modulo1');
@@ -80,7 +83,7 @@ export function AcademyClient({ isSuperAdmin = false }: AcademyClientProps) {
   };
 
   const resetProgress = () => {
-    const resetState = { modulo1: false, modulo2: false, modulo3: false };
+    const resetState = { modulo1: false, modulo2: false, modulo3: false, modulo6: false };
     setCompletedModules(resetState);
     try {
       localStorage.setItem('gadap_academy_progress', JSON.stringify(resetState));
@@ -89,8 +92,9 @@ export function AcademyClient({ isSuperAdmin = false }: AcademyClientProps) {
     }
   };
 
+  const totalModules = 4;
   const completedCount = Object.values(completedModules).filter(Boolean).length;
-  const progressPercent = Math.round((completedCount / 3) * 100);
+  const progressPercent = Math.round((completedCount / totalModules) * 100);
 
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
@@ -663,7 +667,166 @@ export function AcademyClient({ isSuperAdmin = false }: AcademyClientProps) {
               </div>
             </AccordionContent>
           </AccordionItem>
+
+          {/* MÓDULO 6: INTELIGÊNCIA ARTIFICIAL A SEU FAVOR */}
+          <AccordionItem value="modulo6">
+            <AccordionTrigger className="hover:bg-slate-900/60 transition-colors">
+              <div className="flex items-start sm:items-center gap-3.5">
+                <div
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleModuleCompletion('modulo6');
+                  }}
+                  title={completedModules.modulo6 ? 'Concluído' : 'Marcar como concluído'}
+                  className={`mt-0.5 sm:mt-0 w-8 h-8 rounded-xl flex items-center justify-center transition-all cursor-pointer flex-shrink-0 ${
+                    completedModules.modulo6
+                      ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 shadow-sm shadow-emerald-500/20'
+                      : 'bg-slate-800/80 text-slate-400 border border-slate-700 hover:border-slate-500'
+                  }`}
+                >
+                  {completedModules.modulo6 ? (
+                    <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+                  ) : (
+                    <Circle className="w-5 h-5" />
+                  )}
+                </div>
+
+                <div className="text-left">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-bold text-cyan-400 uppercase tracking-wider flex items-center gap-1">
+                      <Sparkles className="w-3 h-3 text-cyan-400" />
+                      Módulo 6
+                    </span>
+                    {completedModules.modulo6 && (
+                      <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full font-medium">
+                        Concluído
+                      </span>
+                    )}
+                  </div>
+                  <h3 className="text-base font-semibold text-white">
+                    Inteligência Artificial a seu favor: Autonomia Fiscal &amp; Radar Tributário
+                  </h3>
+                </div>
+              </div>
+            </AccordionTrigger>
+
+            <AccordionContent>
+              <div className="space-y-6 pt-2">
+                {/* 3 Pilares da IA no GADAP Hub */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="p-4 rounded-xl bg-slate-950/70 border border-slate-800 space-y-1.5">
+                    <div className="w-7 h-7 rounded-lg bg-cyan-500/10 text-cyan-400 flex items-center justify-center mb-1">
+                      <Scale className="w-4 h-4" />
+                    </div>
+                    <h4 className="text-xs font-bold text-white uppercase tracking-wider">
+                      1. Não Dependa do Contador para Saber de Alíquotas
+                    </h4>
+                    <p className="text-xs text-slate-300 leading-relaxed">
+                      O radar legislativo do GADAP monitora o IBPT e o Portal Nacional da NFS-e diariamente. Quando uma prefeitura altera a alíquota de ISS da obra (Item 07.02) ou o governo atualiza a tabela de transparência, a IA avisa seu canteiro instantaneamente.
+                    </p>
+                  </div>
+
+                  <div className="p-4 rounded-xl bg-slate-950/70 border border-slate-800 space-y-1.5">
+                    <div className="w-7 h-7 rounded-lg bg-emerald-500/10 text-emerald-300 flex items-center justify-center mb-1">
+                      <BrainCircuit className="w-4 h-4" />
+                    </div>
+                    <h4 className="text-xs font-bold text-white uppercase tracking-wider">
+                      2. OCR Preditivo com Gemini 2.5 Flash
+                    </h4>
+                    <p className="text-xs text-slate-300 leading-relaxed">
+                      Chega de digitar notas de insumos manualmente. Arraste a foto ou PDF do romaneio de cimento, ferro ou tintas: a IA extrai CNPJ do fornecedor, datas, totais e itens discriminados em segundos, preparando o título do Contas a Pagar.
+                    </p>
+                  </div>
+
+                  <div className="p-4 rounded-xl bg-slate-950/70 border border-slate-800 space-y-1.5">
+                    <div className="w-7 h-7 rounded-lg bg-amber-500/10 text-amber-400 flex items-center justify-center mb-1">
+                      <ShieldCheck className="w-4 h-4" />
+                    </div>
+                    <h4 className="text-xs font-bold text-white uppercase tracking-wider">
+                      3. Governança Human-in-the-Loop
+                    </h4>
+                    <p className="text-xs text-slate-300 leading-relaxed">
+                      A tecnologia agiliza o trabalho braçal, mas o controle financeiro continua sob custódia humana. O GADAP exige que o operador revise visualmente o comprovante e homologue o lançamento antes de gravar no Contas a Pagar.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Checklist Prático do Módulo 6 */}
+                <div className="p-4 rounded-xl bg-slate-900/80 border border-slate-800 space-y-3">
+                  <h4 className="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+                    <CheckSquare className="w-4 h-4 text-cyan-400" />
+                    Ações Práticas Recomendadas:
+                  </h4>
+                  <div className="space-y-2 text-xs text-slate-300">
+                    <label className="flex items-center gap-2 cursor-pointer hover:text-white transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={completedModules.modulo6}
+                        onChange={() => toggleModuleCompletion('modulo6')}
+                        className="rounded border-slate-700 text-emerald-500 focus:ring-emerald-500 bg-slate-950 w-4 h-4"
+                      />
+                      <span>Acesse a tela de Tax Intelligence e confira os alertas tributários em tempo real</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer hover:text-white transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={completedModules.modulo6}
+                        onChange={() => toggleModuleCompletion('modulo6')}
+                        className="rounded border-slate-700 text-emerald-500 focus:ring-emerald-500 bg-slate-950 w-4 h-4"
+                      />
+                      <span>Faça o upload de uma nota fiscal de compras para testar o OCR preditivo com LLM</span>
+                    </label>
+                  </div>
+                </div>
+
+                {/* Botões de Ação do Módulo */}
+                <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+                  <div className="flex items-center gap-2">
+                    <Link
+                      href="/dashboard/inteligencia"
+                      className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold bg-gradient-to-r from-emerald-500 to-teal-400 hover:brightness-110 text-slate-950 transition-all shadow-md shadow-emerald-500/20"
+                    >
+                      <Sparkles className="w-4 h-4" />
+                      Abrir Painel de Tax Intelligence e Testar OCR
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </Link>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => toggleModuleCompletion('modulo6')}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                      completedModules.modulo6
+                        ? 'text-emerald-400 bg-emerald-500/10 border border-emerald-500/30'
+                        : 'text-slate-300 bg-slate-800 hover:bg-slate-700 border border-slate-700'
+                    }`}
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    {completedModules.modulo6 ? 'Módulo 6 Concluído' : 'Marcar Módulo 6 como Concluído'}
+                  </button>
+                </div>
+              </div>
+            </AccordionContent>
+          </AccordionItem>
         </Accordion>
+      </div>
+
+      {/* ===================================================================== */}
+      {/* BLOCO: 🎯 MVP CONCLUÍDO                                               */}
+      {/* ===================================================================== */}
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-emerald-950/90 via-slate-900 to-teal-950/90 border-2 border-emerald-500/50 p-6 sm:p-8 shadow-2xl space-y-3">
+        <div className="flex items-center gap-2">
+          <span className="px-3 py-1 rounded-full text-xs font-extrabold uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 flex items-center gap-1.5 shadow-sm shadow-emerald-500/10">
+            <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+            🎯 MVP CONCLUÍDO
+          </span>
+        </div>
+        <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">
+          Fase 10 100% Concluída! O GADAP Hub atingiu sua maturidade operacional da V0.
+        </h2>
+        <p className="text-sm text-slate-300 leading-relaxed max-w-3xl">
+          Fase 10 100% Concluída! O GADAP Hub atingiu sua maturidade operacional da V0. Estamos prontos para embarcar os Clientes Piloto em produção e escalar para a Fase 11 (Billing SaaS)!
+        </p>
       </div>
 
       {/* Card de Conquista / Certificado ao Concluir os 3 Módulos */}

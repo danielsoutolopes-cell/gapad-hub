@@ -1,12 +1,12 @@
 # GADAP Hub • Enterprise Construction ERP
 ## Manual de Onboarding, Guia Rápido de 1ª Utilização e Curso Prático Integrado
-**Documento Oficial de Treinamento e Sucesso do Cliente Piloto**  
-*Versão: 2.0 (Release Fiscal & NFS-e) • Publicação: Outubro/2026 • GADAP Technologies*
+**Documento Oficial de Treinamento, Sucesso do Cliente Piloto e Bíblia de Operação**  
+*Versão: 3.0 (Release Fiscal & Tax Intelligence) • Publicação: Outubro/2026 • GADAP Technologies*
 
 ---
 
 > ### 📌 NOTA DE GOVERNANÇA & CONFIDENCIALIDADE
-> Este manual foi elaborado pelo time de Engenharia de Sucesso e Arquitetura do **GADAP-ERP** para capacitar novos clientes pilotos, diretores técnicos, engenheiros de campo e gestores financeiros. O conteúdo documenta fielmente os fluxos operacionais, regras determinísticas de cálculo, salvaguardas da plataforma e a emissão oficial de NFS-e no Padrão Nacional da Receita Federal.
+> Este manual foi elaborado pelo time de Engenharia de Sucesso e Arquitetura do **GADAP-ERP** para capacitar novos clientes pilotos, diretores técnicos, engenheiros de campo e gestores financeiros. O conteúdo documenta fielmente os fluxos operacionais, regras determinísticas de cálculo, salvaguardas da plataforma, emissão oficial de NFS-e no Padrão Nacional da Receita Federal e as novas capacidades de Tax Intelligence (OCR de compras e monitoramento de alíquotas).
 
 ---
 
@@ -23,12 +23,15 @@
    - Passo 3: Cadastro da Obra, Contrato e Insumos
    - Passo 4: Elaboração do Orçamento com Margem BDI Oficial
    - Passo 5: Lançamento e Aprovação da Medição de Campo
-   - **Passo 6: Faturando a Medição da Obra com NFS-e (Padrão Nacional)**
+   - Passo 6: Faturando a Medição da Obra com NFS-e (Padrão Nacional)
 
 3. **PARTE II: Curso Prático Integrado: "Dominando a Gestão de Obras no GADAP Hub"**
    - Módulo 1: Navegando no Dashboard e Visão Geral da Obra
    - Módulo 2: O Ciclo de Vida da Obra (do Contrato ao Apontamento de Campo)
    - Módulo 3: A Mágica Matemática do Faturamento (Retenções, Trava de 100% e Compliance)
+   - Módulo 4: Gestão Financeira Integrada (Contas a Pagar/Receber & DRE Operacional)
+   - Módulo 5: Faturamento Fiscal (NFS-e Padrão Nacional & Transmissão Segura)
+   - **Módulo 6: Inteligência Artificial a seu favor: Como Não Depender do Contador para Alíquotas e Insumos**
 
 4. **PARTE III: Manual do Administrador da Plataforma (Área Restrita Master)**
    - 4.1 Torre de Controle Global (God Mode)
@@ -41,7 +44,7 @@
    - Regra Territorial do ISS na Construção Civil (LC 116/2003, Art. 3º, III)
    - Chave de Acesso Nacional da NFS-e (50 Dígitos Módulo 11)
 
-6. **🚀 PRÓXIMA FASE: Fase 10 - Tax Intelligence & IA**
+6. **🎯 MVP CONCLUÍDO**
 
 ---
 
@@ -52,7 +55,7 @@ A grande maioria das construtoras e empreiteiras de médio porte no Brasil opera
 - Planilhas paralelas em Excel com fórmulas corrompidas;
 - Divergências recorrentes entre as medições de campo apontadas pelo engenheiro e o faturamento emitido pelo departamento financeiro;
 - Glosas e atrasos de pagamento causados por erro no cálculo de retenções técnicas (5% a 10%) e bitributação de ISS;
-- Falta de controle sobre o saldo residual dos contratos, levando a estouros orçamentários involuntários.
+- Dependência cega de escritórios contábeis externos para saber se uma alíquota municipal foi alterada ou se uma nota de material foi faturada com impostos corretos.
 
 ### 1.2 A Solução GADAP Hub
 O **GADAP Hub** centraliza o ciclo de vida completo da engenharia e da gestão financeira em uma única plataforma web de alta performance. Os cálculos fiscais, retenções e orçamentos operam através de motores determinísticos no backend, impedindo divergências aritméticas entre a obra e o faturamento oficial.
@@ -73,100 +76,46 @@ Cada construtora cliente possui seu ambiente totalmente isolado. No nível de ba
   └─────────────┘     └─────────────┘     └─────────────┘     └──────┬──────┘
                                                                      │
   ┌─────────────┐     ┌─────────────┐     ┌─────────────┐            │
-  │ 6. NFS-e    │ <── │ 5. MEDIÇÃO  │ <───┴─────────────┴────────────┘
-  │  Faturamento│     │  Lançar &   │
-  │  Nacional   │     │  Aprovar    │
-  └─────────────┘     └─────────────┘
+  │ 7. TAX INTEL│ <── │ 6. NFS-e    │ <── │ 5. MEDIÇÃO  │ <──────────┘
+  │ OCR Insumos │     │  DPS Padrão │     │  Boletim    │
+  │ Radar IBPT  │     │  Nacional   │     │  Aprovado   │
+  └─────────────┘     └─────────────┘     └─────────────┘
 ```
 
----
+#### Passo 1: Acesso Inicial e Boas-Vindas
+- Acesse o portal em `/login`.
+- Insira as credenciais do administrador da empresa (ex: `admin@teste.com` / `Gabriel2006`).
+- O sistema carrega o painel autenticado, aplicando a claim de isolamento por `tenant_id`.
 
-### PASSO 1: Acesso Inicial e Boas-Vindas
-1. Acesse o portal web através da URL fornecida (ex: `http://localhost:3000/login` ou seu domínio corporativo).
-2. Insira as credenciais iniciais da empresa de teste ou de sua organização:
-   - **E-mail:** `admin@teste.com`
-   - **Senha:** `admin123`
-3. Ao entrar, o sistema valida a sessão JWT e carrega o painel exclusivo da sua empresa com isolamento RLS.
+#### Passo 2: Cadastro do Cliente Tomador (PF / PJ)
+- Navegue para `/dashboard/clientes` e clique em **"Novo Cliente"**.
+- Preencha o CNPJ (se PJ) ou CPF (se PF), Razão Social e o Código IBGE do município do tomador (ex: `3509502` - Campinas/SP).
 
----
+#### Passo 3: Cadastro da Obra, Contrato e Insumos
+- Navegue para `/dashboard/obras` e clique em **"Cadastrar Obra"**.
+- Defina o nome do empreendimento, o cliente tomador, o Valor Global do Contrato e o percentual de retenção técnica padrão (ex: `5.00%`).
+- Registre o CNO (Cadastro Nacional de Obras) para atendimento ao eSocial / Reinf.
 
-### PASSO 2: Cadastro do Primeiro Cliente Tomador (PF ou PJ)
-Antes de cadastrar qualquer obra, é obrigatório registrar o cliente tomador do serviço.
-1. No menu superior, clique em **Clientes** (`/dashboard/clientes`).
-2. Clique no botão **"Novo Cliente"**.
-3. Selecione o tipo de pessoa:
-   - **Pessoa Jurídica (PJ):** Informe CNPJ, Razão Social, Nome Fantasia, Inscrição Estadual/Municipal, e-mail do setor financeiro e endereço completo com código IBGE.
-   - **Pessoa Física (PF):** Informe Nome Completo, CPF, RG e contato.
-4. Clique em **"Salvar Cliente"**. O cliente agora está disponível no seletor de obras.
+#### Passo 4: Elaboração do Orçamento com Margem BDI Oficial
+- Navegue para `/dashboard/orcamentos` e clique em **"Novo Orçamento"**.
+- Utilize composições de custos unitários e configure as taxas de BDI analítico (Acórdão 2622/2013 TCU), blindando a margem de lucro.
 
-> [!TIP]
-> **Dica de Sucesso:** O preenchimento correto do município do cliente e da obra é essencial para o correto enquadramento da alíquota do ISS no faturamento posterior.
+#### Passo 5: Lançamento e Aprovação da Medição de Campo
+- Na página da Obra, acesse a aba **"Medições"** (`/dashboard/obras/{id}/medicoes`).
+- Clique em **"Lançar Medição"**, informando o valor medido acumulado do período.
+- O motor de cálculo aplica automaticamente a retenção técnica e gera o valor líquido faturável.
+- Ao clicar em **"Aprovar Medição"**, o status avança para `aprovada`, liberando o faturamento fiscal.
 
----
-
-### PASSO 3: Cadastro da Obra, Contrato e Insumos
-1. No menu **Fornecedores** (`/dashboard/fornecedores`), cadastre seus principais parceiros (concreto, aço, locação de equipamentos).
-2. Acesse **Obras** (`/dashboard/obras`) e clique em **"Nova Obra"**.
-3. Preencha os dados contratuais:
-   - **Nome da Obra:** Ex: *"Residencial Alphaville"* ou *"Ampliação Galpão Logístico"*.
-   - **Cliente Vinculado:** Selecione o cliente cadastrado no Passo 2.
-   - **CNO (Cadastro Nacional de Obras):** Número do registro na Receita Federal.
-   - **Valor Global do Contrato:** Valor total contratado (ex: `R$ 500.000,00`).
-   - **% Retenção Técnica:** Percentual padrão estipulado em contrato (ex: 5,00%).
-4. Clique em **"Salvar Obra"**.
-
----
-
-### PASSO 4: Elaboração do Orçamento com BDI Oficial
-1. Acesse **Orçamentos** (`/dashboard/orcamentos`) e clique em **"Novo Orçamento BDI"**.
-2. Preencha os custos diretos previstos para insumos e serviços.
-3. Parametrize as taxas do **BDI (Benefícios e Despesas Indiretas)** conforme Acórdão 2622/2013 TCU (AC, S, R, G, DF, L, I).
-4. O motor matemático do GADAP calcula o multiplicador BDI e apresenta o preço de venda e margens seguras.
-
----
-
-### PASSO 5: Lançamento e Aprovação da Medição de Campo
-1. Na lista de Obras, localize a obra e clique no botão **"Medições"** (`/dashboard/obras/{id}/medicoes`).
-2. Clique em **"Lançar Medição"**.
-3. Informe o período de apuração (início e fim) e o valor bruto medido dos serviços no canteiro.
-4. **Cálculo Determinístico:** O backend Python calcula automaticamente:
-   - Retenção Técnica: `R$ Valor Medido x % Retenção`
-   - Valor Líquido Apurado: `R$ Valor Medido - Retenção`
-5. Salve o boletim (status inicial: *"Rascunho"*).
-6. O engenheiro ou diretor clica em **"Aprovar Medição"**. A medição é consolidada e liberada com status **"Aprovada"**.
-
----
-
-### PASSO 6: Faturando a Medição da Obra com NFS-e (Padrão Nacional)
-Com a medição aprovada, o GADAP Hub permite transformar o avanço físico em faturamento fiscal oficial em um único clique:
-
-1. **Acesso à Ação Fiscal**:
-   - Na tabela de medições da obra, identifique a linha da medição com status **"Aprovada"**.
-   - O sistema habilitará o botão de ação rápida: **"Emitir NFS-e"** (ícone roxo com destaque executivo).
-
-2. **Clique e Disparo da Transmissão**:
-   - Ao clicar em **"Emitir NFS-e"**, a aplicação aciona o endpoint `/api/v1/fiscal/invoices/issue-nfse` via TanStack Query.
-   - O backend inicia o pipeline de emissão em tempo real:
-     - **Regra Territorial do ISS (Art. 3º, III da LC 116/2003):** O motor tributário compara o código IBGE do prestador com o município do canteiro da obra. Se forem distintos, o ISS é **obrigatoriamente retido na fonte pelo tomador** (`iss_retained = True`). Se forem iguais, o ISS é recolhido pelo prestador.
-     - **Certificado Digital A1 em Memória:** O certificado ICP-Brasil (.pfx) é descriptografado estritamente em memória RAM. Nenhuma chave privada é salva em disco.
-     - **Chave de Acesso Nacional:** Gera a chave canônica de 50 dígitos calculada com Dígito Verificador Módulo 11 (pesos cíclicos de 2 a 9).
-     - **Geração de XML e JSON Sped Nacional:** Monta o XML canônico da DPS (`<DPS xmlns="http://www.sped.fazenda.gov.br/nfse" versao="1.00">`) e transmite via HTTPS mTLS.
-
-3. **Armazenamento Seguro em Nuvem (Supabase Storage)**:
-   - Uma vez autorizada pela Receita Federal, o XML assinado e o espelho oficial **DANFSE (PDF)** são armazenados no bucket seguro `xml-fiscais` sob o caminho `{tenant_id}/{access_key}.pdf`.
-
-4. **Notificação Proativa via WhatsApp (Evolution API)**:
-   - O tomador do serviço recebe imediatamente em seu WhatsApp um resumo executivo com os dados da medição, valores líquidos, alíquotas retidas e o arquivo PDF do DANFSE em anexo.
-
-5. **Visualização Imediata e Presigned URL**:
-   - A tela de Medições é atualizada automaticamente para o status **"Faturada (NFS-e)"**.
-   - O botão de ação é substituído por **"Visualizar PDF"**. Ao clicar, o sistema gera uma **Presigned URL** do Supabase Storage com validade de 1 hora, abrindo o documento fiscal oficial diretamente no navegador.
+#### Passo 6: Faturando a Medição da Obra com NFS-e (Padrão Nacional)
+- Com a medição aprovada, clique no botão **"Emitir NFS-e"**.
+- O sistema valida a competência territorial do ISS (LC 116/2003, Art. 3º, III), descriptografa o Certificado A1 em memória RAM, gera a DPS canônica com Chave de 50 dígitos (Módulo 11), salva XML e PDF no Supabase Storage (`xml-fiscais`) e despacha o comprovante via WhatsApp (Evolution API).
+- O botão passa a exibir **"Visualizar PDF"** através de Presigned URL segura.
 
 ---
 
 # PARTE II: CURSO PRÁTICO INTEGRADO
 ## "Dominando a Gestão de Obras no GADAP Hub"
-*Carga Horária Estimada: 15 minutos • Foco: Produtividade, Eliminação de Retrabalho e Compliance Fiscal*
+*Carga Horária Estimada: 20 minutos • Foco: Produtividade, Eliminação de Retrabalho e Compliance Fiscal*
 
 ### MÓDULO 1: Navegando no Dashboard e Visão Geral da Obra
 - Visão unificada de saúde financeira e física das obras ativas.
@@ -182,6 +131,19 @@ Com a medição aprovada, o GADAP Hub permite transformar o avanço físico em f
 - **Retenção Técnica Contratual:** Como ela protege a construtora de riscos trabalhistas e acidentários (Lei 8.212/91).
 - **A Trava de Supermedição (100%):** O sistema impede que a soma das medições ultrapasse o teto contratual pactuado.
 - **Segregação Territorial do ISS:** O fim das multas por recolhimento de ISS no município errado. O sistema audita o local da prestação (canteiro de obras) e define automaticamente quem deve recolher o imposto.
+
+### MÓDULO 4: Gestão Financeira Integrada (Contas a Pagar/Receber & DRE)
+- Contas a Receber gerado diretamente dos boletins de medição aprovados, sem digitação paralela.
+- Controle rigoroso de vencimentos e conciliação de faturas faturadas.
+
+### MÓDULO 5: Faturamento Fiscal (NFS-e Padrão Nacional & Transmissão Segura)
+- Conversão instantânea de medição em nota fiscal eletrônica oficial.
+- Despacho automático de comprovantes via WhatsApp para os tomadores de serviço.
+
+### MÓDULO 6: Inteligência Artificial a seu favor: Como Não Depender do Contador para Alíquotas e Insumos
+- **Autonomia Tributária com o Radar Legal:** O robô do GADAP Hub monitora continuamente as publicações do IBPT e do Portal Nacional da NFS-e. O cliente não precisa mais telefonar ou esperar a contabilidade para saber se a prefeitura aumentou a alíquota do ISS (item 07.02) ou se uma nova regra de retenção entrou em vigor.
+- **OCR Preditivo Multimodal (Gemini 2.5 Flash):** Digitalização e leitura em segundos de comprovantes de compras de materiais (cimento, aço, tubos, ferragens). A IA extrai o CNPJ do fornecedor, os dados da fatura e discrimina cada insumo diretamente para o Contas a Pagar.
+- **Governança Human-in-the-Loop:** A IA extrai e pré-preenche com 99% de acurácia, mas a responsabilidade contábil é protegida por uma barreira de revisão humana compulsória antes de qualquer lançamento financeiro.
 
 ---
 
@@ -218,8 +180,7 @@ Onde o Dígito Verificador ($\mathbf{DV}$) é calculado pelo algoritmo de Módul
 
 ---
 
-# 🚀 PRÓXIMA FASE
+# 🎯 MVP CONCLUÍDO
 
-> ### 🚀 DECLARAÇÃO OFICIAL DE PRÓXIMO PASSO
-> **Fase 9 (NFS-e) 100% Concluída! O ERP está totalmente operacional.**  
-> **Vamos iniciar agora a FASE 10: TAX INTELLIGENCE (OCR de comprovantes e IA de monitoramento legal).**
+> ### 🎯 DECLARAÇÃO FINAL DE CONCLUSÃO DO MVP OPERACIONAL
+> **Fase 10 100% Concluída! O GADAP Hub atingiu sua maturidade operacional da V0. Estamos prontos para embarcar os Clientes Piloto em produção e escalar para a Fase 11 (Billing SaaS)!**
