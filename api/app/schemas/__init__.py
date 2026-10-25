@@ -84,3 +84,18 @@ from app.schemas.measurement import (
     MeasurementUpdate,
     MeasurementResponse,
 )
+from app.schemas.backoffice import (
+    TenantStats,
+    TenantSummaryResponse,
+    BackofficeTenantsListResponse,
+    TenantResetRequest,
+    TenantResetResponse,
+)
+
+__all__ += [
+    "TenantStats",
+    "TenantSummaryResponse",
+    "BackofficeTenantsListResponse",
+    "TenantResetRequest",
+    "TenantResetResponse",
+]

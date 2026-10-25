@@ -172,6 +172,7 @@ def run_seed():
                     "full_name": "Administrador Teste",
                     "role": "admin",
                     "is_active": True,
+                    "is_superadmin": False,
                 },
             ).raise_for_status()
             print("   ✓ Registro em public.users atualizado com tenant_id.")
@@ -186,9 +187,100 @@ def run_seed():
                     "phone": "11987654321",
                     "role": "admin",
                     "is_active": True,
+                    "is_superadmin": False,
                 },
             ).raise_for_status()
             print("   ✓ Usuário inserido na tabela public.users.")
+
+        # ---------------------------------------------------------------------
+        # 3B. Configurar Usuário MASTER (Super Admin) no Supabase Auth & public.users
+        # ---------------------------------------------------------------------
+        print("\n👑 Passo 3B: Configurando Usuário MASTER (Super Admin)...")
+        master_email = "danielsmlopes@hotmail.com"
+        master_password = "Gabriel2006"
+
+        existing_master = next((u for u in users_list if u.get("email") == master_email), None)
+
+        if existing_master:
+            master_auth_id = existing_master["id"]
+            print(f"   ✓ Usuário MASTER localizado no Auth ({master_auth_id}). Atualizando is_superadmin=true...")
+            client.put(
+                f"/auth/v1/admin/users/{master_auth_id}",
+                json={
+                    "password": master_password,
+                    "app_metadata": {
+                        "tenant_id": tenant_id,
+                        "role": "superadmin",
+                        "is_superadmin": True,
+                    },
+                    "user_metadata": {
+                        "tenant_id": tenant_id,
+                        "role": "superadmin",
+                        "is_superadmin": True,
+                        "full_name": "Daniel Master (SuperAdmin)",
+                    },
+                    "email_confirm": True,
+                },
+            ).raise_for_status()
+            print("   ✓ Senha e app_metadata.is_superadmin=true sincronizados no Auth!")
+        else:
+            print(f"   ✓ Criando novo usuário MASTER {master_email} com is_superadmin=true...")
+            resp = client.post(
+                "/auth/v1/admin/users",
+                json={
+                    "email": master_email,
+                    "password": master_password,
+                    "email_confirm": True,
+                    "app_metadata": {
+                        "tenant_id": tenant_id,
+                        "role": "superadmin",
+                        "is_superadmin": True,
+                    },
+                    "user_metadata": {
+                        "tenant_id": tenant_id,
+                        "role": "superadmin",
+                        "is_superadmin": True,
+                        "full_name": "Daniel Master (SuperAdmin)",
+                    },
+                },
+            )
+            resp.raise_for_status()
+            created_master = resp.json()
+            master_auth_id = created_master.get("id") or created_master.get("user", {}).get("id")
+            print(f"   ✓ Usuário MASTER criado no Auth! ID: {master_auth_id}")
+
+        # Vincula ou atualiza MASTER em public.users
+        resp = client.get(f"/rest/v1/users?auth_user_id=eq.{master_auth_id}&select=id")
+        resp.raise_for_status()
+        master_public = resp.json()
+
+        if master_public:
+            client.patch(
+                f"/rest/v1/users?id=eq.{master_public[0]['id']}",
+                json={
+                    "tenant_id": tenant_id,
+                    "full_name": "Daniel Master (SuperAdmin)",
+                    "role": "superadmin",
+                    "is_superadmin": True,
+                    "is_active": True,
+                },
+            ).raise_for_status()
+            print("   ✓ Registro de MASTER em public.users atualizado com is_superadmin=True.")
+        else:
+            client.post(
+                "/rest/v1/users",
+                json={
+                    "tenant_id": tenant_id,
+                    "auth_user_id": master_auth_id,
+                    "full_name": "Daniel Master (SuperAdmin)",
+                    "email": master_email,
+                    "phone": "11999998888",
+                    "role": "superadmin",
+                    "is_superadmin": True,
+                    "is_active": True,
+                },
+            ).raise_for_status()
+            print("   ✓ Registro de MASTER inserido em public.users com is_superadmin=True.")
 
         # ---------------------------------------------------------------------
         # 4. Limpeza Idempotente: Remover dados anteriores da Empresa Teste

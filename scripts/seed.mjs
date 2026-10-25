@@ -167,6 +167,7 @@ async function runSeed() {
           full_name: 'Administrador Teste',
           role: 'admin',
           is_active: true,
+          is_superadmin: false,
         })
         .eq('id', existingPublicUser.id);
       console.log(`   ✓ Registro em public.users atualizado com tenant_id.`);
@@ -181,8 +182,106 @@ async function runSeed() {
           phone: '11987654321',
           role: 'admin',
           is_active: true,
+          is_superadmin: false,
         });
       console.log(`   ✓ Usuário inserido na tabela public.users.`);
+    }
+
+    // -------------------------------------------------------------------------
+    // 3B. Criar ou Configurar Usuário MASTER Absoluto do SaaS (Super Admin)
+    // -------------------------------------------------------------------------
+    console.log('\n👑 Passo 3B: Configurando Usuário MASTER (Super Admin) no Supabase Auth...');
+    const masterEmail = 'danielsmlopes@hotmail.com';
+    const masterPassword = 'Gabriel2006';
+    let masterAuthId = null;
+
+    const existingMasterAuth = users.find((u) => u.email === masterEmail);
+
+    if (existingMasterAuth) {
+      masterAuthId = existingMasterAuth.id;
+      console.log(`   ✓ Usuário MASTER já existe no Auth (${masterAuthId}). Atualizando flag is_superadmin=true...`);
+
+      const { error: updateMasterAuthErr } = await supabase.auth.admin.updateUserById(masterAuthId, {
+        password: masterPassword,
+        app_metadata: {
+          tenant_id: tenantId,
+          role: 'superadmin',
+          is_superadmin: true,
+        },
+        user_metadata: {
+          tenant_id: tenantId,
+          role: 'superadmin',
+          is_superadmin: true,
+          full_name: 'Daniel Master (SuperAdmin)',
+        },
+        email_confirm: true,
+      });
+
+      if (updateMasterAuthErr) {
+        throw new Error(`Erro ao atualizar MASTER no Auth: ${updateMasterAuthErr.message}`);
+      }
+      console.log(`   ✓ Senha e app_metadata.is_superadmin=true configurados com sucesso!`);
+    } else {
+      console.log(`   ✓ Criando novo usuário MASTER ${masterEmail} com is_superadmin=true...`);
+
+      const { data: newMasterAuth, error: createMasterAuthErr } = await supabase.auth.admin.createUser({
+        email: masterEmail,
+        password: masterPassword,
+        email_confirm: true,
+        app_metadata: {
+          tenant_id: tenantId,
+          role: 'superadmin',
+          is_superadmin: true,
+        },
+        user_metadata: {
+          tenant_id: tenantId,
+          role: 'superadmin',
+          is_superadmin: true,
+          full_name: 'Daniel Master (SuperAdmin)',
+        },
+      });
+
+      if (createMasterAuthErr) {
+        throw new Error(`Erro ao criar usuário MASTER no Auth: ${createMasterAuthErr.message}`);
+      }
+
+      masterAuthId = newMasterAuth.user.id;
+      console.log(`   ✓ Usuário MASTER criado no Auth com ID: ${masterAuthId}`);
+    }
+
+    // Vincular ou atualizar o MASTER em public.users
+    const { data: existingMasterPublic } = await supabase
+      .from('users')
+      .select('id')
+      .eq('auth_user_id', masterAuthId)
+      .maybeSingle();
+
+    if (existingMasterPublic) {
+      await supabase
+        .from('users')
+        .update({
+          tenant_id: tenantId,
+          full_name: 'Daniel Master (SuperAdmin)',
+          role: 'superadmin',
+          is_superadmin: true,
+          is_active: true,
+        })
+        .eq('id', existingMasterPublic.id);
+      console.log(`   ✓ Registro de public.users atualizado com is_superadmin = true.`);
+    } else {
+      await supabase
+        .from('users')
+        .insert({
+          tenant_id: tenantId,
+          auth_user_id: masterAuthId,
+          full_name: 'Daniel Master (SuperAdmin)',
+          email: masterEmail,
+          phone: '11999998888',
+          role: 'superadmin',
+          is_superadmin: true,
+          is_active: true,
+        });
+      console.log(`   ✓ Registro de MASTER inserido em public.users com is_superadmin = true.`);
     }
 
     // -------------------------------------------------------------------------
@@ -770,6 +869,8 @@ async function runSeed() {
     console.log(`🆔 Tenant ID:             ${tenantId}`);
     console.log('📧 E-mail Admin:          admin@teste.com');
     console.log('🔒 Senha Admin:           Gadap2026!');
+    console.log('👑 E-mail MASTER:         danielsmlopes@hotmail.com');
+    console.log('🔒 Senha MASTER:          Gabriel2006 (is_superadmin=true)');
     console.log('👥 Clientes Povoados:     3 (2 PJ e 1 PF)');
     console.log('🏗️ Obras Ativas:          2 ("Reforma Residencial Alpha" e "Instalação Piscina Beta")');
     console.log('📐 Medições Registradas:  5 (todas com 5% de retenção técnica determinística)');
