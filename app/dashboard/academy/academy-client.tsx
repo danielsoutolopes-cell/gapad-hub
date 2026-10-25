@@ -20,6 +20,11 @@ import {
   FileCheck2,
   Building,
   CheckSquare,
+  Crown,
+  Flame,
+  ShieldAlert,
+  KeyRound,
+  Database,
 } from 'lucide-react';
 import {
   Accordion,
@@ -32,7 +37,11 @@ interface ModuleChecklist {
   [key: string]: boolean;
 }
 
-export function AcademyClient() {
+interface AcademyClientProps {
+  isSuperAdmin?: boolean;
+}
+
+export function AcademyClient({ isSuperAdmin = false }: AcademyClientProps) {
   // Estado de progresso dos 3 módulos salvo no localStorage
   const [completedModules, setCompletedModules] = useState<ModuleChecklist>({
     modulo1: false,
@@ -122,6 +131,13 @@ export function AcademyClient() {
                 <ShieldCheck className="w-3.5 h-3.5 text-teal-300" />
                 Foco: Produtividade e Compliance
               </span>
+              <a
+                href="#area-restrita-master"
+                className="flex items-center gap-1.5 text-red-400 hover:text-red-300 transition-colors cursor-pointer"
+              >
+                <Crown className="w-3.5 h-3.5 text-red-400" />
+                Área Restrita (Master)
+              </a>
             </div>
           </div>
 
@@ -678,17 +694,141 @@ export function AcademyClient() {
         </div>
       )}
 
+      {/* SEÇÃO: ÁREA RESTRITA (MASTER) - GOVERNANÇA DA PLATAFORMA */}
+      <section
+        id="area-restrita-master"
+        className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-950 via-slate-900 to-red-950/30 border border-red-500/30 p-6 sm:p-8 shadow-2xl space-y-6"
+      >
+        <div className="absolute top-0 right-0 -mr-16 -mt-16 w-72 h-72 rounded-full bg-red-600/10 blur-3xl pointer-events-none" />
+        <div className="absolute bottom-0 left-1/4 -mb-16 w-60 h-60 rounded-full bg-amber-500/10 blur-3xl pointer-events-none" />
+
+        <div className="relative z-10 flex flex-col md:flex-row md:items-start justify-between gap-6">
+          <div className="space-y-2 max-w-3xl">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-red-500/15 text-red-300 border border-red-500/30">
+              <Crown className="w-3.5 h-3.5 text-red-400" />
+              <span>Manual Vivo • Área Restrita (Master)</span>
+            </div>
+
+            <h2 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight flex items-center gap-2">
+              Governança de Instâncias e Botão &quot;Zerar Dados&quot;
+            </h2>
+
+            <p className="text-sm text-slate-300 leading-relaxed">
+              Guia oficial para o Administrador da Plataforma (Super Admin) sobre o gerenciamento multi-tenant,
+              expurgo seguro de dados operacionais e preparação de ambientes para demonstração comercial.
+            </p>
+          </div>
+
+          {isSuperAdmin ? (
+            <Link
+              href="/backoffice"
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold text-white bg-red-600 hover:bg-red-500 shadow-lg shadow-red-500/20 transition-all flex-shrink-0"
+            >
+              <Crown className="w-4 h-4" />
+              <span>Acessar Painel Master (God Mode)</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          ) : (
+            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-400 bg-slate-900 border border-slate-800 flex-shrink-0">
+              <ShieldCheck className="w-3.5 h-3.5 text-slate-500" />
+              <span>Acesso restrito ao Dono do SaaS</span>
+            </div>
+          )}
+        </div>
+
+        {/* 3 Cartões de Orientação Estratégica */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-1">
+          {/* Card 1: Finalidade da Ferramenta */}
+          <div className="p-5 rounded-2xl bg-slate-950/80 border border-slate-800/80 space-y-2.5">
+            <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20 flex items-center justify-center">
+              <RotateCcw className="w-4 h-4" />
+            </div>
+            <h3 className="text-xs font-bold text-white uppercase tracking-wider">
+              1. Finalidade do Reset
+            </h3>
+            <p className="text-xs text-slate-300 leading-relaxed">
+              O botão <strong className="text-amber-300">&quot;Zerar Dados / Reset Ambiente&quot;</strong> foi
+              projetado especificamente para sanitizar ambientes de teste, demonstrações comerciais (presales) e workshops guiados.
+              Ele limpa dados legados e permite recomeçar o onboarding com números limpos em poucos segundos.
+            </p>
+          </div>
+
+          {/* Card 2: Ação Irreversível nos Dados Operacionais */}
+          <div className="p-5 rounded-2xl bg-slate-950/80 border border-red-500/40 space-y-2.5">
+            <div className="w-8 h-8 rounded-xl bg-red-500/10 text-red-400 border border-red-500/20 flex items-center justify-center">
+              <Flame className="w-4 h-4" />
+            </div>
+            <h3 className="text-xs font-bold text-red-300 uppercase tracking-wider flex items-center gap-1.5">
+              <span>2. Ação Irreversível</span>
+              <span className="text-[10px] bg-red-500/20 text-red-300 px-1.5 py-0.5 rounded font-mono font-bold">CRÍTICO</span>
+            </h3>
+            <p className="text-xs text-slate-300 leading-relaxed">
+              A ação é <strong className="text-red-300">irreversível para todos os dados operacionais</strong> do Tenant.
+              São expurgados permanentemente: todas as Obras (Projetos), Boletins de Medição Físico-Financeira,
+              Lançamentos Financeiros (Contas a Pagar e Receber), Clientes, Fornecedores e Orçamentos com BDI.
+            </p>
+          </div>
+
+          {/* Card 3: Preservação de Logins e Contas */}
+          <div className="p-5 rounded-2xl bg-slate-950/80 border border-emerald-500/40 space-y-2.5">
+            <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center justify-center">
+              <KeyRound className="w-4 h-4" />
+            </div>
+            <h3 className="text-xs font-bold text-emerald-300 uppercase tracking-wider">
+              3. Preserva Logins e Acessos
+            </h3>
+            <p className="text-xs text-slate-300 leading-relaxed">
+              <strong className="text-emerald-300">Segurança de Acesso Garantida:</strong> O registro da empresa raiz
+              (Tenant) e todas as contas de usuários (e-mails e senhas no Supabase Auth) permanecem 100% preservados.
+              A equipe da construtora continua com suas credenciais ativas, sem necessidade de recadastramento ou novos convites.
+            </p>
+          </div>
+        </div>
+
+        {/* Box de Ajuda Contextual Shadcn UI */}
+        <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-2.5">
+          <div className="flex items-start gap-3">
+            <ShieldAlert className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              <h4 className="text-xs font-bold text-slate-200 uppercase tracking-wider">
+                Ajuda Contextual e Salvaguarda Operacional
+              </h4>
+              <p className="text-xs text-slate-300 leading-relaxed">
+                No painel Backoffice, o botão &quot;Zerar Dados&quot; conta com um <strong>Tooltip (Shadcn UI)</strong> de ajuda contextual rápida:
+              </p>
+              <div className="p-2.5 rounded-xl bg-slate-950 border border-slate-800 text-[11px] font-mono text-amber-300/90 my-1.5 inline-block">
+                &ldquo;Limpa todos os clientes, orçamentos, medições e dados financeiros deste Tenant. Ideal para resetar ambientes de Demonstração e Tutoriais.&rdquo;
+              </div>
+              <p className="text-[11px] text-slate-400 leading-relaxed">
+                Além do Tooltip, a operação requer confirmação em um modal destrutivo (AlertDialog), garantindo que nenhum expurgo ocorra de forma acidental.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Rodapé com Links de Apoio */}
       <div className="border-t border-slate-800/80 pt-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-400">
-        <div className="flex items-center gap-2">
-          <span>Precisa de um passo a passo guiado para iniciantes?</span>
-          <Link
-            href="/dashboard/ajuda/guia-rapido"
-            className="text-emerald-400 hover:text-emerald-300 font-semibold inline-flex items-center gap-1"
-          >
-            Abrir Guia Rápido de 1ª Utilização
-            <ArrowRight className="w-3.5 h-3.5" />
-          </Link>
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-1.5">
+            <span>Precisa de um passo a passo guiado para iniciantes?</span>
+            <Link
+              href="/dashboard/ajuda/guia-rapido"
+              className="text-emerald-400 hover:text-emerald-300 font-semibold inline-flex items-center gap-1"
+            >
+              Abrir Guia Rápido de 1ª Utilização
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+          {isSuperAdmin && (
+            <Link
+              href="/backoffice"
+              className="text-red-400 hover:text-red-300 font-semibold inline-flex items-center gap-1 border-l border-slate-800 pl-3"
+            >
+              <Crown className="w-3 h-3" />
+              Painel Backoffice (Master)
+            </Link>
+          )}
         </div>
 
         <span className="text-[11px] text-slate-400">

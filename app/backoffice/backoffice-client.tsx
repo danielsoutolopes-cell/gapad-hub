@@ -27,6 +27,12 @@ import {
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import {
   AlertDialog,
   AlertDialogContent,
   AlertDialogHeader,
@@ -427,24 +433,36 @@ export function BackofficeClient() {
                         </span>
                       </td>
 
-                      {/* Ação Master (Botão Vermelho de Perigo) */}
+                      {/* Ação Master (Botão Vermelho de Perigo com Tooltip) */}
                       <td className="px-6 py-4 text-right">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setSelectedTenantForReset(tenant);
-                            setIsResetAlertOpen(true);
-                          }}
-                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                            isTestCompany
-                              ? 'text-red-300 bg-red-950/60 hover:bg-red-600 hover:text-white border border-red-500/40 shadow-sm shadow-red-500/10'
-                              : 'text-slate-400 hover:text-red-400 hover:bg-red-950/30 border border-slate-800 hover:border-red-500/30'
-                          }`}
-                          title="Zerar todas as obras, medições e dados financeiros deste tenant"
-                        >
-                          <Flame className="w-3.5 h-3.5 text-red-400" />
-                          <span>Zerar Dados / Reset Ambiente</span>
-                        </button>
+                        <TooltipProvider>
+                          <Tooltip delayDuration={150}>
+                            <TooltipTrigger asChild>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSelectedTenantForReset(tenant);
+                                  setIsResetAlertOpen(true);
+                                }}
+                                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                                  isTestCompany
+                                    ? 'text-red-300 bg-red-950/60 hover:bg-red-600 hover:text-white border border-red-500/40 shadow-sm shadow-red-500/10'
+                                    : 'text-slate-400 hover:text-red-400 hover:bg-red-950/30 border border-slate-800 hover:border-red-500/30'
+                                }`}
+                              >
+                                <Flame className="w-3.5 h-3.5 text-red-400" />
+                                <span>Zerar Dados / Reset Ambiente</span>
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent
+                              side="top"
+                              align="end"
+                              className="max-w-xs text-left leading-relaxed text-slate-200 border-red-500/30 bg-slate-950/95 shadow-xl"
+                            >
+                              Limpa todos os clientes, orçamentos, medições e dados financeiros deste Tenant. Ideal para resetar ambientes de Demonstração e Tutoriais.
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
                       </td>
                     </tr>
                   );
