@@ -582,16 +582,33 @@ async def issue_nfse(
 )
 async def simulate_dual_taxes(
     payload: TaxDualSimulationRequest,
+    authorization: Optional[str] = Header(None),
+    x_tenant_id: Optional[str] = Header(None),
 ) -> TaxDualSimulationResponse:
     """
     Executa a simulação determinística em Decimal com arredondamento bancário IEEE 754.
+    Suporta Bypass Fiscal automático caso a empresa seja enquadrada como MEI.
     """
+    tax_regime = payload.tax_regime
+    if not tax_regime and x_tenant_id:
+        try:
+            url = f"{settings.SUPABASE_URL.rstrip('/')}/rest/v1/companies?id=eq.{x_tenant_id}&select=tax_regime"
+            use_key = settings.get_service_role_key() or settings.get_anon_key()
+            headers = {"apikey": use_key, "Authorization": f"Bearer {use_key}"}
+            async with httpx.AsyncClient(timeout=3.0) as client:
+                resp = await client.get(url, headers=headers)
+                if resp.status_code == 200 and resp.json():
+                    tax_regime = resp.json()[0].get("tax_regime")
+        except Exception:
+            pass
+
     result = TaxCalculator.calculate_dual_demonstrative(
         valor_faturamento_bruto=payload.valor_faturamento_bruto,
         deducoes_materiais_legado=payload.deducoes_materiais,
         base_calculo_inss_perc=payload.base_calculo_inss_perc,
         exercicio_ano=payload.exercicio_ano,
         optante_simples_nacional=payload.optante_simples_nacional,
+        tax_regime=tax_regime,
         iss_aliquota=payload.iss_aliquota,
         creditos_materiais_cbs=payload.creditos_materiais_cbs,
         creditos_materiais_ibs=payload.creditos_materiais_ibs,

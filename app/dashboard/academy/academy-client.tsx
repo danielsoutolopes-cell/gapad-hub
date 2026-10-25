@@ -50,6 +50,7 @@ export function AcademyClient({ isSuperAdmin = false }: AcademyClientProps) {
     modulo2: false,
     modulo3: false,
     modulo6: false,
+    modulo7: false,
   });
 
   const [activeAccordion, setActiveAccordion] = useState<string>('modulo1');
@@ -83,7 +84,7 @@ export function AcademyClient({ isSuperAdmin = false }: AcademyClientProps) {
   };
 
   const resetProgress = () => {
-    const resetState = { modulo1: false, modulo2: false, modulo3: false, modulo6: false };
+    const resetState = { modulo1: false, modulo2: false, modulo3: false, modulo6: false, modulo7: false };
     setCompletedModules(resetState);
     try {
       localStorage.setItem('gadap_academy_progress', JSON.stringify(resetState));
@@ -92,7 +93,7 @@ export function AcademyClient({ isSuperAdmin = false }: AcademyClientProps) {
     }
   };
 
-  const totalModules = 4;
+  const totalModules = 5;
   const completedCount = Object.values(completedModules).filter(Boolean).length;
   const progressPercent = Math.round((completedCount / totalModules) * 100);
 
@@ -808,25 +809,190 @@ export function AcademyClient({ isSuperAdmin = false }: AcademyClientProps) {
               </div>
             </AccordionContent>
           </AccordionItem>
+
+          {/* MÓDULO 7: PREPARANDO SUA CONSTRUTORA PARA O IBS E CBS */}
+          <AccordionItem value="modulo7">
+            <AccordionTrigger className="hover:bg-slate-900/60 transition-colors">
+              <div className="flex items-start sm:items-center gap-3.5">
+                <div
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleModuleCompletion('modulo7');
+                  }}
+                  title={completedModules.modulo7 ? 'Concluído' : 'Marcar como concluído'}
+                  className={`mt-0.5 sm:mt-0 w-8 h-8 rounded-xl flex items-center justify-center transition-all cursor-pointer flex-shrink-0 ${
+                    completedModules.modulo7
+                      ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 shadow-sm shadow-emerald-500/20'
+                      : 'bg-slate-800/80 text-slate-400 border border-slate-700 hover:border-slate-500'
+                  }`}
+                >
+                  {completedModules.modulo7 ? (
+                    <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+                  ) : (
+                    <Circle className="w-5 h-5" />
+                  )}
+                </div>
+
+                <div className="text-left">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1">
+                      <Scale className="w-3 h-3 text-emerald-400" />
+                      Módulo 7
+                    </span>
+                    {completedModules.modulo7 && (
+                      <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full font-medium">
+                        Concluído
+                      </span>
+                    )}
+                  </div>
+                  <h3 className="text-base font-semibold text-white">
+                    Preparando sua construtora para o IBS e CBS (Reforma Tributária &amp; Período de Convivência)
+                  </h3>
+                </div>
+              </div>
+            </AccordionTrigger>
+
+            <AccordionContent>
+              <div className="space-y-6 pt-2">
+                {/* 3 Pilares da Reforma Tributária no GADAP Hub */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="p-4 rounded-xl bg-slate-950/70 border border-slate-800 space-y-1.5">
+                    <div className="w-7 h-7 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center mb-1">
+                      <Scale className="w-4 h-4" />
+                    </div>
+                    <h4 className="text-xs font-bold text-white uppercase tracking-wider">
+                      1. Fim do Efeito Cascata &amp; Não-Cumulatividade Plena
+                    </h4>
+                    <p className="text-xs text-slate-300 leading-relaxed">
+                      No IVA Dual (CBS Federal + IBS Estadual/Municipal), cada nota de material (cimento, areia, ferro, maquinário) gera crédito financeiro automático. Esse saldo abate diretamente o imposto devido na medição de serviços, eliminando a bitributação histórica da construção.
+                    </p>
+                  </div>
+
+                  <div className="p-4 rounded-xl bg-slate-950/70 border border-slate-800 space-y-1.5">
+                    <div className="w-7 h-7 rounded-lg bg-teal-500/10 text-teal-400 flex items-center justify-center mb-1">
+                      <Layers className="w-4 h-4" />
+                    </div>
+                    <h4 className="text-xs font-bold text-white uppercase tracking-wider">
+                      2. Redutor Setorial de 40% da Construção Civil
+                    </h4>
+                    <p className="text-xs text-slate-300 leading-relaxed">
+                      O PLP 68/2024 e a EC nº 132/2023 asseguram um desconto de 40% na alíquota padrão do IBS/CBS para obras de engenharia e incorporações imobiliárias. Uma alíquota estimada de ~27,97% passa para ~16,78% efetiva sobre a medição.
+                    </p>
+                  </div>
+
+                  <div className="p-4 rounded-xl bg-slate-950/70 border border-slate-800 space-y-1.5">
+                    <div className="w-7 h-7 rounded-lg bg-amber-500/10 text-amber-400 flex items-center justify-center mb-1">
+                      <ShieldCheck className="w-4 h-4" />
+                    </div>
+                    <h4 className="text-xs font-bold text-white uppercase tracking-wider">
+                      3. Convivência 2026-2032 &amp; Bypass MEI
+                    </h4>
+                    <p className="text-xs text-slate-300 leading-relaxed">
+                      Durante a transição (2026 a 2032), o GADAP Hub apura ambos os regimes em paralelo sem risco de não-conformidade. E para engenheiros solo e pequenos empreiteiros, o Bypass Fiscal do SIMEI desonera retenções na fonte de INSS (11%), IRRF e CSRF automaticamente.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Checklist Prático do Módulo 7 */}
+                <div className="p-4 rounded-xl bg-slate-900/80 border border-slate-800 space-y-3">
+                  <h4 className="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+                    <CheckSquare className="w-4 h-4 text-emerald-400" />
+                    Ações Práticas Recomendadas:
+                  </h4>
+                  <div className="space-y-2 text-xs text-slate-300">
+                    <label className="flex items-center gap-2 cursor-pointer hover:text-white transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={completedModules.modulo7}
+                        onChange={() => toggleModuleCompletion('modulo7')}
+                        className="rounded border-slate-700 text-emerald-500 focus:ring-emerald-500 bg-slate-950 w-4 h-4"
+                      />
+                      <span>Acesse o Simulador da Reforma e simule uma medição alternando entre 2026, 2027 e 2033</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer hover:text-white transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={completedModules.modulo7}
+                        onChange={() => toggleModuleCompletion('modulo7')}
+                        className="rounded border-slate-700 text-emerald-500 focus:ring-emerald-500 bg-slate-950 w-4 h-4"
+                      />
+                      <span>Cadastre uma nota fiscal de materiais para validar o abatimento de créditos financeiros de CBS/IBS</span>
+                    </label>
+                  </div>
+                </div>
+
+                {/* Botões de Ação do Módulo */}
+                <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+                  <div className="flex items-center gap-2">
+                    <Link
+                      href="/dashboard/fiscal/simulador-reforma"
+                      className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold bg-gradient-to-r from-emerald-500 to-teal-400 hover:brightness-110 text-slate-950 transition-all shadow-md shadow-emerald-500/20"
+                    >
+                      <Scale className="w-4 h-4" />
+                      Abrir Simulador da Reforma Tributária (IVA Dual &amp; Bypass MEI)
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </Link>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => toggleModuleCompletion('modulo7')}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                      completedModules.modulo7
+                        ? 'text-emerald-400 bg-emerald-500/10 border border-emerald-500/30'
+                        : 'text-slate-300 bg-slate-800 hover:bg-slate-700 border border-slate-700'
+                    }`}
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    {completedModules.modulo7 ? 'Módulo 7 Concluído' : 'Marcar Módulo 7 como Concluído'}
+                  </button>
+                </div>
+              </div>
+            </AccordionContent>
+          </AccordionItem>
         </Accordion>
       </div>
 
       {/* ===================================================================== */}
-      {/* BLOCO: 🎯 MVP CONCLUÍDO                                               */}
+      {/* BLOCO: 🎯 MVP CONCLUÍDO & DECLARAÇÃO DE PRÓXIMO PASSO                 */}
       {/* ===================================================================== */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-emerald-950/90 via-slate-900 to-teal-950/90 border-2 border-emerald-500/50 p-6 sm:p-8 shadow-2xl space-y-3">
-        <div className="flex items-center gap-2">
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-emerald-950/90 via-slate-900 to-teal-950/90 border-2 border-emerald-500/50 p-6 sm:p-8 shadow-2xl space-y-4">
+        <div className="flex flex-wrap items-center gap-2">
           <span className="px-3 py-1 rounded-full text-xs font-extrabold uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 flex items-center gap-1.5 shadow-sm shadow-emerald-500/10">
             <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
-            🎯 MVP CONCLUÍDO
+            🎯 MVP CONCLUÍDO &amp; CORE SELADO
+          </span>
+          <span className="px-3 py-1 rounded-full text-xs font-extrabold uppercase tracking-wider bg-teal-500/20 text-teal-300 border border-teal-500/40">
+            Fase 12 Concluída [x]
+          </span>
+          <span className="px-3 py-1 rounded-full text-xs font-extrabold uppercase tracking-wider bg-cyan-500/20 text-cyan-300 border border-cyan-500/40">
+            IVA Dual &amp; Bypass MEI
           </span>
         </div>
-        <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">
-          Fase 10 100% Concluída! O GADAP Hub atingiu sua maturidade operacional da V0.
-        </h2>
-        <p className="text-sm text-slate-300 leading-relaxed max-w-3xl">
-          Fase 10 100% Concluída! O GADAP Hub atingiu sua maturidade operacional da V0. Estamos prontos para embarcar os Clientes Piloto em produção e escalar para a Fase 11 (Billing SaaS)!
-        </p>
+
+        <div>
+          <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">
+            Fase 10 &amp; Fase 12 Concluídas! O core do negócio está selado para o futuro.
+          </h2>
+          <p className="text-sm text-slate-300 leading-relaxed mt-2 max-w-3xl">
+            Toda a esteira operacional do GADAP Hub — orçamentos analíticos com BDI, medições físico-financeiras com retenção técnica, automação de NFS-e no Padrão Nacional, isolamento hermético multi-tenant, OCR preditivo via IA e a preparação completa para o IVA Dual (IBS/CBS e Bypass Fiscal do MEI) — atingiu maturidade plena de produção.
+          </p>
+        </div>
+
+        <div className="pt-3 border-t border-slate-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs bg-slate-950/40 -mx-6 sm:-mx-8 -mb-6 sm:-mb-8 p-4 sm:p-6 rounded-b-3xl">
+          <div className="flex items-start sm:items-center gap-2">
+            <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-bold uppercase tracking-wider text-[10px] flex-shrink-0">
+              Próximo Passo
+            </span>
+            <span className="text-slate-200">
+              O core do negócio está selado para o futuro e a próxima etapa é a <strong>FASE 11: BILLING E MONETIZAÇÃO SAAS</strong>.
+            </span>
+          </div>
+
+          <div className="text-[11px] text-slate-400 font-mono flex-shrink-0">
+            Fase 11 &bull; Stripe/Asaas &bull; Planos &bull; Checkout
+          </div>
+        </div>
       </div>
 
       {/* Card de Conquista / Certificado ao Concluir os 3 Módulos */}

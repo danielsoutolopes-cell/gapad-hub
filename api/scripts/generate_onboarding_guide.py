@@ -56,7 +56,8 @@ DOCUMENT_CONTENT = r"""# GADAP Hub • Enterprise Construction ERP
    - Módulo 3: A Mágica Matemática do Faturamento (Retenções, Trava de 100% e Compliance)
    - Módulo 4: Gestão Financeira Integrada (Contas a Pagar/Receber & DRE Operacional)
    - Módulo 5: Faturamento Fiscal (NFS-e Padrão Nacional & Transmissão Segura)
-   - **Módulo 6: Inteligência Artificial a seu favor: Como Não Depender do Contador para Alíquotas e Insumos**
+   - Módulo 6: Inteligência Artificial a seu favor: Como Não Depender do Contador para Alíquotas e Insumos
+   - **Módulo 7: Preparando sua construtora para o IBS e CBS (Reforma Tributária e Período de Convivência 2026-2032)**
 
 4. **PARTE III: Manual do Administrador da Plataforma (Área Restrita Master)**
    - 4.1 Torre de Controle Global (God Mode)
@@ -68,8 +69,10 @@ DOCUMENT_CONTENT = r"""# GADAP Hub • Enterprise Construction ERP
    - Retenção Técnica Contratual (Lei 8.212 / IN RFB)
    - Regra Territorial do ISS na Construção Civil (LC 116/2003, Art. 3º, III)
    - Chave de Acesso Nacional da NFS-e (50 Dígitos Módulo 11)
+   - Reforma Tributária: Não-Cumulatividade Plena do IVA Dual & Redutor de 40% (EC 132/2023 & PLP 68/2024)
+   - Bypass Fiscal MEI / SIMEI (LC 123/2006 & Art. 106 PLP 68/2024)
 
-6. **🎯 MVP CONCLUÍDO**
+6. **🎯 MVP CONCLUÍDO & CORE SELADO PARA O FUTURO**
 
 ---
 
@@ -170,6 +173,12 @@ Cada construtora cliente possui seu ambiente totalmente isolado. No nível de ba
 - **OCR Preditivo Multimodal (Gemini 2.5 Flash):** Digitalização e leitura em segundos de comprovantes de compras de materiais (cimento, aço, tubos, ferragens). A IA extrai o CNPJ do fornecedor, os dados da fatura e discrimina cada insumo diretamente para o Contas a Pagar.
 - **Governança Human-in-the-Loop:** A IA extrai e pré-preenche com 99% de acurácia, mas a responsabilidade contábil é protegida por uma barreira de revisão humana compulsória antes de qualquer lançamento financeiro.
 
+### MÓDULO 7: Preparando sua construtora para o IBS e CBS (Reforma Tributária & Período de Convivência)
+- **Fim do Efeito Cascata & Não-Cumulatividade Plena:** No modelo IVA Dual (CBS Federal + IBS Estadual/Municipal), cada nota de compra de insumos (cimento, areia, aço, brita, blocos, locações) gera crédito financeiro automático que abate diretamente o imposto devido na medição de serviços.
+- **Redutor Setorial de 40% da Construção Civil:** Conforme a EC nº 132/2023 e o PLP 68/2024, obras de engenharia e incorporações contam com desconto constitucional de 40% na alíquota padrão, resultando em uma alíquota efetiva estimada de ~16,78% sobre o faturamento.
+- **Período de Convivência Transparente (2026 a 2032):** O GADAP Hub apura ambos os regimes (Legado e IVA Dual) simultaneamente e em tempo real. O canteiro de obras e o financeiro operam sem risco de descontinuidade ou erros fiscais.
+- **Bypass Fiscal para MEI e Engenheiros Solo (LC 123/2006 & Art. 106 do PLP 68/2024):** Arquitetos e engenheiros autônomos optantes pelo SIMEI contam com desoneração total de retenções na fonte de INSS (11%), IRRF e CSRF, além de isenção de débitos de IBS/CBS. A NFS-e sai limpa, pagando apenas a guia única mensal fixa do DAS-MEI (R$ 75,00).
+
 ---
 
 # PARTE III: MANUAL DO ADMINISTRADOR (ÁREA RESTRITA MASTER)
@@ -203,12 +212,19 @@ $$Valor\ Líquido = Valor\ Bruto\ Medido - Valor\ Retenção$$
 $$\text{Chave} = \text{cMun}(7) + \text{tpInsc}(1) + \text{Doc}(14) + \text{Série}(5) + \text{nDPS}(15) + \text{cSeg}(7) + \mathbf{DV}(1)$$
 Onde o Dígito Verificador ($\mathbf{DV}$) é calculado pelo algoritmo de Módulo 11 com pesos de 2 a 9.
 
+### 5. Reforma Tributária: Não-Cumulatividade Plena do IVA Dual & Redutor de 40% (EC 132/2023 & PLP 68/2024)
+$$Alíquota\ Efetiva\ IBS/CBS = Alíquota\ Padrão \times (1 - 0.40) \approx 27.97\% \times 0.60 = 16.78\%$$
+$$Débito\ Líquido\ a\ Pagar = Débito\ Bruto - Créditos\ Financeiros\ de\ Materiais\ (CBS + IBS)$$
+
+### 6. Bypass Fiscal MEI (SIMEI - LC 123/2006 & Art. 106 do PLP 68/2024)
+$$Retenções\ na\ Fonte = R\$\ 0,00 \quad | \quad Débito\ IBS/CBS = R\$\ 0,00 \quad | \quad DAS-MEI = Guia\ Fixa\ Mensal$$
+
 ---
 
-# 🎯 MVP CONCLUÍDO
+# 🎯 MVP CONCLUÍDO & CORE SELADO
 
-> ### 🎯 DECLARAÇÃO FINAL DE CONCLUSÃO DO MVP OPERACIONAL
-> **Fase 10 100% Concluída! O GADAP Hub atingiu sua maturidade operacional da V0. Estamos prontos para embarcar os Clientes Piloto em produção e escalar para a Fase 11 (Billing SaaS)!**
+> ### 🎯 DECLARAÇÃO OFICIAL DE PRÓXIMO PASSO
+> **O core do negócio está selado para o futuro! Toda a esteira operacional, orçamentos BDI, medições físico-financeiras, governança multi-tenant, motor de IA e conformidade com o IVA Dual (2026-2032) estão 100% consolidadas. A próxima etapa é a FASE 11: BILLING E MONETIZAÇÃO SAAS!**
 """
 
 def generate_markdown(output_path: str):
@@ -370,11 +386,9 @@ def generate_pdf_reportlab(pdf_path: str):
     story.append(Paragraph("<b>Módulo 1: Navegando no Dashboard</b> — Acompanhe Contrato Global, Saldo Residual e Curva Físico-Financeira em tempo real, sem planilhas paralelas.", body_style))
     story.append(Paragraph("<b>Módulo 2: Ciclo de Vida da Obra</b> — Rastreabilidade completa com CNO, ART e boletins de medição numerados sequencialmente e auditáveis.", body_style))
     story.append(Paragraph("<b>Módulo 3: Faturamento Matemático e Compliance</b> — Trava de 100% que impede supermedições e segregação territorial de retenção do ISS.", body_style))
-    story.append(Paragraph("<b>Módulo 6: Inteligência Artificial a seu favor (Autonomia Fiscal & Radar Tributário)</b> — "
-                           "Como não depender do contador para saber de alíquotas novas: o robô monitora o IBPT e a Receita Federal, "
-                           "notifica decretos de ISS e extrai notas fiscais de insumos (cimento, aço, tubos) via OCR preditivo (Gemini 2.5 Flash) "
-                           "com revisão humana compulsória para o Contas a Pagar.", body_style))
-    story.append(Spacer(1, 8))
+    story.append(Paragraph("<b>Módulo 6: Inteligência Artificial a seu favor</b> — Autonomia Fiscal & Radar Tributário: monitoramento do IBPT/NFS-e e OCR preditivo multimodal (Gemini 2.5 Flash) de notas de compras com revisão humana compulsória.", body_style))
+    story.append(Paragraph("<b>Módulo 7: Preparando sua construtora para o IBS e CBS</b> — Fim do efeito cascata com Não-Cumulatividade Plena (créditos automáticos de insumos), redutor constitucional de 40% na Construção Civil, período de convivência transparente (2026-2032) e Bypass Fiscal automático para MEIs/Engenheiros Solo (LC 123/2006 & PLP 68/2024).", body_style))
+    story.append(Spacer(1, 6))
 
     # PARTE III: GLOSSÁRIO E REGRAS FISCAIS
     story.append(Paragraph("PARTE III: REGRAS DETERMINÍSTICAS E TRIBUTÁRIAS", h1_style))
@@ -401,25 +415,34 @@ def generate_pdf_reportlab(pdf_path: str):
             Paragraph("<b>BDI Analítico TCU</b>", body_style),
             Paragraph("Acórdão 2622/2013 TCU: Aplicação das taxas de Administração Central (AC), Seguros (S), Riscos (R), Garantias (G), Despesas Financeiras (DF), Lucro (L) e Tributos (I).", body_style)
         ],
+        [
+            Paragraph("<b>Reforma Tributária (IBS/CBS)</b>", body_style),
+            Paragraph("<b>EC nº 132/2023 & PLP 68/2024:</b> IVA Dual com Não-Cumulatividade Plena e Redutor de 40% na Construção Civil. Apuração simultânea e créditos automáticos de insumos.", body_style)
+        ],
+        [
+            Paragraph("<b>Bypass Fiscal MEI / SIMEI</b>", body_style),
+            Paragraph("<b>LC 123/2006 & Art. 106 PLP 68/2024:</b> Desoneração integral de retenções na fonte (INSS 11%, IRRF, CSRF) e isenção de débitos de IBS/CBS, com guia fixa no DAS-MEI.", body_style)
+        ],
     ]
     t_trib = Table(tributos_info, colWidths=[130, 390])
     t_trib.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), HexColor("#f1f5f9")),
         ("BOX", (0, 0), (-1, -1), 1, HexColor("#cbd5e1")),
         ("INNERGRID", (0, 0), (-1, -1), 0.5, HexColor("#e2e8f0")),
-        ("TOPPADDING", (0, 0), (-1, -1), 4),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ("TOPPADDING", (0, 0), (-1, -1), 3),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
     ]))
     story.append(t_trib)
-    story.append(Spacer(1, 10))
+    story.append(Spacer(1, 8))
 
-    # BLOCO OFICIAL: 🎯 MVP CONCLUÍDO
-    story.append(Paragraph("🎯 MVP CONCLUÍDO", mvp_title_style))
+    # BLOCO OFICIAL: 🎯 MVP CONCLUÍDO & PRÓXIMA ETAPA: FASE 11
+    story.append(Paragraph("🎯 MVP CONCLUÍDO & CORE SELADO PARA O FUTURO", mvp_title_style))
     mvp_box = [[
         Paragraph(
-            "<b>DECLARAÇÃO FINAL DE CONCLUSÃO DO MVP OPERACIONAL:</b><br/>"
-            "<b>Fase 10 100% Concluída! O GADAP Hub atingiu sua maturidade operacional da V0. "
-            "Estamos prontos para embarcar os Clientes Piloto em produção e escalar para a Fase 11 (Billing SaaS)!</b>",
+            "<b>DECLARAÇÃO OFICIAL DE PRÓXIMO PASSO:</b><br/>"
+            "<b>O core do negócio está selado para o futuro! Toda a esteira operacional, orçamentos BDI, medições "
+            "físico-financeiras, governança multi-tenant, motor de IA e conformidade com o IVA Dual (2026-2032) "
+            "estão 100% consolidadas. A próxima etapa é a FASE 11: BILLING E MONETIZAÇÃO SAAS!</b>",
             body_style,
         )
     ]]
@@ -427,8 +450,8 @@ def generate_pdf_reportlab(pdf_path: str):
     t_mvp.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, -1), HexColor("#ecfdf5")),
         ("BOX", (0, 0), (-1, -1), 1.5, HexColor("#059669")),
-        ("TOPPADDING", (0, 0), (-1, -1), 8),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+        ("TOPPADDING", (0, 0), (-1, -1), 6),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
         ("LEFTPADDING", (0, 0), (-1, -1), 10),
         ("RIGHTPADDING", (0, 0), (-1, -1), 10),
     ]))

@@ -129,6 +129,7 @@ class TaxDualSimulationRequest(BaseModel):
     base_calculo_inss_perc: Decimal = Field(default=Decimal("40.00"), ge=0, le=100, description="Base de cálculo de mão de obra para INSS (padrão 40%)")
     exercicio_ano: int = Field(default=2026, ge=2026, le=2040, description="Ano de exercício para aplicação das regras de transição da Reforma")
     optante_simples_nacional: bool = Field(default=False, description="Indica se a construtora é optante pelo Simples Nacional")
+    tax_regime: Optional[str] = Field(default=None, description="Regime tributário: MEI, simples_nacional, lucro_presumido, lucro_real")
     iss_aliquota: Optional[Decimal] = Field(default=Decimal("5.00"), ge=0, le=10, description="Alíquota municipal do ISS (padrão 5%)")
     creditos_materiais_cbs: Decimal = Field(default=Decimal("0.00"), ge=0, description="Créditos financeiros de CBS gerados pela compra de materiais")
     creditos_materiais_ibs: Decimal = Field(default=Decimal("0.00"), ge=0, description="Créditos financeiros de IBS gerados pela compra de materiais")

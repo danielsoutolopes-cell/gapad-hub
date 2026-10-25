@@ -24,8 +24,15 @@ import {
   Calendar,
   Check,
   Package,
+  Zap,
 } from 'lucide-react';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
+import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+  TooltipProvider,
+} from '@/components/ui/tooltip';
 
 interface TaxCreditItem {
   id: string;
@@ -44,8 +51,12 @@ interface TaxCreditItem {
 interface DualSimulationResponse {
   faturamento_bruto: number;
   exercicio_ano: number;
+  tax_regime?: string;
+  bypass_fiscal_ativo?: boolean;
   modelo_legado: {
     regime: string;
+    bypass_fiscal_ativo?: boolean;
+    das_simei_mensal_estimado?: number;
     base_calculo_bruta: number;
     deducoes_materiais: number;
     base_calculo_iss: number;
@@ -80,6 +91,7 @@ interface DualSimulationResponse {
   };
   modelo_iva_dual: {
     exercicio_ano: number;
+    bypass_fiscal_ativo?: boolean;
     periodo_teste_2026: boolean;
     redutor_construcao_civil_ativo: boolean;
     percentual_redutor_construcao: number;
@@ -119,7 +131,7 @@ interface DualSimulationResponse {
     credito_tributario_materiais_aproveitado: number;
     diferenca_nominal: number;
     variacao_percentual_carga: number;
-    diagnostico_impacto: 'ECONOMIA_TRIBUTARIA' | 'ACRESCIMO_CARGA' | 'NEUTRO';
+    diagnostico_impacto: 'ECONOMIA_TRIBUTARIA' | 'ACRESCIMO_CARGA' | 'NEUTRO' | 'ISENTO_MEI_BYPASS';
     parecer_tecnico: string;
   };
 }
@@ -134,7 +146,7 @@ export function SimuladorReformaClient({ tenantName }: { tenantName: string }) {
   const [valorMedicao, setValorMedicao] = useState<number>(100000);
   const [deducaoMateriais, setDeducaoMateriais] = useState<number>(20000);
   const [exercicioAno, setExercicioAno] = useState<number>(2026);
-  const [optanteSimples, setOptanteSimples] = useState<boolean>(false);
+  const [taxRegime, setTaxRegime] = useState<'lucro_presumido' | 'simples_nacional' | 'mei'>('lucro_presumido');
   const [aplicarRedutor, setAplicarRedutor] = useState<boolean>(true);
 
   // Estados para Registro de Novo Crédito de Material
@@ -176,7 +188,7 @@ export function SimuladorReformaClient({ tenantName }: { tenantName: string }) {
       valorMedicao,
       deducaoMateriais,
       exercicioAno,
-      optanteSimples,
+      taxRegime,
       aplicarRedutor,
       totalCreditosCbsDisponiveis,
       totalCreditosIbsDisponiveis,
@@ -186,7 +198,8 @@ export function SimuladorReformaClient({ tenantName }: { tenantName: string }) {
         valor_faturamento_bruto: valorMedicao,
         deducoes_materiais: deducaoMateriais,
         exercicio_ano: exercicioAno,
-        optante_simples_nacional: optanteSimples,
+        optante_simples_nacional: taxRegime === 'simples_nacional',
+        tax_regime: taxRegime === 'mei' ? 'MEI' : (taxRegime === 'simples_nacional' ? 'Simples Nacional' : 'Lucro Presumido'),
         iss_aliquota: 5.0,
         creditos_materiais_cbs: totalCreditosCbsDisponiveis,
         creditos_materiais_ibs: totalCreditosIbsDisponiveis,
@@ -239,111 +252,224 @@ export function SimuladorReformaClient({ tenantName }: { tenantName: string }) {
   const legado = simData?.modelo_legado;
   const iva = simData?.modelo_iva_dual;
 
+  const isMei = simData?.bypass_fiscal_ativo || comp?.diagnostico_impacto === 'ISENTO_MEI_BYPASS' || taxRegime === 'mei';
   const isEconomia = comp?.diagnostico_impacto === 'ECONOMIA_TRIBUTARIA';
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-      {/* ---------------------------------------------------------------------- */}
-      {/* CABEÇALHO DO SIMULADOR DA REFORMA TRIBUTÁRIA */}
-      {/* ---------------------------------------------------------------------- */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-6 print:border-b-2 print:border-slate-300 print:pb-4">
-        <div>
-          <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-400 border border-emerald-500/20">
-              <Scale className="w-5 h-5" />
-            </div>
-            <div>
-              <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight flex items-center gap-2 print:text-slate-950">
-                Simulador da Reforma Tributária & IVA Dual
-              </h1>
-              <p className="text-xs sm:text-sm text-slate-400 mt-0.5 print:text-slate-600">
-                Análise comparativa determinística do impacto na margem de lucro de medições de obras (EC nº 132/2023 & PLP 68/2024).
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2.5 print:hidden">
-          <button
-            onClick={() => refetchSim()}
-            disabled={fetchingSim}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold text-slate-300 bg-slate-900/80 hover:bg-slate-800 border border-slate-700/60 transition-all hover:scale-[1.02] disabled:opacity-50"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${fetchingSim ? 'animate-spin text-emerald-400' : ''}`} />
-            Recalcular
-          </button>
-        </div>
-      </div>
-
-      {/* ---------------------------------------------------------------------- */}
-      {/* PAINEL DE CONTROLES INTERATIVOS DE SIMULAÇÃO */}
-      {/* ---------------------------------------------------------------------- */}
-      <div className="bg-slate-900/60 backdrop-blur-sm border border-slate-800/80 rounded-xl p-6 shadow-sm print:border-slate-300 print:bg-white">
-        <h2 className="text-sm font-bold uppercase tracking-wider text-slate-300 mb-4 flex items-center gap-2 print:text-slate-900">
-          <Building className="w-4 h-4 text-emerald-400" /> Parâmetros da Medição & Cenário Fiscal
-        </h2>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-          {/* Valor Bruto da Medição */}
+    <TooltipProvider delayDuration={150}>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+        {/* ---------------------------------------------------------------------- */}
+        {/* CABEÇALHO DO SIMULADOR DA REFORMA TRIBUTÁRIA */}
+        {/* ---------------------------------------------------------------------- */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-6 print:border-b-2 print:border-slate-300 print:pb-4">
           <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-              Valor Bruto da Medição (R$)
-            </label>
-            <div className="relative">
-              <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-xs text-slate-500">R$</span>
-              <input
-                type="number"
-                min="1000"
-                step="1000"
-                value={valorMedicao}
-                onChange={(e) => setValorMedicao(Number(e.target.value) || 0)}
-                className="w-full pl-9 pr-3 py-2 bg-slate-950/80 border border-slate-700/70 rounded-lg text-sm font-bold text-white focus:outline-none focus:border-emerald-500"
-              />
+            <div className="flex items-center gap-2.5">
+              <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-400 border border-emerald-500/20">
+                <Scale className="w-5 h-5" />
+              </div>
+              <div>
+                <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight flex items-center gap-2 print:text-slate-950">
+                  Simulador da Reforma Tributária & IVA Dual
+                </h1>
+                <p className="text-xs sm:text-sm text-slate-400 mt-0.5 print:text-slate-600">
+                  Análise comparativa determinística do impacto na margem de lucro de medições de obras (EC nº 132/2023 & PLP 68/2024).
+                </p>
+              </div>
             </div>
           </div>
 
-          {/* Dedução de Materiais (Legado) */}
-          <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-              Dedução de Materiais no ISS Legado (R$)
-            </label>
-            <div className="relative">
-              <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-xs text-slate-500">R$</span>
-              <input
-                type="number"
-                min="0"
-                step="1000"
-                value={deducaoMateriais}
-                onChange={(e) => setDeducaoMateriais(Number(e.target.value) || 0)}
-                className="w-full pl-9 pr-3 py-2 bg-slate-950/80 border border-slate-700/70 rounded-lg text-sm font-bold text-white focus:outline-none focus:border-emerald-500"
-              />
-            </div>
-            <span className="text-[10px] text-slate-500 mt-1 block">Abatimento previsto no DL 406/1968</span>
-          </div>
+          <div className="flex flex-wrap items-center gap-2.5 print:hidden">
+            {/* Tooltip de Ajuda Contextual: Tranquilidade e Convivência Automática */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-gradient-to-r from-emerald-500/15 to-teal-500/15 hover:from-emerald-500/25 hover:to-teal-500/25 text-emerald-300 border border-emerald-500/30 text-xs font-semibold cursor-help transition-all shadow-sm shadow-emerald-500/10">
+                  <ShieldCheck className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                  <span>Convivência 2026-2032: Operação Automática</span>
+                  <HelpCircle className="w-3.5 h-3.5 text-emerald-400/80 flex-shrink-0" />
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" align="end" className="max-w-md p-4 bg-slate-900 border-emerald-500/40 text-slate-200">
+                <div className="space-y-2">
+                  <p className="font-bold text-emerald-300 flex items-center gap-1.5 text-xs">
+                    <Sparkles className="w-4 h-4 text-emerald-400" />
+                    Tranquilidade Fiscal Total no Período de Convivência
+                  </p>
+                  <p className="text-[11px] leading-relaxed text-slate-300">
+                    Sua construtora não precisa se preocupar com parametrizações manuais complexas. Durante todo o período de transição (2026 a 2032), o <strong>GADAP Hub calcula e opera automaticamente em ambos os regimes simultaneamente</strong>:
+                  </p>
+                  <ul className="text-[10px] space-y-1 text-slate-300 list-disc list-inside">
+                    <li><strong>Apuração Paralela:</strong> A emissão de NFS-e e o Contas a Receber geram as retenções legadas e projetam o IVA Dual em tempo real;</li>
+                    <li><strong>Créditos Automáticos:</strong> Compras de materiais com destaque de IBS e CBS amortizam diretamente a guia da medição faturada;</li>
+                    <li><strong>Sem Risco de Glosa:</strong> Conformidade assegurada com as regras da EC nº 132/2023 e PLP 68/2024.</li>
+                  </ul>
+                </div>
+              </TooltipContent>
+            </Tooltip>
 
-          {/* Ano do Exercício (Cronograma de Transição) */}
-          <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-              Ano do Exercício (Transição)
-            </label>
-            <select
-              value={exercicioAno}
-              onChange={(e) => setExercicioAno(Number(e.target.value))}
-              className="w-full px-3 py-2 bg-slate-950/80 border border-slate-700/70 rounded-lg text-sm font-bold text-white focus:outline-none focus:border-emerald-500"
+            <button
+              onClick={() => refetchSim()}
+              disabled={fetchingSim}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold text-slate-300 bg-slate-900/80 hover:bg-slate-800 border border-slate-700/60 transition-all hover:scale-[1.02] disabled:opacity-50"
             >
-              <option value={2026}>2026 (Ano Teste: 0.9% CBS + 0.1% IBS)</option>
-              <option value={2027}>2027 (CBS Plena / PIS & COFINS Extintos)</option>
-              <option value={2029}>2029 (90% Legado / 10% IBS)</option>
-              <option value={2030}>2030 (80% Legado / 20% IBS)</option>
-              <option value={2031}>2031 (70% Legado / 30% IBS)</option>
-              <option value={2032}>2032 (60% Legado / 40% IBS)</option>
-              <option value={2033}>2033+ (100% Pleno IVA Dual: IBS + CBS)</option>
-            </select>
-            <span className="text-[10px] text-slate-500 mt-1 block">Conforme cronograma da EC 132/2023</span>
+              <RefreshCw className={`w-3.5 h-3.5 ${fetchingSim ? 'animate-spin text-emerald-400' : ''}`} />
+              Recalcular
+            </button>
+          </div>
+        </div>
+
+        {/* ---------------------------------------------------------------------- */}
+        {/* PAINEL DE CONTROLES INTERATIVOS DE SIMULAÇÃO */}
+        {/* ---------------------------------------------------------------------- */}
+        <div className="bg-slate-900/60 backdrop-blur-sm border border-slate-800/80 rounded-xl p-6 shadow-sm print:border-slate-300 print:bg-white">
+          <h2 className="text-sm font-bold uppercase tracking-wider text-slate-300 mb-4 flex items-center gap-2 print:text-slate-900">
+            <Building className="w-4 h-4 text-emerald-400" /> Parâmetros da Medição &amp; Cenário Fiscal
+          </h2>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+            {/* Regime Tributário da Construtora / Profissional */}
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-xs font-semibold text-slate-300 flex items-center gap-1">
+                  <span>Regime Tributário</span>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="cursor-help text-slate-400 hover:text-emerald-400 inline-flex">
+                        <HelpCircle className="w-3.5 h-3.5" />
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-xs p-3 bg-slate-900 border-slate-700 text-slate-200">
+                      <p className="font-bold text-white mb-1">Enquadramento Tributário</p>
+                      <p className="text-[11px] text-slate-300 leading-relaxed">
+                        Escolha o regime da empresa. O sistema adapta automaticamente as retenções de INSS, IRRF, CSRF e débitos de IVA Dual.
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </label>
+              </div>
+              <select
+                value={taxRegime}
+                onChange={(e) => setTaxRegime(e.target.value as 'lucro_presumido' | 'simples_nacional' | 'mei')}
+                className="w-full px-3 py-2 bg-slate-950/80 border border-slate-700/70 rounded-lg text-sm font-bold text-white focus:outline-none focus:border-emerald-500"
+              >
+                <option value="lucro_presumido">Lucro Presumido / Real (Médias e Grandes)</option>
+                <option value="simples_nacional">Simples Nacional (Anexo IV da Construção)</option>
+                <option value="mei">MEI - Microempreendedor (Bypass Fiscal Ativo)</option>
+              </select>
+              {taxRegime === 'mei' ? (
+                <span className="text-[10px] text-emerald-400 mt-1 flex items-center gap-1 font-semibold">
+                  <Zap className="w-3 h-3" /> Bypass Ativo: Retenções e IBS/CBS desonerados (LC 123/06)
+                </span>
+              ) : (
+                <span className="text-[10px] text-slate-500 mt-1 block">Regime configurado na empresa</span>
+              )}
+            </div>
+
+            {/* Valor Bruto da Medição */}
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-xs font-semibold text-slate-300 flex items-center gap-1">
+                  <span>Valor Bruto da Medição (R$)</span>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="cursor-help text-slate-400 hover:text-emerald-400 inline-flex">
+                        <HelpCircle className="w-3.5 h-3.5" />
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-xs p-3 bg-slate-900 border-slate-700 text-slate-200">
+                      <p className="font-bold text-white mb-1">Base do Faturamento de Serviços</p>
+                      <p className="text-[11px] text-slate-300 leading-relaxed">
+                        Valor homologado no Boletim de Medição físico-financeira que dará origem à emissão da NFS-e.
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </label>
+              </div>
+              <div className="relative">
+                <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-xs text-slate-500">R$</span>
+                <input
+                  type="number"
+                  min="1000"
+                  step="1000"
+                  value={valorMedicao}
+                  onChange={(e) => setValorMedicao(Number(e.target.value) || 0)}
+                  className="w-full pl-9 pr-3 py-2 bg-slate-950/80 border border-slate-700/70 rounded-lg text-sm font-bold text-white focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+            </div>
+
+            {/* Dedução de Materiais (Legado) */}
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-xs font-semibold text-slate-300 flex items-center gap-1">
+                  <span>Dedução de Materiais ISS (R$)</span>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="cursor-help text-slate-400 hover:text-emerald-400 inline-flex">
+                        <HelpCircle className="w-3.5 h-3.5" />
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-xs p-3 bg-slate-900 border-slate-700 text-slate-200">
+                      <p className="font-bold text-white mb-1">Abatimento no ISS (DL 406/1968)</p>
+                      <p className="text-[11px] text-slate-300 leading-relaxed">
+                        Dedução legal de materiais adquiridos e incorporados à obra na base de cálculo do ISS municipal. No IVA Dual, é substituído pelos créditos financeiros amplos.
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </label>
+              </div>
+              <div className="relative">
+                <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-xs text-slate-500">R$</span>
+                <input
+                  type="number"
+                  min="0"
+                  step="1000"
+                  value={deducaoMateriais}
+                  onChange={(e) => setDeducaoMateriais(Number(e.target.value) || 0)}
+                  className="w-full pl-9 pr-3 py-2 bg-slate-950/80 border border-slate-700/70 rounded-lg text-sm font-bold text-white focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+              <span className="text-[10px] text-slate-500 mt-1 block">Abatimento previsto no DL 406/1968</span>
+            </div>
+
+            {/* Ano do Exercício (Cronograma de Transição) */}
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-xs font-semibold text-slate-300 flex items-center gap-1">
+                  <span>Ano do Exercício (Transição)</span>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="cursor-help text-slate-400 hover:text-emerald-400 inline-flex">
+                        <HelpCircle className="w-3.5 h-3.5" />
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-xs p-3 bg-slate-900 border-slate-700 text-slate-200">
+                      <p className="font-bold text-white mb-1">Cronograma Oficial (EC 132/2023)</p>
+                      <p className="text-[11px] text-slate-300 leading-relaxed">
+                        2026 (ano de teste com CBS 0.9% e IBS 0.1%), 2027 (extinção de PIS/COFINS), e 2029-2032 (transição gradual do ISS para o IBS).
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </label>
+              </div>
+              <select
+                value={exercicioAno}
+                onChange={(e) => setExercicioAno(Number(e.target.value))}
+                className="w-full px-3 py-2 bg-slate-950/80 border border-slate-700/70 rounded-lg text-sm font-bold text-white focus:outline-none focus:border-emerald-500"
+              >
+                <option value={2026}>2026 (Ano Teste: 0.9% CBS + 0.1% IBS)</option>
+                <option value={2027}>2027 (CBS Plena / PIS & COFINS Extintos)</option>
+                <option value={2029}>2029 (90% Legado / 10% IBS)</option>
+                <option value={2030}>2030 (80% Legado / 20% IBS)</option>
+                <option value={2031}>2031 (70% Legado / 30% IBS)</option>
+                <option value={2032}>2032 (60% Legado / 40% IBS)</option>
+                <option value={2033}>2033+ (100% Pleno IVA Dual: IBS + CBS)</option>
+              </select>
+              <span className="text-[10px] text-slate-500 mt-1 block">Conforme cronograma da EC 132/2023</span>
+            </div>
           </div>
 
-          {/* Regime e Redutor */}
-          <div className="flex flex-col justify-end space-y-2">
+          {/* Redutor Setorial da Construção */}
+          <div className="mt-4 pt-3 border-t border-slate-800/60 flex items-center justify-between">
             <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-slate-300">
               <input
                 type="checkbox"
@@ -351,106 +477,141 @@ export function SimuladorReformaClient({ tenantName }: { tenantName: string }) {
                 onChange={(e) => setAplicarRedutor(e.target.checked)}
                 className="w-4 h-4 rounded text-emerald-500 focus:ring-emerald-500 bg-slate-950 border-slate-700"
               />
-              <span>Redutor Setorial da Construção (40%)</span>
-            </label>
-
-            <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-slate-400">
-              <input
-                type="checkbox"
-                checked={optanteSimples}
-                onChange={(e) => setOptanteSimples(e.target.checked)}
-                className="w-4 h-4 rounded text-emerald-500 focus:ring-emerald-500 bg-slate-950 border-slate-700"
-              />
-              <span>Optante Simples Nacional (Anexo IV)</span>
+              <span>Aplicar Redutor Setorial da Construção Civil (Desconto de 40% no IVA Dual)</span>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="cursor-help text-slate-400 hover:text-emerald-400 inline-flex">
+                    <HelpCircle className="w-3.5 h-3.5" />
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="max-w-xs p-3 bg-slate-900 border-slate-700 text-slate-200">
+                  <p className="font-bold text-white mb-1">Benefício Setorial PLP 68/2024</p>
+                  <p className="text-[11px] text-slate-300 leading-relaxed">
+                    O setor da construção civil e incorporação conta com redutor constitucional de 40%, reduzindo a alíquota padrão estimada de ~27,97% para uma alíquota efetiva de ~16,78%.
+                  </p>
+                </TooltipContent>
+              </Tooltip>
             </label>
           </div>
         </div>
-      </div>
 
-      {/* ---------------------------------------------------------------------- */}
-      {/* CARD PRINCIPAL DE IMPACTO ECONÔMICO & PARECER */}
-      {/* ---------------------------------------------------------------------- */}
-      {comp && (
-        <div
-          className={`border rounded-xl p-6 shadow-sm transition-all ${
-            isEconomia
-              ? 'bg-emerald-950/20 border-emerald-500/30 text-emerald-200'
-              : 'bg-rose-950/20 border-rose-500/30 text-rose-200'
-          }`}
-        >
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div className="flex items-start gap-3">
-              <div
-                className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${
-                  isEconomia
-                    ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                    : 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
-                }`}
-              >
-                {isEconomia ? <TrendingDown className="w-6 h-6" /> : <TrendingUp className="w-6 h-6" />}
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <span
-                    className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider ${
-                      isEconomia ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300'
-                    }`}
-                  >
-                    {isEconomia ? 'Economia Tributária Projetada' : 'Acréscimo de Carga Fiscal'}
-                  </span>
-                  <span className="text-xs text-slate-400">Exercício {comp.exercicio_analisado}</span>
+        {/* ---------------------------------------------------------------------- */}
+        {/* CARD PRINCIPAL DE IMPACTO ECONÔMICO & PARECER */}
+        {/* ---------------------------------------------------------------------- */}
+        {comp && (
+          <div
+            className={`border rounded-xl p-6 shadow-sm transition-all ${
+              isMei
+                ? 'bg-gradient-to-r from-teal-950/40 via-slate-900 to-emerald-950/40 border-teal-500/40 text-teal-200'
+                : isEconomia
+                ? 'bg-emerald-950/20 border-emerald-500/30 text-emerald-200'
+                : 'bg-rose-950/20 border-rose-500/30 text-rose-200'
+            }`}
+          >
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="flex items-start gap-3">
+                <div
+                  className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${
+                    isMei
+                      ? 'bg-teal-500/20 text-teal-400 border border-teal-500/30'
+                      : isEconomia
+                      ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                      : 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
+                  }`}
+                >
+                  {isMei ? <Zap className="w-6 h-6" /> : isEconomia ? <TrendingDown className="w-6 h-6" /> : <TrendingUp className="w-6 h-6" />}
                 </div>
-                <h3 className="text-2xl sm:text-3xl font-black mt-1 text-white tracking-tight">
-                  {formatCurrency(Math.abs(comp.diferenca_nominal))}
-                  <span className="text-sm font-semibold text-slate-400 ml-2">
-                    ({Math.abs(comp.variacao_percentual_carga).toFixed(1)}% vs Modelo Legado)
-                  </span>
-                </h3>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider ${
+                        isMei
+                          ? 'bg-teal-500/20 text-teal-300'
+                          : isEconomia
+                          ? 'bg-emerald-500/20 text-emerald-300'
+                          : 'bg-rose-500/20 text-rose-300'
+                      }`}
+                    >
+                      {isMei ? 'Bypass Fiscal MEI Ativo (SIMEI)' : isEconomia ? 'Economia Tributária Projetada' : 'Acréscimo de Carga Fiscal'}
+                    </span>
+                    <span className="text-xs text-slate-400">Exercício {comp.exercicio_analisado}</span>
+                  </div>
+                  <h3 className="text-2xl sm:text-3xl font-black mt-1 text-white tracking-tight">
+                    {isMei ? (
+                      <span>R$ 0,00 <span className="text-sm font-semibold text-teal-400 ml-2">(Isenção de Retenções na Fonte e IBS/CBS)</span></span>
+                    ) : (
+                      <>
+                        {formatCurrency(Math.abs(comp.diferenca_nominal))}
+                        <span className="text-sm font-semibold text-slate-400 ml-2">
+                          ({Math.abs(comp.variacao_percentual_carga).toFixed(1)}% vs Modelo Legado)
+                        </span>
+                      </>
+                    )}
+                  </h3>
+                </div>
               </div>
-            </div>
 
-            {/* Destaque da Amortização por Créditos de Materiais */}
-            <div className="bg-slate-900/80 border border-slate-800 p-3.5 rounded-lg text-right flex-shrink-0">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block">
-                Amortização por Não-Cumulatividade
-              </span>
-              <span className="text-lg font-black text-emerald-400">
-                {formatCurrency(comp.credito_tributario_materiais_aproveitado)}
-              </span>
-              <span className="text-[10px] text-slate-500 block">Créditos de materiais abatidos</span>
-            </div>
-          </div>
-
-          <p className="mt-4 text-xs sm:text-sm text-slate-300 leading-relaxed border-t border-slate-800/80 pt-3">
-            <strong>Parecer da Consultoria GADAP:</strong> {comp.parecer_tecnico}
-          </p>
-        </div>
-      )}
-
-      {/* ---------------------------------------------------------------------- */}
-      {/* COMPARATIVO LADO A LADO: REGIME ATUAL VS REGIME IVA DUAL */}
-      {/* ---------------------------------------------------------------------- */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* COLUNA 1: REGIME TRIBUTÁRIO ATUAL (LEGADO) */}
-        <div className="bg-slate-900/60 backdrop-blur-sm border border-slate-800/80 rounded-xl p-6 shadow-sm flex flex-col justify-between print:border-slate-300 print:bg-white">
-          <div>
-            <div className="flex items-center justify-between mb-3 border-b border-slate-800 pb-3">
-              <div>
+              {/* Destaque da Amortização ou do DAS-MEI */}
+              <div className="bg-slate-900/80 border border-slate-800 p-3.5 rounded-lg text-right flex-shrink-0">
                 <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block">
-                  Regime Vigente
+                  {isMei ? 'Recolhimento Fixo Unificado' : 'Amortização por Não-Cumulatividade'}
                 </span>
-                <h2 className="text-lg font-black text-white flex items-center gap-2 print:text-slate-900">
-                  Sistema Tributário Legado
-                </h2>
+                <span className="text-lg font-black text-emerald-400">
+                  {isMei ? 'R$ 75,00 / mês' : formatCurrency(comp.credito_tributario_materiais_aproveitado)}
+                </span>
+                <span className="text-[10px] text-slate-500 block">
+                  {isMei ? 'Guia única DAS-MEI por fora' : 'Créditos de materiais abatidos'}
+                </span>
               </div>
-              <span className="px-2.5 py-1 rounded-md text-xs font-bold bg-slate-800 text-slate-300 border border-slate-700">
-                Cumulativo
-              </span>
             </div>
 
-            <p className="text-xs text-slate-400 mb-4">
-              Apuração com base nas retenções fiscais tradicionais de prestação de serviços de engenharia (LC 116/2003 e Lei 10.833/2003).
+            <p className="mt-4 text-xs sm:text-sm text-slate-300 leading-relaxed border-t border-slate-800/80 pt-3">
+              <strong>Parecer da Consultoria GADAP:</strong> {comp.parecer_tecnico}
             </p>
+          </div>
+        )}
+
+        {/* ---------------------------------------------------------------------- */}
+        {/* COMPARATIVO LADO A LADO: REGIME ATUAL VS REGIME IVA DUAL */}
+        {/* ---------------------------------------------------------------------- */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* COLUNA 1: REGIME TRIBUTÁRIO ATUAL (LEGADO) */}
+          <div className="bg-slate-900/60 backdrop-blur-sm border border-slate-800/80 rounded-xl p-6 shadow-sm flex flex-col justify-between print:border-slate-300 print:bg-white">
+            <div>
+              <div className="flex items-center justify-between mb-3 border-b border-slate-800 pb-3">
+                <div>
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block">
+                    Regime Vigente
+                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <h2 className="text-lg font-black text-white flex items-center gap-2 print:text-slate-900">
+                      Sistema Tributário Legado
+                    </h2>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="cursor-help text-slate-400 hover:text-emerald-400 inline-flex">
+                          <HelpCircle className="w-4 h-4" />
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="max-w-xs p-3 bg-slate-900 border-slate-700 text-slate-200">
+                        <p className="font-bold text-white mb-1">Modelo Tributário Cumulativo</p>
+                        <p className="text-[11px] text-slate-300 leading-relaxed">
+                          Baseado em ISSQN municipal (LC 116/2003), PIS/COFINS e retenção de INSS na fonte (11%). Sem aproveitamento dos tributos pagos em compras de insumos.
+                        </p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+                </div>
+                <span className="px-2.5 py-1 rounded-md text-xs font-bold bg-slate-800 text-slate-300 border border-slate-700">
+                  {isMei ? 'Isenção SIMEI' : 'Cumulativo'}
+                </span>
+              </div>
+
+              <p className="text-xs text-slate-400 mb-4">
+                {isMei
+                  ? 'Bypass Fiscal MEI Ativo: Isenção automática de retenções na fonte (INSS 11%, IRRF, CSRF) conforme LC 123/2006.'
+                  : 'Apuração com base nas retenções fiscais tradicionais de prestação de serviços de engenharia (LC 116/2003 e Lei 10.833/2003).'}
+              </p>
 
             <table className="w-full text-xs text-left border-collapse">
               <thead>
@@ -555,17 +716,34 @@ export function SimuladorReformaClient({ tenantName }: { tenantName: string }) {
                 <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-400 block">
                   Novo Sistema Constitucional
                 </span>
-                <h2 className="text-lg font-black text-white flex items-center gap-2 print:text-slate-900">
-                  Modelo IVA Dual (CBS + IBS)
-                </h2>
+                <div className="flex items-center gap-1.5">
+                  <h2 className="text-lg font-black text-white flex items-center gap-2 print:text-slate-900">
+                    Modelo IVA Dual (CBS + IBS)
+                  </h2>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="cursor-help text-emerald-400 hover:text-emerald-300 inline-flex">
+                        <HelpCircle className="w-4 h-4" />
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-xs p-3 bg-slate-900 border-slate-700 text-slate-200">
+                      <p className="font-bold text-white mb-1">Não-Cumulatividade Plena (EC 132/2023)</p>
+                      <p className="text-[11px] text-slate-300 leading-relaxed">
+                        Tributação moderna de valor agregado. A construtora apropria 100% dos créditos destacados em notas fiscais de cimento, aço, blocos, maquinário e locações para compensar o IBS e a CBS.
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
               </div>
               <span className="px-2.5 py-1 rounded-md text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                Não-Cumulativo Pleno
+                {isMei ? 'Isenção Art. 106' : 'Não-Cumulativo Pleno'}
               </span>
             </div>
 
             <p className="text-xs text-slate-400 mb-4">
-              CBS (Federal) e IBS (Estadual/Municipal) calculados com o redutor setorial de 40% da Construção Civil e abatimento financeiro de insumos.
+              {isMei
+                ? 'Isenção Constitucional (Art. 106 do PLP 68/2024): O MEI não é contribuinte de CBS/IBS, com notas de serviços emitidas sem débitos.'
+                : 'CBS (Federal) e IBS (Estadual/Municipal) calculados com o redutor setorial de 40% da Construção Civil e abatimento financeiro de insumos.'}
             </p>
 
             <table className="w-full text-xs text-left border-collapse">
@@ -809,5 +987,6 @@ export function SimuladorReformaClient({ tenantName }: { tenantName: string }) {
         </div>
       </div>
     </div>
-  );
+  </TooltipProvider>
+);
 }

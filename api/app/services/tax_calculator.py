@@ -2,9 +2,10 @@
 =============================================================================
 GADAP Hub - Motor Oficial de Cálculo Tributário & Reforma Tributária (Fase 12)
 Arquivo: api/app/services/tax_calculator.py
-Normas: Emenda Constitucional nº 132/2023, PLP 68/2024 e LC 116/2003.
+Normas: Emenda Constitucional nº 132/2023, PLP 68/2024, LC 116/2003 e LC 123/2006.
 Período de Convivência: 2026 a 2032 | Vigência Plena: 2033+
 Precisão: Decimal com Arredondamento Bancário (ROUND_HALF_EVEN / IEEE 754)
+Recursos: Apuração Paralela, Não-Cumulatividade Plena e Bypass Fiscal para MEI/EPP
 =============================================================================
 """
 
@@ -52,7 +53,8 @@ class TaxCalculator:
       1. Modelo Tributário Legado (ISS, PIS, COFINS, INSS, IRRF, CSLL)
       2. Modelo IVA Dual (CBS Federal + IBS Subnacional) com Redutor da Construção Civil
       3. Mecanismo de Não-Cumulatividade Plena (Aproveitamento de Créditos Financeiros)
-      4. Demonstrativo Comparativo de Transição (Impacto Econômico)
+      4. Bypass Fiscal para MEI / Engenheiros Solo (Isenção de retenções e recolhimento via DAS-Simei)
+      5. Demonstrativo Comparativo de Transição (Impacto Econômico)
     """
 
     # Parâmetros Oficiais de Referência da Reforma Tributária (PLP 68/2024)
@@ -76,6 +78,7 @@ class TaxCalculator:
         base_calculo_inss_perc: Decimal = Decimal("40.00"),
         exercicio_ano: int = 2026,
         optante_simples_nacional: bool = False,
+        tax_regime: Optional[str] = None,
         iss_aliquota: Optional[Decimal] = None,
         creditos_materiais_cbs: Decimal = Decimal("0.00"),
         creditos_materiais_ibs: Decimal = Decimal("0.00"),
@@ -84,15 +87,148 @@ class TaxCalculator:
         """
         Gera o Demonstrativo Dual completo contendo a apuração legado, a apuração do
         IVA Dual com créditos financeiros, e a análise de impacto da transição.
+        Suporta Bypass Fiscal nativo para MEIs e Engenheiros Solo.
         """
         bruto = max(ZERO, quantize_calc(valor_faturamento_bruto))
         deducao_mat = min(bruto, max(ZERO, quantize_calc(deducoes_materiais_legado)))
         ano = int(exercicio_ano)
 
+        # Normalização do regime tributário
+        regime_raw = (tax_regime or ("simples_nacional" if optante_simples_nacional else "lucro_presumido")).strip().lower().replace(" ", "_")
+        is_mei = (regime_raw == "mei")
+        is_simples = (regime_raw in ("simples_nacional", "simples")) or optante_simples_nacional
+
         # ----------------------------------------------------------------------
-        # 1. APURAÇÃO DO MODELO LEGADO
+        # CASO ESPECIAL: BYPASS FISCAL PARA MEI (Microempreendedor Individual)
         # ----------------------------------------------------------------------
-        # Base de cálculo do ISS: Dedução de materiais legalmente comprovados
+        if is_mei:
+            logger.info("Ativando Bypass Fiscal para empresa enquadrada como MEI (SIMEI).")
+            
+            modelo_legado = {
+                "regime": "MEI (Microempreendedor Individual / SIMEI)",
+                "bypass_fiscal_ativo": True,
+                "fundamentacao_legal": "Art. 18-A e 18-B da Lei Complementar nº 123/2006. Resolução CGSN nº 140/2018.",
+                "base_calculo_bruta": float(bruto),
+                "deducoes_materiais": float(deducao_mat),
+                "base_calculo_iss": 0.0,
+                "iss": {
+                    "aliquota_nominal_perc": 0.0,
+                    "fator_transicao_ano": 0.0,
+                    "valor_devido": 0.0,
+                    "isencao": True,
+                    "detalhe": "Isento de retenção na fonte. ISS recolhido em valor fixo de R$ 5,00/mês na guia única DAS-MEI.",
+                },
+                "pis": {
+                    "aliquota_perc": 0.0,
+                    "valor_devido": 0.0,
+                    "isencao": True,
+                    "detalhe": "Isento conforme regime SIMEI.",
+                },
+                "cofins": {
+                    "aliquota_perc": 0.0,
+                    "valor_devido": 0.0,
+                    "isencao": True,
+                    "detalhe": "Isento conforme regime SIMEI.",
+                },
+                "inss_retencao": {
+                    "base_calculo_mao_de_obra": 0.0,
+                    "aliquota_perc": 0.0,
+                    "valor_devido": 0.0,
+                    "isencao": True,
+                    "detalhe": "Isento de retenção de 11% pelo tomador nos serviços de engenharia/reforma (art. 18-B, § 1º da LC 123/2006).",
+                },
+                "irrf": {
+                    "aliquota_perc": 0.0,
+                    "valor_devido": 0.0,
+                    "isencao": True,
+                    "detalhe": "Isento de retenção na fonte de IRRF.",
+                },
+                "csll": {
+                    "aliquota_perc": 0.0,
+                    "valor_devido": 0.0,
+                    "isencao": True,
+                    "detalhe": "Isento de CSRF.",
+                },
+                "desoneracoes_especiais": {
+                    "icms_st": 0.0,
+                    "difal": 0.0,
+                    "fcp": 0.0,
+                    "status": "DESONERADO_BYPASS",
+                },
+                "das_simei_mensal_estimado": 75.00,
+                "total_tributos_legado": 0.0,
+                "aliquota_efetiva_legado_perc": 0.0,
+            }
+
+            modelo_iva_dual = {
+                "exercicio_ano": ano,
+                "bypass_fiscal_ativo": True,
+                "periodo_teste_2026": False,
+                "redutor_construcao_civil_ativo": False,
+                "percentual_redutor_construcao": 0.0,
+                "cbs": {
+                    "aliquota_padrao_referencia": 8.8,
+                    "aliquota_aplicada_ano": 0.0,
+                    "debito_bruto": 0.0,
+                    "creditos_financeiros_disponiveis": 0.0,
+                    "creditos_abatidos": 0.0,
+                    "saldo_liquido_a_pagar": 0.0,
+                    "saldo_credor_remanescente": 0.0,
+                    "isencao_mei": True,
+                    "fundamentacao": "Art. 106 do PLP 68/2024: MEI não é contribuinte obrigatório de CBS.",
+                },
+                "ibs": {
+                    "aliquota_padrao_referencia": 17.7,
+                    "aliquota_estadual_ref": 12.0,
+                    "aliquota_municipal_ref": 5.7,
+                    "fator_transicao_subnacional": 0.0,
+                    "aliquota_aplicada_ano": 0.0,
+                    "debito_bruto": 0.0,
+                    "creditos_financeiros_disponiveis": 0.0,
+                    "creditos_abatidos": 0.0,
+                    "saldo_liquido_a_pagar": 0.0,
+                    "saldo_credor_remanescente": 0.0,
+                    "isencao_mei": True,
+                    "fundamentacao": "Art. 106 do PLP 68/2024: MEI não é contribuinte obrigatório de IBS.",
+                },
+                "total_iva_dual_bruto": 0.0,
+                "total_creditos_materiais_abatidos": 0.0,
+                "total_iva_dual_liquido_devido": 0.0,
+                "aliquota_efetiva_iva_perc": 0.0,
+            }
+
+            demonstrativo_comparativo = {
+                "exercicio_analisado": ano,
+                "faturamento_bruto_fatura": float(bruto),
+                "total_modelo_legado": 0.0,
+                "aliquota_efetiva_legado_perc": 0.0,
+                "total_modelo_iva_dual_liquido": 0.0,
+                "aliquota_efetiva_iva_dual_perc": 0.0,
+                "credito_tributario_materiais_aproveitado": 0.0,
+                "diferenca_nominal": 0.0,
+                "variacao_percentual_carga": 0.0,
+                "diagnostico_impacto": "ISENTO_MEI_BYPASS",
+                "parecer_tecnico": (
+                    "Bypass Fiscal Ativo: Operador enquadrado como MEI (SIMEI). Isenção total de "
+                    "retenções na fonte de INSS, IRRF, CSRF, PIS, COFINS e ISS. Desonerado de ICMS-ST, DIFAL e FCP. "
+                    "Na Reforma Tributária (art. 106 do PLP 68/2024), o MEI permanece no SIMEI, com notas fiscais "
+                    "de serviços 100% limpas sem débito de IBS/CBS, recolhendo apenas a guia fixa mensal do DAS-MEI (R$ 75,00)."
+                ),
+            }
+
+            return {
+                "faturamento_bruto": float(bruto),
+                "exercicio_ano": ano,
+                "tax_regime": "MEI",
+                "bypass_fiscal_ativo": True,
+                "modelo_legado": modelo_legado,
+                "modelo_iva_dual": modelo_iva_dual,
+                "demonstrativo_comparativo": demonstrativo_comparativo,
+            }
+
+        # ----------------------------------------------------------------------
+        # 1. APURAÇÃO DO MODELO LEGADO (LUCRO PRESUMIDO / REAL / SIMPLES NACIONAL)
+        # ----------------------------------------------------------------------
         base_iss = max(ZERO, bruto - deducao_mat)
         aliq_iss = normalize_tax_rate(iss_aliquota if iss_aliquota is not None else Decimal("5.00"))
         
@@ -114,7 +250,7 @@ class TaxCalculator:
         aliq_irrf = Decimal("0.0150")   # 1.5%
         aliq_csll = Decimal("0.0100")   # 1.0%
 
-        if optante_simples_nacional:
+        if is_simples:
             # No Simples Nacional, os tributos federais e municipais são unificados no DAS
             # Para fins comparativos, a taxa média do Anexo IV da construção civil é ~4.5% a 7.5%
             iss_legado = quantize_currency(bruto * Decimal("0.0250"))
@@ -162,7 +298,8 @@ class TaxCalculator:
         )
 
         modelo_legado = {
-            "regime": "Simples Nacional (Anexo IV)" if optante_simples_nacional else "Lucro Presumido / Real",
+            "regime": "Simples Nacional (Anexo IV)" if is_simples else "Lucro Presumido / Real",
+            "bypass_fiscal_ativo": False,
             "base_calculo_bruta": float(bruto),
             "deducoes_materiais": float(deducao_mat),
             "base_calculo_iss": float(base_iss),
@@ -211,28 +348,23 @@ class TaxCalculator:
         cbs_efetiva_cheia = quantize_calc(cbs_padrao * redutor_fator)
         ibs_efetiva_cheia = quantize_calc(ibs_padrao * redutor_fator)
 
-        # Determinação das alíquotas conforme cronograma legal de transição
         fator_iva_subnacional = ZERO
         cbs_teste_ativa = False
         ibs_teste_ativa = False
 
         if ano == 2026:
-            # Ano Teste: 0.9% CBS e 0.1% IBS
             cbs_aliq_ano = cls.TEST_2026_CBS_RATE
             ibs_aliq_ano = cls.TEST_2026_IBS_RATE
             cbs_teste_ativa = True
             ibs_teste_ativa = True
         elif ano in (2027, 2028):
-            # CBS plena; IBS ainda em teste ou transição inicial
             cbs_aliq_ano = cbs_efetiva_cheia
             ibs_aliq_ano = ZERO
         elif 2029 <= ano <= 2032:
-            # Transição progressiva de 4 anos do IBS (10%, 20%, 30%, 40%)
             fator_iva_subnacional = Decimal(str((ano - 2028) * 0.10))
             cbs_aliq_ano = cbs_efetiva_cheia
             ibs_aliq_ano = quantize_calc(ibs_efetiva_cheia * fator_iva_subnacional)
         else:
-            # 2033+: Vigência Plena do IVA Dual
             fator_iva_subnacional = Decimal("1.0000")
             cbs_aliq_ano = cbs_efetiva_cheia
             ibs_aliq_ano = ibs_efetiva_cheia
@@ -247,7 +379,6 @@ class TaxCalculator:
         cred_cbs_disp = max(ZERO, quantize_currency(creditos_materiais_cbs))
         cred_ibs_disp = max(ZERO, quantize_currency(creditos_materiais_ibs))
 
-        # O crédito financeiro abate o débito gerado até o limite do imposto devido
         cred_cbs_aproveitado = min(cbs_bruta, cred_cbs_disp)
         cred_ibs_aproveitado = min(ibs_bruta, cred_ibs_disp)
 
@@ -269,6 +400,7 @@ class TaxCalculator:
 
         modelo_iva_dual = {
             "exercicio_ano": ano,
+            "bypass_fiscal_ativo": False,
             "periodo_teste_2026": cbs_teste_ativa,
             "redutor_construcao_civil_ativo": aplicar_redutor_construcao,
             "percentual_redutor_construcao": float(cls.CONSTRUCTION_REDUCTION_RATE * Decimal("100.0")),
@@ -302,7 +434,6 @@ class TaxCalculator:
         # ----------------------------------------------------------------------
         # 4. DEMONSTRATIVO COMPARATIVO E IMPACTO DA TRANSIÇÃO
         # ----------------------------------------------------------------------
-        # Comparação da carga efetiva entre o Modelo Legado e o IVA Dual
         diferenca_nominal = total_iva_liquido_devido - total_tributos_legado
         variacao_perc = (
             quantize_calc((diferenca_nominal / total_tributos_legado) * Decimal("100.0"))
@@ -349,6 +480,8 @@ class TaxCalculator:
         return {
             "faturamento_bruto": float(bruto),
             "exercicio_ano": ano,
+            "tax_regime": regime_raw.upper(),
+            "bypass_fiscal_ativo": False,
             "modelo_legado": modelo_legado,
             "modelo_iva_dual": modelo_iva_dual,
             "demonstrativo_comparativo": demonstrativo_comparativo,
