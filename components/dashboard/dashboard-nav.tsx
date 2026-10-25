@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import {
   Building2,
   HardHat,
+  Calculator,
   Users,
   Truck,
   Package,
@@ -27,6 +28,11 @@ export function DashboardNav({ tenantName = 'Empresa Teste' }: DashboardNavProps
       href: '/dashboard/obras',
       label: 'Obras',
       icon: HardHat,
+    },
+    {
+      href: '/dashboard/orcamentos',
+      label: 'Orçamentos',
+      icon: Calculator,
     },
     {
       href: '/dashboard/clientes',
