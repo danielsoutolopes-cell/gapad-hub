@@ -92,10 +92,27 @@ from app.schemas.backoffice import (
     TenantResetResponse,
 )
 
+from app.schemas.intelligence import (
+    LegislationImpactLevel,
+    LegislationCategory,
+    LegislationUpdateBase,
+    LegislationUpdateCreate,
+    LegislationUpdateResponse,
+    LegislationAlertsListResponse,
+    LegislationSyncResponse,
+)
+
 __all__ += [
     "TenantStats",
     "TenantSummaryResponse",
     "BackofficeTenantsListResponse",
     "TenantResetRequest",
     "TenantResetResponse",
+    "LegislationImpactLevel",
+    "LegislationCategory",
+    "LegislationUpdateBase",
+    "LegislationUpdateCreate",
+    "LegislationUpdateResponse",
+    "LegislationAlertsListResponse",
+    "LegislationSyncResponse",
 ]

@@ -15,6 +15,7 @@ from app.api.v1.endpoints.projects import router as projects_router
 from app.api.v1.endpoints.measurements import router as measurements_router
 from app.api.v1.endpoints.backoffice import router as backoffice_router
 from app.api.v1.endpoints.fiscal import router as fiscal_router
+from app.api.v1.endpoints.intelligence import router as intelligence_router
 
 # Configuração de Logs
 logging.basicConfig(
@@ -93,6 +94,11 @@ app.include_router(
     fiscal_router,
     prefix=f"{settings.API_V1_STR}/fiscal",
     tags=["Motor Fiscal & NFS-e (Fase 9)"],
+)
+app.include_router(
+    intelligence_router,
+    prefix=f"{settings.API_V1_STR}/intelligence",
+    tags=["Tax Intelligence & Monitoramento Legal (Fase 10)"],
 )
 
 # Registro de Handler RFC 7807 para Problemas Fiscais e Validações
