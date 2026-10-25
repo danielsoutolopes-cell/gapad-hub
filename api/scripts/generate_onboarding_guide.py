@@ -58,6 +58,7 @@ DOCUMENT_CONTENT = r"""# GADAP Hub • Enterprise Construction ERP
    - Módulo 5: Faturamento Fiscal (NFS-e Padrão Nacional & Transmissão Segura)
    - Módulo 6: Inteligência Artificial a seu favor: Como Não Depender do Contador para Alíquotas e Insumos
    - **Módulo 7: Preparando sua construtora para o IBS e CBS (Reforma Tributária e Período de Convivência 2026-2032)**
+   - **Módulo 8: Pagando Terceirizados sem Burocracia (Modelo Farol, Campos de Atuação & Zero Travas)**
 
 4. **PARTE III: Manual do Administrador da Plataforma (Área Restrita Master)**
    - 4.1 Torre de Controle Global (God Mode)
@@ -179,6 +180,15 @@ Cada construtora cliente possui seu ambiente totalmente isolado. No nível de ba
 - **Período de Convivência Transparente (2026 a 2032):** O GADAP Hub apura ambos os regimes (Legado e IVA Dual) simultaneamente e em tempo real. O canteiro de obras e o financeiro operam sem risco de descontinuidade ou erros fiscais.
 - **Bypass Fiscal para MEI e Engenheiros Solo (LC 123/2006 & Art. 106 do PLP 68/2024):** Arquitetos e engenheiros autônomos optantes pelo SIMEI contam com desoneração total de retenções na fonte de INSS (11%), IRRF e CSRF, além de isenção de débitos de IBS/CBS. A NFS-e sai limpa, pagando apenas a guia única mensal fixa do DAS-MEI (R$ 75,00).
 
+### MÓDULO 8: Pagando Terceirizados sem Burocracia (Modelo Farol, Campos de Atuação & Zero Travas)
+- **Classificação de Subcontratados e Campos de Atuação (`specialties`):** No cadastro do fornecedor (`suppliers`), o parceiro é sinalizado como Subcontratado (`is_subcontractor = true`) e recebe os crachás de especialidades (ex: Elétrica, Hidráulica, Alvenaria, Pintura, Gesso, Climatização). Essa categorização confere visibilidade imediata à engenharia sobre quem responde por cada frente no canteiro.
+- **A Vida Real da Obra: Política Zero Travas (Adiantamentos Rápidos e Sem Bloqueio):** A rotina do canteiro não pode parar à espera de aprovações burocráticas para pagar vales semanais, compras emergenciais de insumos ou diárias combinadas via WhatsApp. O GADAP Hub **nunca bloqueia pagamentos**: através do botão rápido *"Lançar Pagamento"*, o valor e a data são registrados na hora e geram despesa no Contas a Pagar (`financial_entries`) sem exigir medição prévia vinculada.
+- **O Diagnóstico do Farol de Governança Físico-Financeira:** Para que a flexibilidade não resulte em rombos financeiros ou abandono de obra, o sistema monitora em tempo real a proporção entre o **Total Desembolsado** e o **Avanço Físico Medido**:
+  - 🟢 **Farol Verde (Equilibrado):** Pagamentos $\le$ Medição Aprovada. O parceiro já entregou fisicamente mais do que recebeu. Risco financeiro nulo para a construtora.
+  - 🟡 **Farol Amarelo (Atenção):** Pagamentos $>$ Medição, mas desembolso acumulado permanece abaixo de 80% do contrato global. Alerta de adiantamento a ser medido.
+  - 🔴 **Farol Vermelho (Risco Crítico):** Pagamentos $>$ Medição e desembolso acumulado já atingiu $\ge 80\%$ do valor global contratado sem a respectiva entrega. Risco iminente de passivo ou abandono!
+- **Abatimento de Exposição Física via "Registrar Medição":** Ao apontar o boletim de medição física do parceiro (*"Registrar Medição"*), a entrega de serviço cobre o saldo devedor na conta corrente, abate a exposição financeira e retorna o parceiro ao **Farol Verde**.
+
 ---
 
 # PARTE III: MANUAL DO ADMINISTRADOR (ÁREA RESTRITA MASTER)
@@ -219,12 +229,18 @@ $$Débito\ Líquido\ a\ Pagar = Débito\ Bruto - Créditos\ Financeiros\ de\ Mat
 ### 6. Bypass Fiscal MEI (SIMEI - LC 123/2006 & Art. 106 do PLP 68/2024)
 $$Retenções\ na\ Fonte = R\$\ 0,00 \quad | \quad Débito\ IBS/CBS = R\$\ 0,00 \quad | \quad DAS-MEI = Guia\ Fixa\ Mensal$$
 
+### 7. Regra do Farol de Subcontratados (Correlação Físico-Financeira)
+$$\text{FAROL VERDE (Equilibrado)}: Total\ Pago \le Total\ Medido$$
+$$\text{FAROL AMARELO (Atenção)}: Total\ Pago > Total\ Medido \quad \land \quad Total\ Pago < 0.80 \times Contrato\ Global$$
+$$\text{FAROL VERMELHO (Risco Crítico)}: Total\ Pago > Total\ Medido \quad \land \quad Total\ Pago \ge 0.80 \times Contrato\ Global$$
+$$\text{Exposição\ Financeira\ a\ Descoberto} = \max(0, Total\ Pago - Total\ Medido)$$
+
 ---
 
 # 🎯 MVP CONCLUÍDO & CORE SELADO
 
 > ### 🎯 DECLARAÇÃO OFICIAL DE PRÓXIMO PASSO
-> **O core do negócio está selado para o futuro! Toda a esteira operacional, orçamentos BDI, medições físico-financeiras, governança multi-tenant, motor de IA e conformidade com o IVA Dual (2026-2032) estão 100% consolidadas. A próxima etapa é a FASE 11: BILLING E MONETIZAÇÃO SAAS!**
+> **O core do negócio está selado para o futuro! Toda a esteira operacional, orçamentos BDI e Markup, medições físico-financeiras, governança multi-tenant, motor de IA, conformidade com o IVA Dual (2026-2032) e a Gestão de Subcontratos Desburocratizada (Zero Travas & Modelo Farol) estão 100% consolidadas (Fases 1 a 10, 12 e 13 [x] Concluídas). A próxima etapa é a FASE 11: BILLING E MONETIZAÇÃO SAAS!**
 """
 
 def generate_markdown(output_path: str):
@@ -388,6 +404,7 @@ def generate_pdf_reportlab(pdf_path: str):
     story.append(Paragraph("<b>Módulo 3: Faturamento Matemático e Compliance</b> — Trava de 100% que impede supermedições e segregação territorial de retenção do ISS.", body_style))
     story.append(Paragraph("<b>Módulo 6: Inteligência Artificial a seu favor</b> — Autonomia Fiscal & Radar Tributário: monitoramento do IBPT/NFS-e e OCR preditivo multimodal (Gemini 2.5 Flash) de notas de compras com revisão humana compulsória.", body_style))
     story.append(Paragraph("<b>Módulo 7: Preparando sua construtora para o IBS e CBS</b> — Fim do efeito cascata com Não-Cumulatividade Plena (créditos automáticos de insumos), redutor constitucional de 40% na Construção Civil, período de convivência transparente (2026-2032) e Bypass Fiscal automático para MEIs/Engenheiros Solo (LC 123/2006 & PLP 68/2024).", body_style))
+    story.append(Paragraph("<b>Módulo 8: Pagando Terceirizados sem Burocracia</b> — Gestão ágil de parceiros de canteiro: conta corrente sem travas, campos de atuação (especialidades) e Farol de Risco Físico-Financeiro (Verde, Amarelo e Vermelho) com abatimento de saldo via medição física.", body_style))
     story.append(Spacer(1, 6))
 
     # PARTE III: GLOSSÁRIO E REGRAS FISCAIS
@@ -422,6 +439,10 @@ def generate_pdf_reportlab(pdf_path: str):
         [
             Paragraph("<b>Bypass Fiscal MEI / SIMEI</b>", body_style),
             Paragraph("<b>LC 123/2006 & Art. 106 PLP 68/2024:</b> Desoneração integral de retenções na fonte (INSS 11%, IRRF, CSRF) e isenção de débitos de IBS/CBS, com guia fixa no DAS-MEI.", body_style)
+        ],
+        [
+            Paragraph("<b>Modelo Farol (Subcontratos)</b>", body_style),
+            Paragraph("<b>Fase 13 - Governança Físico-Financeira:</b> Verde (Pagamentos &le; Medição), Amarelo (Pagamentos &gt; Medição e &lt; 80% Contrato) e Vermelho (Pagamentos &gt; Medição e &ge; 80% Contrato). Zero Travas em canteiro com abatimento de passivo por medição.", body_style)
         ],
     ]
     t_trib = Table(tributos_info, colWidths=[130, 390])

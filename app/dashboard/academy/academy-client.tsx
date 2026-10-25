@@ -28,6 +28,10 @@ import {
   Scale,
   BrainCircuit,
   Zap,
+  Users,
+  CreditCard,
+  AlertTriangle,
+  Tag,
 } from 'lucide-react';
 import {
   Accordion,
@@ -52,6 +56,7 @@ export function AcademyClient({ isSuperAdmin = false }: AcademyClientProps) {
     modulo3: false,
     modulo6: false,
     modulo7: false,
+    modulo8: false,
   });
 
   const [activeAccordion, setActiveAccordion] = useState<string>('modulo1');
@@ -85,7 +90,14 @@ export function AcademyClient({ isSuperAdmin = false }: AcademyClientProps) {
   };
 
   const resetProgress = () => {
-    const resetState = { modulo1: false, modulo2: false, modulo3: false, modulo6: false, modulo7: false };
+    const resetState = {
+      modulo1: false,
+      modulo2: false,
+      modulo3: false,
+      modulo6: false,
+      modulo7: false,
+      modulo8: false,
+    };
     setCompletedModules(resetState);
     try {
       localStorage.setItem('gadap_academy_progress', JSON.stringify(resetState));
@@ -94,7 +106,7 @@ export function AcademyClient({ isSuperAdmin = false }: AcademyClientProps) {
     }
   };
 
-  const totalModules = 5;
+  const totalModules = 6;
   const completedCount = Object.values(completedModules).filter(Boolean).length;
   const progressPercent = Math.round((completedCount / totalModules) * 100);
 
@@ -982,6 +994,211 @@ export function AcademyClient({ isSuperAdmin = false }: AcademyClientProps) {
               </div>
             </AccordionContent>
           </AccordionItem>
+
+          {/* MÓDULO 8: PAGANDO TERCEIRIZADOS SEM BUROCRACIA (MODELO FAROL & ZERO TRAVAS) */}
+          <AccordionItem value="modulo8">
+            <AccordionTrigger className="hover:bg-slate-900/60 transition-colors">
+              <div className="flex items-start sm:items-center gap-3.5">
+                <div
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleModuleCompletion('modulo8');
+                  }}
+                  title={completedModules.modulo8 ? 'Concluído' : 'Marcar como concluído'}
+                  className={`mt-0.5 sm:mt-0 w-8 h-8 rounded-xl flex items-center justify-center transition-all cursor-pointer flex-shrink-0 ${
+                    completedModules.modulo8
+                      ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40 shadow-sm shadow-amber-500/20'
+                      : 'bg-slate-800/80 text-slate-400 border border-slate-700 hover:border-slate-500'
+                  }`}
+                >
+                  {completedModules.modulo8 ? (
+                    <CheckCircle2 className="w-5 h-5 text-amber-400" />
+                  ) : (
+                    <Circle className="w-5 h-5" />
+                  )}
+                </div>
+
+                <div className="text-left">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1">
+                      <Users className="w-3 h-3 text-amber-400" />
+                      Módulo 8
+                    </span>
+                    {completedModules.modulo8 && (
+                      <span className="text-[10px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-full font-medium">
+                        Concluído
+                      </span>
+                    )}
+                  </div>
+                  <h3 className="text-base font-semibold text-white">
+                    Pagando Terceirizados sem Burocracia (Modelo Farol &amp; Campos de Atuação)
+                  </h3>
+                </div>
+              </div>
+            </AccordionTrigger>
+
+            <AccordionContent>
+              <div className="space-y-6 pt-2">
+                {/* 3 Cartões de Princípios do Módulo 8 */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="p-4 rounded-xl bg-slate-950/70 border border-slate-800 space-y-1.5">
+                    <div className="w-7 h-7 rounded-lg bg-amber-500/10 text-amber-400 flex items-center justify-center mb-1">
+                      <Tag className="w-4 h-4" />
+                    </div>
+                    <h4 className="text-xs font-bold text-white uppercase tracking-wider">
+                      1. Subcontratados &amp; Campos de Atuação
+                    </h4>
+                    <p className="text-xs text-slate-300 leading-relaxed">
+                      No cadastro de fornecedores, sinalize o parceiro como <strong>Subcontratado</strong> (<code className="text-amber-400 font-mono text-[11px]">is_subcontractor = true</code>) e atribua seus <strong>Campos de Atuação</strong> (ex: <em>Elétrica, Hidráulica, Alvenaria, Pintura, Gesso, Climatização</em>). Isso confere visibilidade instantânea no canteiro sobre quais equipes respondem por cada etapa da obra.
+                    </p>
+                  </div>
+
+                  <div className="p-4 rounded-xl bg-slate-950/70 border border-slate-800 space-y-1.5">
+                    <div className="w-7 h-7 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center mb-1">
+                      <CreditCard className="w-4 h-4" />
+                    </div>
+                    <h4 className="text-xs font-bold text-white uppercase tracking-wider">
+                      2. Política Zero Travas (Vida Real da Obra)
+                    </h4>
+                    <p className="text-xs text-slate-300 leading-relaxed">
+                      A rotina do canteiro não pode parar à espera de validações burocráticas para pagar vales semanais, compras de cabos ou diárias combinadas por WhatsApp. O GADAP Hub <strong>nunca bloqueia pagamentos</strong>: com o botão rápido <strong>&quot;Lançar Pagamento&quot;</strong>, o valor é registrado na hora e pode gerar despesa automática no Contas a Pagar sem exigir medição vinculada.
+                    </p>
+                  </div>
+
+                  <div className="p-4 rounded-xl bg-slate-950/70 border border-slate-800 space-y-1.5">
+                    <div className="w-7 h-7 rounded-lg bg-rose-500/10 text-rose-400 flex items-center justify-center mb-1">
+                      <ShieldCheck className="w-4 h-4" />
+                    </div>
+                    <h4 className="text-xs font-bold text-white uppercase tracking-wider">
+                      3. O Modelo Farol de Governança
+                    </h4>
+                    <p className="text-xs text-slate-300 leading-relaxed">
+                      Para evitar prejuízos e abandono de obra, o sistema monitora em tempo real a proporção entre o <strong>Total Desembolsado</strong> e o <strong>Avanço Físico Medido</strong>. A borda do card e o indicador visual mudam de cor para orientar os diretores e engenheiros com clareza cristalina.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Tabela Explicativa do Diagnóstico do Farol */}
+                <div className="p-4 rounded-xl bg-slate-900/80 border border-slate-800 space-y-3">
+                  <h4 className="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+                    <ShieldAlert className="w-4 h-4 text-amber-400" />
+                    Como Interpretar o Farol de Risco Físico-Financeiro:
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+                    <div className="p-3 rounded-xl bg-emerald-950/30 border border-emerald-500/30 space-y-1">
+                      <div className="flex items-center gap-2 text-emerald-400 font-bold text-xs">
+                        <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#10b981]" />
+                        🟢 Farol Verde (Equilibrado)
+                      </div>
+                      <p className="text-[11px] text-slate-300 leading-relaxed">
+                        <strong>Pagamentos &le; Medição Aprovada:</strong> O empreiteiro já executou e comprovou mais serviços do que recebeu. Risco financeiro nulo para a construtora.
+                      </p>
+                    </div>
+
+                    <div className="p-3 rounded-xl bg-amber-950/30 border border-amber-500/30 space-y-1">
+                      <div className="flex items-center gap-2 text-amber-400 font-bold text-xs">
+                        <span className="w-2.5 h-2.5 rounded-full bg-amber-400 shadow-[0_0_8px_#f59e0b]" />
+                        🟡 Farol Amarelo (Atenção)
+                      </div>
+                      <p className="text-[11px] text-slate-300 leading-relaxed">
+                        <strong>Pagamentos &gt; Medição (&lt; 80% do contrato):</strong> Foi concedido adiantamento financeiro sem cobertura física ainda. Alerta o engenheiro a cobrar o avanço da equipe.
+                      </p>
+                    </div>
+
+                    <div className="p-3 rounded-xl bg-rose-950/30 border border-rose-500/40 space-y-1">
+                      <div className="flex items-center gap-2 text-rose-300 font-bold text-xs">
+                        <span className="w-2.5 h-2.5 rounded-full bg-rose-400 animate-pulse shadow-[0_0_10px_#f43f5e]" />
+                        🔴 Farol Vermelho (Risco Crítico)
+                      </div>
+                      <p className="text-[11px] text-slate-300 leading-relaxed">
+                        <strong>Pagamentos &gt; Medição E desembolso &ge; 80% do valor global:</strong> O parceiro recebeu quase a totalidade do contrato sem entregar a medição correspondente. Risco severo de abandono!
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-slate-950/70 border border-slate-800/80 text-xs text-slate-300 flex items-start gap-2.5 mt-2">
+                    <Scale className="w-4 h-4 text-cyan-400 shrink-0 mt-0.5" />
+                    <div>
+                      <strong className="text-cyan-300">Como regularizar o parceiro?</strong> Basta clicar no botão <strong>&quot;Registrar Medição&quot;</strong> na tela da obra. O apontamento do avanço físico abate a exposição financeira e retorna o status imediatamente para o <strong>Farol Verde</strong>.
+                    </div>
+                  </div>
+                </div>
+
+                {/* Checklist Prático do Módulo 8 */}
+                <div className="p-4 rounded-xl bg-slate-900/80 border border-slate-800 space-y-3">
+                  <h4 className="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+                    <CheckSquare className="w-4 h-4 text-amber-400" />
+                    Ações Práticas Recomendadas:
+                  </h4>
+                  <div className="space-y-2 text-xs text-slate-300">
+                    <label className="flex items-center gap-2 cursor-pointer hover:text-white transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={completedModules.modulo8}
+                        onChange={() => toggleModuleCompletion('modulo8')}
+                        className="rounded border-slate-700 text-amber-500 focus:ring-amber-500 bg-slate-950 w-4 h-4"
+                      />
+                      <span>Acesse a listagem de Obras (/dashboard/obras) e clique no botão &quot;Terceirizados&quot; de um canteiro</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer hover:text-white transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={completedModules.modulo8}
+                        onChange={() => toggleModuleCompletion('modulo8')}
+                        className="rounded border-slate-700 text-amber-500 focus:ring-amber-500 bg-slate-950 w-4 h-4"
+                      />
+                      <span>Abra o gerenciador de Especialidades e vincule campos de atuação (ex: Elétrica, Hidráulica) a um fornecedor</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer hover:text-white transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={completedModules.modulo8}
+                        onChange={() => toggleModuleCompletion('modulo8')}
+                        className="rounded border-slate-700 text-amber-500 focus:ring-amber-500 bg-slate-950 w-4 h-4"
+                      />
+                      <span>Lance um adiantamento no botão &quot;Lançar Pagamento&quot; (Zero Travas) e observe a alteração da cor da borda do card</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer hover:text-white transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={completedModules.modulo8}
+                        onChange={() => toggleModuleCompletion('modulo8')}
+                        className="rounded border-slate-700 text-amber-500 focus:ring-amber-500 bg-slate-950 w-4 h-4"
+                      />
+                      <span>Aponte o serviço entregue em &quot;Registrar Medição&quot; para abater o saldo devedor e reequilibrar o Farol</span>
+                    </label>
+                  </div>
+                </div>
+
+                {/* Botões de Ação do Módulo */}
+                <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+                  <div className="flex items-center gap-2">
+                    <Link
+                      href="/dashboard/obras"
+                      className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold bg-gradient-to-r from-amber-400 to-amber-300 hover:brightness-110 text-slate-950 transition-all shadow-md shadow-amber-400/20"
+                    >
+                      <Users className="w-4 h-4" />
+                      Acessar Gestão de Obras &amp; Terceirizados (Modelo Farol)
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </Link>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => toggleModuleCompletion('modulo8')}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                      completedModules.modulo8
+                        ? 'text-amber-400 bg-amber-500/10 border border-amber-500/30'
+                        : 'text-slate-300 bg-slate-800 hover:bg-slate-700 border border-slate-700'
+                    }`}
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    {completedModules.modulo8 ? 'Módulo 8 Concluído' : 'Marcar Módulo 8 como Concluído'}
+                  </button>
+                </div>
+              </div>
+            </AccordionContent>
+          </AccordionItem>
         </Accordion>
       </div>
 
@@ -994,20 +1211,23 @@ export function AcademyClient({ isSuperAdmin = false }: AcademyClientProps) {
             <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
             🎯 MVP CONCLUÍDO &amp; CORE SELADO
           </span>
+          <span className="px-3 py-1 rounded-full text-xs font-extrabold uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/40">
+            Fase 13 Concluída [x]
+          </span>
           <span className="px-3 py-1 rounded-full text-xs font-extrabold uppercase tracking-wider bg-teal-500/20 text-teal-300 border border-teal-500/40">
             Fase 12 Concluída [x]
           </span>
           <span className="px-3 py-1 rounded-full text-xs font-extrabold uppercase tracking-wider bg-cyan-500/20 text-cyan-300 border border-cyan-500/40">
-            IVA Dual &amp; Bypass MEI
+            Modelo Farol &amp; Subcontratos
           </span>
         </div>
 
         <div>
           <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">
-            Fase 10 &amp; Fase 12 Concluídas! O core do negócio está selado para o futuro.
+            Fase 13 Concluída com Sucesso! Gestão de Terceirizados &amp; Modelo Farol Operando no Canteiro.
           </h2>
           <p className="text-sm text-slate-300 leading-relaxed mt-2 max-w-3xl">
-            Toda a esteira operacional do GADAP Hub — orçamentos analíticos com BDI, medições físico-financeiras com retenção técnica, automação de NFS-e no Padrão Nacional, isolamento hermético multi-tenant, OCR preditivo via IA e a preparação completa para o IVA Dual (IBS/CBS e Bypass Fiscal do MEI) — atingiu maturidade plena de produção.
+            Toda a esteira operacional do GADAP Hub — orçamentos analíticos com BDI e Markup rápido, medições com retenção técnica, automação de NFS-e Padrão Nacional, isolamento hermético multi-tenant, OCR preditivo via IA, preparação completa para o IVA Dual (IBS/CBS e Bypass Fiscal MEI) e a <strong>Gestão de Subcontratos Desburocratizada (Zero Travas &amp; Modelo Farol)</strong> — atingiu maturidade plena de produção.
           </p>
         </div>
 
