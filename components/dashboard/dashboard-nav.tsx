@@ -16,6 +16,7 @@ import {
   BookOpen,
   GraduationCap,
   Crown,
+  Sparkles,
 } from 'lucide-react';
 import { logout } from '@/app/actions/auth';
 
@@ -57,6 +58,11 @@ export function DashboardNav({ tenantName = 'Empresa Teste', isSuperAdmin = fals
       href: '/dashboard/servicos',
       label: 'Serviços',
       icon: Wrench,
+    },
+    {
+      href: '/dashboard/inteligencia',
+      label: 'Tax Intelligence',
+      icon: Sparkles,
     },
     {
       href: '/dashboard/academy',
