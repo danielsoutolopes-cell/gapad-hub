@@ -10,12 +10,12 @@ import base64
 import datetime
 import logging
 import random
-from decimal import Decimal
-from typing import Any, Dict, Optional, Tuple
+from decimal import Decimal, ROUND_HALF_EVEN
+from typing import Any, Dict, List, Optional, Tuple
 from uuid import UUID, uuid4
 
 import httpx
-from fastapi import APIRouter, Depends, Header, Request, status
+from fastapi import APIRouter, Depends, Header, Query, Request, status
 
 from app.core.config import settings
 from app.core.deps import get_current_tenant_and_token
@@ -26,9 +26,14 @@ from app.schemas.fiscal import (
     ObraConstrucaoCivilSchema,
     PrestadorFiscalSchema,
     TomadorFiscalSchema,
+    TaxCreditCreate,
+    TaxCreditResponse,
+    TaxDualSimulationRequest,
+    TaxDualSimulationResponse,
 )
 from app.services.evolution_whatsapp import EvolutionWhatsAppClient
 from app.services.nfse_builder import NfseNationalBuilder
+from app.services.tax_calculator import TaxCalculator
 
 logger = logging.getLogger("gadap.fiscal")
 
@@ -559,3 +564,143 @@ async def issue_nfse(
             ),
         },
     )
+
+
+# ------------------------------------------------------------------------------
+# Endpoints de Reforma Tributária & IVA Dual (Fase 12)
+# ------------------------------------------------------------------------------
+@router.post(
+    "/tax-calculator/simulate-dual",
+    response_model=TaxDualSimulationResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Simulação e Demonstrativo Dual: Legado vs Reforma Tributária (IVA Dual)",
+    description=(
+        "Calcula em paralelo a tributação do modelo legado (ISS, PIS, COFINS, INSS, IRRF, CSLL) "
+        "e do IVA Dual (CBS + IBS) para qualquer ano da transição (2026 a 2033+). "
+        "Aplica o redutor de 40% da Construção Civil e abate créditos financeiros de materiais adquiridos (Não-Cumulatividade Plena)."
+    ),
+)
+async def simulate_dual_taxes(
+    payload: TaxDualSimulationRequest,
+) -> TaxDualSimulationResponse:
+    """
+    Executa a simulação determinística em Decimal com arredondamento bancário IEEE 754.
+    """
+    result = TaxCalculator.calculate_dual_demonstrative(
+        valor_faturamento_bruto=payload.valor_faturamento_bruto,
+        deducoes_materiais_legado=payload.deducoes_materiais,
+        base_calculo_inss_perc=payload.base_calculo_inss_perc,
+        exercicio_ano=payload.exercicio_ano,
+        optante_simples_nacional=payload.optante_simples_nacional,
+        iss_aliquota=payload.iss_aliquota,
+        creditos_materiais_cbs=payload.creditos_materiais_cbs,
+        creditos_materiais_ibs=payload.creditos_materiais_ibs,
+        aplicar_redutor_construcao=payload.aplicar_redutor_construcao,
+    )
+
+    return TaxDualSimulationResponse(
+        faturamento_bruto=result["faturamento_bruto"],
+        exercicio_ano=result["exercicio_ano"],
+        modelo_legado=result["modelo_legado"],
+        modelo_iva_dual=result["modelo_iva_dual"],
+        demonstrativo_comparativo=result["demonstrativo_comparativo"],
+    )
+
+
+@router.get(
+    "/tax-credits",
+    response_model=List[TaxCreditResponse],
+    status_code=status.HTTP_200_OK,
+    summary="Listar Créditos Tributários Acumulados por Não-Cumulatividade",
+    description="Retorna os créditos de CBS e IBS originados de aquisições de materiais e insumos da construtora.",
+)
+async def list_tax_credits(
+    authorization: Optional[str] = Header(None),
+    x_tenant_id: Optional[str] = Header(None),
+    status_filter: Optional[str] = Query(None, description="Filtrar por status: disponivel, compensado"),
+) -> List[TaxCreditResponse]:
+    tenant_id = x_tenant_id or "7ffdf475-b337-4282-ae1f-3f8056394334"
+    token = None
+    if authorization and authorization.startswith("Bearer "):
+        token = authorization.split(" ", 1)[1]
+    
+    url = f"{settings.SUPABASE_URL.rstrip('/')}/rest/v1/tax_credits?tenant_id=eq.{tenant_id}&order=created_at.desc"
+    if status_filter:
+        url += f"&status=eq.{status_filter}"
+
+    use_key = settings.get_service_role_key() or settings.get_anon_key()
+    headers = {
+        "apikey": use_key,
+        "Authorization": f"Bearer {token or use_key}",
+    }
+
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        resp = await client.get(url, headers=headers)
+        if resp.status_code == 200:
+            return resp.json()
+        logger.warning("Falha ao buscar tax_credits: %s", resp.text)
+        return []
+
+
+@router.post(
+    "/tax-credits",
+    response_model=TaxCreditResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Registrar Crédito Tributário de Insumo/Material (Não-Cumulatividade Plena)",
+    description="Registra os créditos de CBS e IBS destacados em notas fiscais de compra para abatimento de medições.",
+)
+async def create_tax_credit(
+    payload: TaxCreditCreate,
+    authorization: Optional[str] = Header(None),
+    x_tenant_id: Optional[str] = Header(None),
+) -> TaxCreditResponse:
+    tenant_id = x_tenant_id or "7ffdf475-b337-4282-ae1f-3f8056394334"
+    token = None
+    if authorization and authorization.startswith("Bearer "):
+        token = authorization.split(" ", 1)[1]
+    
+    # Cálculo determinístico dos créditos de CBS e IBS
+    cbs_rate = payload.cbs_credit_rate or Decimal("0.0880")
+    ibs_rate = payload.ibs_credit_rate or Decimal("0.1770")
+    
+    cbs_amount = (payload.material_gross_amount * cbs_rate).quantize(Decimal("0.01"), rounding=ROUND_HALF_EVEN)
+    ibs_amount = (payload.material_gross_amount * ibs_rate).quantize(Decimal("0.01"), rounding=ROUND_HALF_EVEN)
+    total_credit = cbs_amount + ibs_amount
+
+    credit_record = {
+        "tenant_id": str(tenant_id),
+        "project_id": str(payload.project_id) if payload.project_id else None,
+        "financial_entry_id": str(payload.financial_entry_id) if payload.financial_entry_id else None,
+        "document_number": payload.document_number,
+        "supplier_name": payload.supplier_name,
+        "supplier_cnpj": payload.supplier_cnpj,
+        "invoice_date": payload.invoice_date or datetime.date.today().isoformat(),
+        "material_gross_amount": float(payload.material_gross_amount),
+        "cbs_credit_rate": float(cbs_rate),
+        "cbs_credit_amount": float(cbs_amount),
+        "ibs_credit_rate": float(ibs_rate),
+        "ibs_credit_amount": float(ibs_amount),
+        "total_credit_amount": float(total_credit),
+        "is_compensated": False,
+        "status": "disponivel",
+        "notes": payload.notes,
+    }
+
+    url = f"{settings.SUPABASE_URL.rstrip('/')}/rest/v1/tax_credits"
+    use_key = settings.get_service_role_key() or settings.get_anon_key()
+    headers = {
+        "apikey": use_key,
+        "Authorization": f"Bearer {token or use_key}",
+        "Content-Type": "application/json",
+        "Prefer": "return=representation",
+    }
+
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        resp = await client.post(url, headers=headers, json=credit_record)
+        if resp.status_code in (200, 201):
+            created = resp.json()[0]
+            return created
+        raise HTTPException(
+            status_code=resp.status_code,
+            detail=f"Falha ao registrar crédito tributário: {resp.text}",
+        )

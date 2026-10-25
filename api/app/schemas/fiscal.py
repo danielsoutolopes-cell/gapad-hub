@@ -118,3 +118,59 @@ class IssueNfseResponse(BaseModel):
     whatsapp_dispatched: bool
     whatsapp_status: Optional[Dict[str, Any]] = None
     details: Dict[str, Any]
+
+
+# ------------------------------------------------------------------------------
+# Schemas para Reforma Tributária & IVA Dual (Fase 12)
+# ------------------------------------------------------------------------------
+class TaxDualSimulationRequest(BaseModel):
+    valor_faturamento_bruto: Decimal = Field(..., gt=0, description="Valor bruto da medição ou fatura a simular")
+    deducoes_materiais: Decimal = Field(default=Decimal("0.00"), ge=0, description="Dedução de materiais legalmente permitida no ISS legado")
+    base_calculo_inss_perc: Decimal = Field(default=Decimal("40.00"), ge=0, le=100, description="Base de cálculo de mão de obra para INSS (padrão 40%)")
+    exercicio_ano: int = Field(default=2026, ge=2026, le=2040, description="Ano de exercício para aplicação das regras de transição da Reforma")
+    optante_simples_nacional: bool = Field(default=False, description="Indica se a construtora é optante pelo Simples Nacional")
+    iss_aliquota: Optional[Decimal] = Field(default=Decimal("5.00"), ge=0, le=10, description="Alíquota municipal do ISS (padrão 5%)")
+    creditos_materiais_cbs: Decimal = Field(default=Decimal("0.00"), ge=0, description="Créditos financeiros de CBS gerados pela compra de materiais")
+    creditos_materiais_ibs: Decimal = Field(default=Decimal("0.00"), ge=0, description="Créditos financeiros de IBS gerados pela compra de materiais")
+    aplicar_redutor_construcao: bool = Field(default=True, description="Aplica o redutor setorial de 40% da Construção Civil (EC 132/2023)")
+
+
+class TaxDualSimulationResponse(BaseModel):
+    faturamento_bruto: float
+    exercicio_ano: int
+    modelo_legado: Dict[str, Any]
+    modelo_iva_dual: Dict[str, Any]
+    demonstrativo_comparativo: Dict[str, Any]
+
+
+class TaxCreditCreate(BaseModel):
+    project_id: Optional[UUID] = None
+    financial_entry_id: Optional[UUID] = None
+    document_number: Optional[str] = None
+    supplier_name: str = Field(..., min_length=2, max_length=255)
+    supplier_cnpj: str = Field(..., min_length=14, max_length=18)
+    invoice_date: Optional[str] = None
+    material_gross_amount: Decimal = Field(..., gt=0, description="Valor bruto dos materiais adquiridos com NFe")
+    cbs_credit_rate: Optional[Decimal] = Field(default=Decimal("0.0880"), description="Alíquota de crédito da CBS")
+    ibs_credit_rate: Optional[Decimal] = Field(default=Decimal("0.1770"), description="Alíquota de crédito do IBS")
+    notes: Optional[str] = None
+
+
+class TaxCreditResponse(BaseModel):
+    id: UUID
+    tenant_id: UUID
+    project_id: Optional[UUID] = None
+    financial_entry_id: Optional[UUID] = None
+    document_number: Optional[str] = None
+    supplier_name: str
+    supplier_cnpj: str
+    invoice_date: str
+    material_gross_amount: Decimal
+    cbs_credit_rate: Decimal
+    cbs_credit_amount: Decimal
+    ibs_credit_rate: Decimal
+    ibs_credit_amount: Decimal
+    total_credit_amount: Decimal
+    is_compensated: bool
+    status: str
+    created_at: str
