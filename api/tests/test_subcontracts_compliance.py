@@ -1,0 +1,104 @@
+from decimal import Decimal
+from app.services.subcontract_compliance_service import (
+    SubcontractComplianceService,
+    ComplianceBlockedException,
+)
+
+
+def test_compliance_audit_missing_documents():
+    """Valida bloqueio quando faltam documentos obrigatórios."""
+    documents = [
+        {"document_type": "GFIP", "is_verified": True},
+    ]
+    result = SubcontractComplianceService.audit_measurement_compliance(documents)
+    assert result["is_compliant"] is False
+    assert "CND" in result["missing_documents"]
+    assert "FGTS" in result["missing_documents"]
+
+
+def test_compliance_audit_unverified_documents():
+    """Valida bloqueio quando os documentos existem mas não foram auditados."""
+    documents = [
+        {"document_type": "GFIP", "is_verified": True},
+        {"document_type": "CND", "is_verified": False},
+        {"document_type": "FGTS", "is_verified": True},
+    ]
+    result = SubcontractComplianceService.audit_measurement_compliance(documents)
+    assert result["is_compliant"] is False
+    assert "CND" in result["unverified_documents"]
+
+
+def test_compliance_audit_approved():
+    """Valida aprovação quando GFIP, CND e FGTS estão todos verificados."""
+    documents = [
+        {"document_type": "GFIP", "is_verified": True},
+        {"document_type": "CND", "is_verified": True},
+        {"document_type": "FGTS", "is_verified": True},
+    ]
+    result = SubcontractComplianceService.audit_measurement_compliance(documents)
+    assert result["is_compliant"] is True
+    assert len(result["missing_documents"]) == 0
+    assert len(result["unverified_documents"]) == 0
+
+
+def test_tax_and_technical_withholdings_regular_supplier():
+    """Valida cálculo de retenções para fornecedor convencional (INSS 11% + ISS 5% + Retenção 5%)."""
+    res = SubcontractComplianceService.calculate_tax_and_technical_withholdings(
+        measured_value=Decimal("20000.0000"),
+        technical_retention_percentage=Decimal("0.0500"), # 5%
+        supplier_tax_regime="LUCRO_PRESUMIDO",
+        custom_iss_rate=Decimal("0.0500"), # 5%
+        custom_inss_rate=Decimal("0.1100"), # 11%
+    )
+    assert res["measured_value"] == Decimal("20000.0000")
+    assert res["technical_retention_amount"] == Decimal("1000.0000") # 5%
+    assert res["inss_retention_amount"] == Decimal("2200.0000") # 11%
+    assert res["iss_retention_amount"] == Decimal("1000.0000") # 5%
+    assert res["tax_withholding_amount"] == Decimal("3200.0000")
+    # Líquido = 20000 - 1000 - 2200 - 1000 = 15800
+    assert res["net_payable_amount"] == Decimal("15800.0000")
+
+
+def test_tax_and_technical_withholdings_mei_supplier():
+    """Valida que terceirizado MEI recebe Bypass Fiscal de INSS e ISS na fonte."""
+    res = SubcontractComplianceService.calculate_tax_and_technical_withholdings(
+        measured_value=Decimal("20000.0000"),
+        technical_retention_percentage=Decimal("0.0500"), # 5%
+        supplier_tax_regime="MEI",
+    )
+    assert res["measured_value"] == Decimal("20000.0000")
+    assert res["technical_retention_amount"] == Decimal("1000.0000") # 5% garantia
+    assert res["inss_retention_amount"] == Decimal("0.0000") # Isento no MEI
+    assert res["iss_retention_amount"] == Decimal("0.0000") # Isento no MEI
+    assert res["tax_withholding_amount"] == Decimal("0.0000")
+    # Líquido = 20000 - 1000 = 19000
+    assert res["net_payable_amount"] == Decimal("19000.0000")
+
+
+def test_enforce_compliance_blocks_when_not_compliant():
+    """Testa que a trava financeira bloqueia a geração do Contas a Pagar."""
+    subcontract = {
+        "tenant_id": "0192e2b3-57a4-7935-86b2-0941ba9e7428",
+        "supplier_id": "0192e2b3-57a4-7935-86b2-0941ba9e7429",
+        "project_id": None,
+        "contract_number": "SUB-001",
+        "technical_retention_percentage": 0.05,
+    }
+    sub_measurement = {
+        "id": "0192e2b3-57a4-7935-86b2-0941ba9e7430",
+        "measured_value": 10000.0,
+        "measurement_number": 1,
+    }
+    # Sem documentos
+    documents = []
+
+    try:
+        SubcontractComplianceService.enforce_compliance_and_prepare_financial_entry(
+            subcontract=subcontract,
+            sub_measurement=sub_measurement,
+            documents=documents,
+        )
+        assert False, "Deveria ter lançado ComplianceBlockedException"
+    except ComplianceBlockedException as exc:
+        assert exc.status_code == 422
+        assert exc.detail["error"] == "COMPLIANCE_LOCK_ACTIVE"
