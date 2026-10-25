@@ -27,6 +27,7 @@ import {
   Database,
   Scale,
   BrainCircuit,
+  Zap,
 } from 'lucide-react';
 import {
   Accordion,
@@ -191,6 +192,37 @@ export function AcademyClient({ isSuperAdmin = false }: AcademyClientProps) {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Banner Expresso para Autônomos, MEI e Arquitetos */}
+      <div className="p-5 sm:p-6 rounded-2xl bg-gradient-to-r from-amber-500/10 via-slate-900 to-slate-900 border border-amber-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-lg shadow-amber-500/5">
+        <div className="flex items-start sm:items-center gap-3.5">
+          <div className="p-3 rounded-xl bg-amber-500/20 text-amber-300 ring-2 ring-amber-500/30">
+            <Zap className="w-6 h-6 text-amber-400" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm sm:text-base font-bold text-white">
+                É Arquiteto Solo, Engenheiro Autônomo ou MEI?
+              </span>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 uppercase tracking-wider">
+                Novo
+              </span>
+            </div>
+            <p className="text-xs text-slate-300 mt-0.5">
+              Acesse o <strong>Onboarding Expresso em 3 Passos</strong>: Orce com margem direta (Markup), crie a obra e fature sem retenções fiscais em menos de 5 minutos.
+            </p>
+          </div>
+        </div>
+
+        <Link
+          href="/dashboard/academy/mei"
+          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs shadow-md shadow-amber-500/20 transition-all self-start sm:self-auto whitespace-nowrap"
+        >
+          <Zap className="w-4 h-4 stroke-[2.5]" />
+          Acessar Guia Expresso
+          <ArrowRight className="w-3.5 h-3.5" />
+        </Link>
       </div>
 
       {/* Accordion Interativo dos 3 Módulos Práticos */}
