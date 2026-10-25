@@ -18,6 +18,7 @@ import {
   Crown,
   Sparkles,
   LayoutDashboard,
+  Scale,
 } from 'lucide-react';
 import { logout } from '@/app/actions/auth';
 
@@ -69,6 +70,11 @@ export function DashboardNav({ tenantName = 'Empresa Teste', isSuperAdmin = fals
       href: '/dashboard/inteligencia',
       label: 'Tax Intelligence',
       icon: Sparkles,
+    },
+    {
+      href: '/dashboard/fiscal/simulador-reforma',
+      label: 'IVA Dual',
+      icon: Scale,
     },
     {
       href: '/dashboard/academy',
