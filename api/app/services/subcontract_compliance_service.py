@@ -1,7 +1,7 @@
 from datetime import date, datetime, timedelta
 from decimal import Decimal, ROUND_HALF_EVEN
 import logging
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional, Set, Tuple
 from uuid import UUID
 from fastapi import HTTPException, status
 from app.services.tax_calculator import TaxCalculator
@@ -34,8 +34,8 @@ class ComplianceBlockedException(HTTPException):
 
 class SubcontractComplianceService:
     """
-    Serviço central de Governança Trabalhista, Trava Financeira e Retenções Fiscais
-    para Terceirizados e Subempreiteiras (Fase 13).
+    Serviço central de Governança Trabalhista, Trava Financeira, Retenções Fiscais
+    e Farol de Risco para Terceirizados e Subempreiteiras (Fase 13).
     """
 
     @classmethod
@@ -165,6 +165,54 @@ class SubcontractComplianceService:
             "iss_retention_amount": iss_retention,
             "tax_withholding_amount": tax_withholding,
             "net_payable_amount": net_payable,
+        }
+
+    @classmethod
+    def calculate_risk_traffic_light(
+        cls,
+        contract_value: Decimal,
+        total_paid: Decimal,
+        total_measured: Decimal,
+    ) -> Dict[str, Any]:
+        """
+        REGRA DO FAROL:
+        Avalia o risco físico-financeiro do subcontrato comparando Desembolsos vs Medição física:
+          - GREEN (Ok): Pagamentos <= Medição.
+          - YELLOW (Atenção): Pagamentos > Medição, mas < 80% do Contrato.
+          - RED (Risco): Pagamentos > Medição E >= 80% do Contrato.
+        """
+        v_contrato = max(Decimal("0.0000"), Decimal(str(contract_value or "0.0000")))
+        p = max(Decimal("0.0000"), Decimal(str(total_paid or "0.0000")))
+        m = max(Decimal("0.0000"), Decimal(str(total_measured or "0.0000")))
+
+        exposure = max(Decimal("0.0000"), p - m)
+        eighty_percent = (v_contrato * Decimal("0.8000")).quantize(FOUR_PLACES, rounding=ROUND_HALF_EVEN)
+
+        if p <= m:
+            status = "GREEN"
+            description = "GREEN (Ok): Pagamentos acumulados cobertos por medições físicas aprovadas."
+        elif p > m and p < eighty_percent:
+            status = "YELLOW"
+            description = (
+                f"YELLOW (Atenção): Desembolsos superam o avanço medido em R$ {exposure:,.2f}, "
+                f"porém ainda abaixo de 80% do valor global do contrato (limite: R$ {eighty_percent:,.2f})."
+            )
+        else:
+            status = "RED"
+            description = (
+                f"RED (Risco Crítico): Pagamentos superam as medições (Exposição: R$ {exposure:,.2f}) "
+                f"E já atingiram ou ultrapassaram 80% do contrato global (Total Pago: R$ {p:,.2f} >= R$ {eighty_percent:,.2f}). "
+                f"Alerta máximo de risco de abandono ou descompasso físico-financeiro!"
+            )
+
+        return {
+            "risk_status": status,
+            "risk_description": description,
+            "total_paid": p,
+            "total_measured": m,
+            "contract_value": v_contrato,
+            "financial_exposure": exposure,
+            "eighty_percent_threshold": eighty_percent,
         }
 
     @classmethod

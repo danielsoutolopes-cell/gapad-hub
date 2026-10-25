@@ -32,8 +32,59 @@ class ComplianceDocType(str, Enum):
     OUTROS = "OUTROS"
 
 
+class TransactionType(str, Enum):
+    PAYMENT = "PAYMENT"
+    MEASUREMENT = "MEASUREMENT"
+
+
+class RiskStatus(str, Enum):
+    GREEN = "GREEN"    # Pagamentos <= Medição (Ok)
+    YELLOW = "YELLOW"  # Pagamentos > Medição, mas < 80% do Contrato (Atenção)
+    RED = "RED"        # Pagamentos > Medição E >= 80% do Contrato (Risco)
+
+
 # ------------------------------------------------------------------------------
-# 1. Schemas de Documentos de Compliance (GFIP, CND, FGTS)
+# 1. Schemas de Especialidades Técnicas (Specialties)
+# ------------------------------------------------------------------------------
+class SpecialtyBase(BaseModel):
+    name: str = Field(
+        ...,
+        min_length=2,
+        max_length=100,
+        description="Nome da especialidade (ex: Elétrica, Hidráulica, Alvenaria, Pintura)",
+        example="Elétrica",
+    )
+    description: Optional[str] = Field(
+        None,
+        max_length=255,
+        description="Descrição detalhada do campo de atuação",
+        example="Instalações de média/baixa tensão e infraestrutura",
+    )
+
+
+class SpecialtyCreate(SpecialtyBase):
+    pass
+
+
+class SpecialtyResponse(SpecialtyBase):
+    id: UUID
+    tenant_id: UUID
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class SupplierSpecialtyLink(BaseModel):
+    specialty_ids: List[UUID] = Field(
+        ...,
+        description="Lista de IDs de especialidades a associar ao fornecedor",
+    )
+
+
+# ------------------------------------------------------------------------------
+# 2. Schemas de Documentos de Compliance (GFIP, CND, FGTS)
 # ------------------------------------------------------------------------------
 class ComplianceDocumentBase(BaseModel):
     document_type: ComplianceDocType = Field(
@@ -117,7 +168,7 @@ class ComplianceCheckSummary(BaseModel):
 
 
 # ------------------------------------------------------------------------------
-# 2. Schemas de Medições de Subempreiteiros (SubMeasurements)
+# 3. Schemas de Medições de Subempreiteiros (SubMeasurements)
 # ------------------------------------------------------------------------------
 class SubMeasurementBase(BaseModel):
     measurement_number: Optional[int] = Field(
@@ -212,7 +263,59 @@ class SubMeasurementResponse(SubMeasurementBase):
 
 
 # ------------------------------------------------------------------------------
-# 3. Schemas de Subcontratos (Subcontracts)
+# 4. Schemas de Transações da Conta Corrente (Subcontract Transactions)
+# ------------------------------------------------------------------------------
+class SubcontractTransactionBase(BaseModel):
+    type: TransactionType = Field(
+        ...,
+        description="Tipo de movimentação na conta corrente: 'PAYMENT' (Desembolso/Pagamento) ou 'MEASUREMENT' (Avanço Medido)",
+        example=TransactionType.PAYMENT,
+    )
+    amount: Decimal = Field(
+        ...,
+        ge=0,
+        decimal_places=4,
+        description="Valor da movimentação financeira (R$)",
+        example=Decimal("12000.0000"),
+    )
+    date: Optional[date] = Field(
+        default_factory=date.today,
+        description="Data da movimentação",
+        example="2026-10-25",
+    )
+    observation: Optional[str] = Field(
+        None,
+        max_length=500,
+        description="Histórico da transação (ex: Adiantamento quinzenal de mão de obra)",
+        example="Adiantamento para compra de materiais e diárias",
+    )
+
+
+class SubcontractTransactionCreate(SubcontractTransactionBase):
+    due_date: Optional[date] = Field(
+        None,
+        description="Data de vencimento para o lançamento em Contas a Pagar (se type == 'PAYMENT')",
+    )
+    create_financial_entry: bool = Field(
+        default=True,
+        description="Integração automática com o Módulo Financeiro (gera lançamento em financial_entries)",
+    )
+
+
+class SubcontractTransactionResponse(SubcontractTransactionBase):
+    id: UUID
+    tenant_id: UUID
+    subcontract_id: UUID
+    financial_entry_id: Optional[UUID] = None
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# ------------------------------------------------------------------------------
+# 5. Schemas do Subcontrato Principal (Subcontracts) & Farol de Risco
 # ------------------------------------------------------------------------------
 class SubcontractBase(BaseModel):
     project_id: Optional[UUID] = Field(
@@ -297,9 +400,55 @@ class SubcontractResponse(SubcontractBase):
     updated_at: datetime
     suppliers: Optional[Dict[str, Any]] = None
     projects: Optional[Dict[str, Any]] = None
+    specialties: List[str] = Field(
+        default=[],
+        description="Lista de especialidades de atuação do fornecedor",
+        example=["Elétrica", "Hidráulica"],
+    )
+    total_paid: Decimal = Field(
+        default=Decimal("0.0000"),
+        description="Total desembolsado e pago ao terceirizado na conta corrente",
+        example=Decimal("20000.0000"),
+    )
+    total_measured: Decimal = Field(
+        default=Decimal("0.0000"),
+        description="Total físico acumulado em medições aprovadas",
+        example=Decimal("25000.0000"),
+    )
+    balance_remaining: Decimal = Field(
+        default=Decimal("0.0000"),
+        description="Saldo residual a medir do contrato (total_value - total_measured)",
+    )
+    financial_exposure: Decimal = Field(
+        default=Decimal("0.0000"),
+        description="Exposição desprotegida (pagamentos sem medição física correspondente: total_paid - total_measured)",
+    )
+    risk_status: RiskStatus = Field(
+        default=RiskStatus.GREEN,
+        description="Farol de Risco: GREEN (Pagamentos <= Medição), YELLOW (Pagamentos > Medição, < 80% Contrato), RED (Pagamentos > Medição e >= 80% Contrato)",
+        example=RiskStatus.GREEN,
+    )
+    risk_description: str = Field(
+        default="Ok: Pagamentos cobertos por medição física.",
+        description="Diagnóstico técnico explicativo do farol de risco",
+    )
     sub_measurements: Optional[List[SubMeasurementResponse]] = None
-    total_measured: Optional[Decimal] = None
-    balance_remaining: Optional[Decimal] = None
+    transactions: Optional[List[SubcontractTransactionResponse]] = None
 
     class Config:
         from_attributes = True
+
+
+class SubcontractAccountStatement(BaseModel):
+    subcontract_id: UUID
+    contract_number: Optional[str]
+    total_value: Decimal
+    total_measured: Decimal
+    total_paid: Decimal
+    balance_to_measure: Decimal
+    financial_exposure: Decimal
+    risk_status: RiskStatus
+    risk_description: str
+    supplier: Dict[str, Any]
+    specialties: List[str]
+    transactions: List[SubcontractTransactionResponse]

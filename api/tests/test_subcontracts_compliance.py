@@ -102,3 +102,40 @@ def test_enforce_compliance_blocks_when_not_compliant():
     except ComplianceBlockedException as exc:
         assert exc.status_code == 422
         assert exc.detail["error"] == "COMPLIANCE_LOCK_ACTIVE"
+
+
+def test_farol_green_pagamentos_menor_ou_igual_medicao():
+    """Valida Farol GREEN quando total_paid <= total_measured."""
+    # Contrato 100k, Medido 40k, Pago 35k -> GREEN
+    res = SubcontractComplianceService.calculate_risk_traffic_light(
+        contract_value=Decimal("100000.00"),
+        total_paid=Decimal("35000.00"),
+        total_measured=Decimal("40000.00"),
+    )
+    assert res["risk_status"] == "GREEN"
+    assert res["financial_exposure"] == Decimal("0.0000")
+
+
+def test_farol_yellow_pagamentos_maior_medicao_mas_abaixo_80_porcento():
+    """Valida Farol YELLOW quando total_paid > total_measured, porém total_paid < 80% do contrato."""
+    # Contrato 100k, Medido 40k, Pago 60k (60k < 80k) -> YELLOW
+    res = SubcontractComplianceService.calculate_risk_traffic_light(
+        contract_value=Decimal("100000.00"),
+        total_paid=Decimal("60000.00"),
+        total_measured=Decimal("40000.00"),
+    )
+    assert res["risk_status"] == "YELLOW"
+    assert res["financial_exposure"] == Decimal("20000.0000")
+
+
+def test_farol_red_pagamentos_maior_medicao_e_acima_80_porcento():
+    """Valida Farol RED quando total_paid > total_measured E total_paid >= 80% do contrato."""
+    # Contrato 100k, Medido 40k, Pago 85k (85k >= 80k) -> RED
+    res = SubcontractComplianceService.calculate_risk_traffic_light(
+        contract_value=Decimal("100000.00"),
+        total_paid=Decimal("85000.00"),
+        total_measured=Decimal("40000.00"),
+    )
+    assert res["risk_status"] == "RED"
+    assert res["financial_exposure"] == Decimal("45000.0000")
+
