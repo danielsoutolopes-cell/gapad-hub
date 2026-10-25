@@ -5,7 +5,7 @@ Precisão: Decimal com Arredondamento Bancário (Round Half-to-Even).
 """
 
 from decimal import Decimal, ROUND_HALF_EVEN
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 # Precisões e Quantizadores Bancários
 QUANT_MONETARY_4 = Decimal("0.0001")
@@ -83,29 +83,43 @@ def calculate_bdi_multiplier(
 
 
 def calculate_quote_financials(
-    ac_rate: Decimal,
-    s_rate: Decimal,
-    r_rate: Decimal,
-    g_rate: Decimal,
-    df_rate: Decimal,
-    l_rate: Decimal,
-    i_rate: Decimal,
-    discount_amount: Decimal,
-    items: List[Dict[str, Any]],
+    ac_rate: Decimal = Decimal("0.0400"),
+    s_rate: Decimal = Decimal("0.0080"),
+    r_rate: Decimal = Decimal("0.0120"),
+    g_rate: Decimal = Decimal("0.0040"),
+    df_rate: Decimal = Decimal("0.0100"),
+    l_rate: Decimal = Decimal("0.0800"),
+    i_rate: Decimal = Decimal("0.0865"),
+    discount_amount: Decimal = Decimal("0.0000"),
+    items: List[Dict[str, Any]] = None,
+    calculation_type: str = "BDI",
+    markup_percentage: Optional[Decimal] = None,
 ) -> Dict[str, Any]:
     """
-    Calcula o BDI analítico, precifica cada item individualmente e consolida
-    os totais financeiros do orçamento com precisão Round Half-to-Even.
+    Calcula a precificação orçamentária:
+    - Se calculation_type == 'MARKUP': Fórmula simplificada Custo Total * (1 + Markup %)
+    - Se calculation_type == 'BDI': Fórmula analítica TCU [((1 + AC + S + R + G)*(1 + DF)*(1 + L))/(1 - I)] - 1
+    Consolida custos, preços e itens com arredondamento bancário Round Half-to-Even.
     """
-    bdi_multiplier = calculate_bdi_multiplier(
-        ac_rate=ac_rate,
-        s_rate=s_rate,
-        r_rate=r_rate,
-        g_rate=g_rate,
-        df_rate=df_rate,
-        l_rate=l_rate,
-        i_rate=i_rate,
-    )
+    if items is None:
+        items = []
+
+    calc_type = (calculation_type or "BDI").upper()
+
+    if calc_type == "MARKUP":
+        # Se for Markup, a fórmula a ser calculada será apenas Custo Total * (1 + Markup %)
+        markup_rate = normalize_rate(markup_percentage if markup_percentage is not None else Decimal("0.0000"))
+        multiplier = markup_rate
+    else:
+        multiplier = calculate_bdi_multiplier(
+            ac_rate=ac_rate,
+            s_rate=s_rate,
+            r_rate=r_rate,
+            g_rate=g_rate,
+            df_rate=df_rate,
+            l_rate=l_rate,
+            i_rate=i_rate,
+        )
 
     discount = quantize_half_even(Decimal(str(discount_amount or "0.0000")))
 
@@ -120,15 +134,15 @@ def calculate_quote_financials(
         unit_cost = quantize_half_even(Decimal(str(raw_item["unit_cost"])))
         item_type = str(raw_item["item_type"]).lower()
 
-        # Se o item tiver taxa de BDI customizada, normaliza; senão usa a taxa global calculada
-        custom_bdi = raw_item.get("bdi_rate")
-        if custom_bdi is not None:
-            item_bdi_rate = normalize_rate(custom_bdi)
+        # Se o item tiver taxa customizada (apenas em BDI), normaliza; senão usa a taxa global calculada
+        custom_rate = raw_item.get("bdi_rate")
+        if custom_rate is not None and calc_type != "MARKUP":
+            item_rate = normalize_rate(custom_rate)
         else:
-            item_bdi_rate = quantize_half_even(bdi_multiplier, QUANT_RATE_4)
+            item_rate = quantize_half_even(multiplier, QUANT_RATE_4)
 
-        # Preço final unitário = unit_cost * (1 + BDI)
-        unit_price = quantize_half_even(unit_cost * (Decimal("1.0") + item_bdi_rate))
+        # Preço final unitário = unit_cost * (1 + Margem/BDI)
+        unit_price = quantize_half_even(unit_cost * (Decimal("1.0") + item_rate))
 
         # Subtotais do item
         item_total_cost = quantize_half_even(qty * unit_cost)
@@ -145,7 +159,7 @@ def calculate_quote_financials(
         calc_item = dict(raw_item)
         calc_item["quantity"] = float(qty)
         calc_item["unit_cost"] = float(unit_cost)
-        calc_item["bdi_rate"] = float(item_bdi_rate)
+        calc_item["bdi_rate"] = float(item_rate)
         calc_item["unit_price"] = float(unit_price)
         calc_item["total_cost"] = float(item_total_cost)
         calc_item["total_price"] = float(item_total_price)
@@ -157,7 +171,9 @@ def calculate_quote_financials(
         grand_total = Decimal("0.0000")
 
     return {
-        "bdi_multiplier": float(bdi_multiplier),
+        "calculation_type": calc_type,
+        "markup_percentage": float(normalize_rate(markup_percentage) * Decimal("100.0")) if markup_percentage is not None else 0.0,
+        "bdi_multiplier": float(multiplier),
         "total_cost": float(total_cost),
         "total_products_cost": float(total_products_cost),
         "total_services_cost": float(total_services_cost),

@@ -26,9 +26,13 @@ import {
   Layers,
   ChevronDown,
   Info,
+  Zap,
+  Sliders,
+  Check,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { ContextualHelp } from '@/components/help/contextual-help';
+import { Switch } from '@/components/ui/switch';
 
 // -----------------------------------------------------------------------------
 // 1. Schema de Validação com Zod
@@ -59,6 +63,12 @@ const quoteFormSchema = z.object({
   description: z.string().optional(),
   valid_until: z.string().optional(),
   notes: z.string().optional(),
+  // Modalidade de Cálculo: BDI Corporativo ou Markup Simplificado
+  calculation_type: z.enum(['BDI', 'MARKUP']).default('BDI'),
+  markup_percentage: z
+    .union([z.string(), z.number()])
+    .optional()
+    .transform((v) => Number(v || 0)),
   // Taxas BDI (%)
   ac_rate: z.union([z.string(), z.number()]).transform((v) => Number(v || 0)),
   s_rate: z.union([z.string(), z.number()]).transform((v) => Number(v || 0)),
@@ -120,6 +130,8 @@ export function NovoOrcamentoClient() {
       description: '',
       valid_until: '',
       notes: '',
+      calculation_type: 'BDI',
+      markup_percentage: 30.0,
       ac_rate: 4.0, // 4.0%
       s_rate: 0.8, // 0.8%
       r_rate: 1.2, // 1.2%
@@ -146,6 +158,14 @@ export function NovoOrcamentoClient() {
   });
 
   const watchedValues = watch();
+  const isSimplified = watchedValues.calculation_type === 'MARKUP';
+
+  const handleToggleSimplified = (checked: boolean) => {
+    setValue('calculation_type', checked ? 'MARKUP' : 'BDI', {
+      shouldValidate: true,
+      shouldDirty: true,
+    });
+  };
 
   // Helper para obter o token JWT do Supabase
   const getAuthToken = async (): Promise<string> => {
@@ -195,26 +215,35 @@ export function NovoOrcamentoClient() {
   });
 
   // ---------------------------------------------------------------------------
-  // Cálculo de BDI em Tempo Real no Frontend
-  // BDI = [((1 + AC + S + R + G) * (1 + DF) * (1 + L)) / (1 - I)] - 1
+  // Cálculo Financeiro Dinâmico no Frontend (Markup vs BDI Analítico TCU)
+  // Se MARKUP: Preço = Custo * (1 + Markup %)
+  // Se BDI:    BDI = [((1 + AC + S + R + G) * (1 + DF) * (1 + L)) / (1 - I)] - 1
   // ---------------------------------------------------------------------------
   const financialSummary = useMemo(() => {
     const norm = (v: number) => (v > 1 ? v / 100 : v);
 
-    const ac = norm(Number(watchedValues.ac_rate) || 0);
-    const s = norm(Number(watchedValues.s_rate) || 0);
-    const r = norm(Number(watchedValues.r_rate) || 0);
-    const g = norm(Number(watchedValues.g_rate) || 0);
-    const df = norm(Number(watchedValues.df_rate) || 0);
-    const l = norm(Number(watchedValues.l_rate) || 0);
-    const i = norm(Number(watchedValues.i_rate) || 0);
+    let effectiveMultiplier = 0;
+    const isMarkupMode = watchedValues.calculation_type === 'MARKUP';
 
-    const denominator = 1 - i;
-    let bdiMultiplier = 0;
+    if (isMarkupMode) {
+      // Modo Simplificado: Margem direta (Markup)
+      const markupVal = Number(watchedValues.markup_percentage || 0);
+      effectiveMultiplier = norm(markupVal);
+    } else {
+      // Modo Corporativo: BDI TCU Analítico
+      const ac = norm(Number(watchedValues.ac_rate) || 0);
+      const s = norm(Number(watchedValues.s_rate) || 0);
+      const r = norm(Number(watchedValues.r_rate) || 0);
+      const g = norm(Number(watchedValues.g_rate) || 0);
+      const df = norm(Number(watchedValues.df_rate) || 0);
+      const l = norm(Number(watchedValues.l_rate) || 0);
+      const i = norm(Number(watchedValues.i_rate) || 0);
 
-    if (denominator > 0) {
-      const numerator = (1 + ac + s + r + g) * (1 + df) * (1 + l);
-      bdiMultiplier = numerator / denominator - 1;
+      const denominator = 1 - i;
+      if (denominator > 0) {
+        const numerator = (1 + ac + s + r + g) * (1 + df) * (1 + l);
+        effectiveMultiplier = numerator / denominator - 1;
+      }
     }
 
     let totalCost = 0;
@@ -226,12 +255,14 @@ export function NovoOrcamentoClient() {
     const itemBreakdown = items.map((item) => {
       const qty = Number(item.quantity) || 0;
       const cost = Number(item.unit_cost) || 0;
-      const itemBdi =
-        item.bdi_rate !== undefined && item.bdi_rate !== null && item.bdi_rate !== 0
-          ? norm(Number(item.bdi_rate))
-          : bdiMultiplier;
 
-      const unitPrice = cost * (1 + itemBdi);
+      // Se for BDI e o item possuir taxa individual, usa a taxa individual; senão, usa a taxa global
+      const itemRate =
+        !isMarkupMode && item.bdi_rate !== undefined && item.bdi_rate !== null && item.bdi_rate !== 0
+          ? norm(Number(item.bdi_rate))
+          : effectiveMultiplier;
+
+      const unitPrice = cost * (1 + itemRate);
       const itemCostTotal = qty * cost;
       const itemPriceTotal = qty * unitPrice;
 
@@ -248,26 +279,29 @@ export function NovoOrcamentoClient() {
         unitPrice,
         itemCostTotal,
         itemPriceTotal,
-        itemBdi,
+        itemRate,
       };
     });
 
     const discount = Number(watchedValues.discount_amount) || 0;
-    const bdiAmount = Math.max(0, totalGrossPrice - totalCost);
+    const marginAmount = Math.max(0, totalGrossPrice - totalCost);
     const grandTotal = Math.max(0, totalGrossPrice - discount);
 
     return {
-      bdiMultiplier,
-      bdiPercentage: (bdiMultiplier * 100).toFixed(2),
+      isMarkupMode,
+      multiplier: effectiveMultiplier,
+      marginPercentage: (effectiveMultiplier * 100).toFixed(2),
       totalCost,
       totalProductsCost,
       totalServicesCost,
-      bdiAmount,
+      marginAmount,
       discount,
       grandTotal,
       itemBreakdown,
     };
   }, [
+    watchedValues.calculation_type,
+    watchedValues.markup_percentage,
     watchedValues.ac_rate,
     watchedValues.s_rate,
     watchedValues.r_rate,
@@ -292,6 +326,8 @@ export function NovoOrcamentoClient() {
         description: data.description || null,
         valid_until: data.valid_until || null,
         notes: data.notes || null,
+        calculation_type: data.calculation_type,
+        markup_percentage: data.calculation_type === 'MARKUP' ? Number(data.markup_percentage) : 0,
         ac_rate: data.ac_rate,
         s_rate: data.s_rate,
         r_rate: data.r_rate,
@@ -373,7 +409,7 @@ export function NovoOrcamentoClient() {
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-16">
-      {/* Barra de Topo */}
+      {/* Barra Superior de Navegação */}
       <div className="flex items-center justify-between">
         <Link
           href="/dashboard/orcamentos"
@@ -384,22 +420,96 @@ export function NovoOrcamentoClient() {
         </Link>
 
         <div className="flex items-center gap-2">
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-            <Sparkles className="w-3.5 h-3.5" />
-            Motor BDI Analítico Ativo
-          </span>
+          {isSimplified ? (
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-amber-500/10 text-amber-300 border border-amber-500/25">
+              <Zap className="w-3.5 h-3.5 text-amber-400" />
+              Precificação Direta (Markup)
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+              <Sparkles className="w-3.5 h-3.5" />
+              Motor BDI Analítico Ativo
+            </span>
+          )}
         </div>
       </div>
 
+      {/* Título Principal */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div>
           <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white flex items-center gap-2.5">
-            <Calculator className="w-7 h-7 text-emerald-400" />
-            Novo Orçamento Técnico
+            {isSimplified ? (
+              <Zap className="w-7 h-7 text-amber-400" />
+            ) : (
+              <Calculator className="w-7 h-7 text-emerald-400" />
+            )}
+            {isSimplified ? 'Novo Orçamento Simplificado' : 'Novo Orçamento Técnico'}
           </h1>
           <p className="text-xs sm:text-sm text-slate-400 mt-1">
-            Composição mista de materiais e serviços com marcação automatizada de BDI analítico.
+            {isSimplified
+              ? 'Margem direta sobre o custo para arquitetos, autônomos e pequenos empreiteiros.'
+              : 'Composição técnica mista de materiais e serviços com marcação automatizada de BDI analítico TCU.'}
           </p>
+        </div>
+      </div>
+
+      {/* REQUISITO 2: Chave de Alternância (Toggle Switch Shadcn UI) no topo da tela */}
+      <div
+        className={`p-4 sm:p-5 rounded-2xl border transition-all duration-300 ${
+          isSimplified
+            ? 'bg-gradient-to-r from-amber-500/10 via-slate-900 to-slate-900 border-amber-500/30 shadow-lg shadow-amber-500/5'
+            : 'bg-gradient-to-r from-emerald-500/10 via-slate-900 to-slate-900 border-emerald-500/30 shadow-lg shadow-emerald-500/5'
+        }`}
+      >
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-start sm:items-center gap-3.5">
+            <div
+              className={`p-2.5 rounded-xl transition-all duration-300 ${
+                isSimplified
+                  ? 'bg-amber-500/20 text-amber-300 ring-2 ring-amber-500/30'
+                  : 'bg-emerald-500/20 text-emerald-300 ring-2 ring-emerald-500/30'
+              }`}
+            >
+              {isSimplified ? <Zap className="w-5 h-5" /> : <Calculator className="w-5 h-5" />}
+            </div>
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-sm sm:text-base font-bold text-white tracking-tight">
+                  Orçamento Simplificado (Ideal para Autônomos)
+                </span>
+                {isSimplified ? (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 uppercase tracking-wider">
+                    <Check className="w-3 h-3 stroke-[3]" />
+                    Margem Direta Ativa
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-800 text-slate-300 border border-slate-700 uppercase tracking-wider">
+                    BDI Corporativo (TCU)
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-slate-400 mt-0.5 max-w-2xl">
+                {isSimplified
+                  ? 'Fórmula simplificada Custo Total × (1 + Markup %). Os coeficientes corporativos de BDI são ocultados.'
+                  : 'Fórmula completa com desmembramento de Administração Central, Riscos, Seguros, Garantias e Despesas Financeiras.'}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 bg-slate-950/80 px-4 py-2.5 rounded-xl border border-slate-800 self-start sm:self-auto shadow-inner">
+            <label
+              htmlFor="simplified-quote-switch"
+              className="text-xs font-semibold cursor-pointer select-none text-slate-300 whitespace-nowrap"
+            >
+              {isSimplified ? 'Simplificado (Markup)' : 'Corporativo (BDI)'}
+            </label>
+            <Switch
+              id="simplified-quote-switch"
+              checked={isSimplified}
+              onCheckedChange={handleToggleSimplified}
+              className={isSimplified ? 'bg-amber-500 focus-visible:ring-amber-400' : ''}
+            />
+          </div>
         </div>
       </div>
 
@@ -412,12 +522,12 @@ export function NovoOrcamentoClient() {
 
       <form onSubmit={handleSubmit(onSubmit)}>
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          {/* Coluna da Esquerda: Dados do Orçamento, Itens e Taxas de BDI (8 cols) */}
+          {/* Coluna da Esquerda: Dados do Orçamento, Itens e Taxas de BDI/Markup (8 cols) */}
           <div className="lg:col-span-8 space-y-6">
             {/* Bloco 1: Cabeçalho do Orçamento */}
             <div className="glass-panel p-5 sm:p-6 rounded-2xl border border-slate-800 space-y-4">
               <h2 className="text-sm font-bold text-white flex items-center gap-2">
-                <Building2 className="w-4 h-4 text-emerald-400" />
+                <Building2 className={`w-4 h-4 ${isSimplified ? 'text-amber-400' : 'text-emerald-400'}`} />
                 Dados do Cliente e Objeto
               </h2>
 
@@ -460,7 +570,7 @@ export function NovoOrcamentoClient() {
                 </label>
                 <input
                   {...register('title')}
-                  placeholder="Ex: Reforma Estrutural e Impermeabilização - Bloco A"
+                  placeholder="Ex: Projeto Arquitetônico e Execução Reforma - Apto 402"
                   className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs sm:text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
                 />
                 {errors.title && (
@@ -481,139 +591,237 @@ export function NovoOrcamentoClient() {
               </div>
             </div>
 
-            {/* Bloco 2: Parametrização de BDI (Fórmula Oficial) */}
-            <div className="glass-panel p-5 sm:p-6 rounded-2xl border border-slate-800 space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-sm font-bold text-white flex items-center gap-2">
-                    <Percent className="w-4 h-4 text-emerald-400" />
-                    Parâmetros Analíticos de BDI
-                  </h2>
-                  <p className="text-[11px] text-slate-400 mt-0.5 font-mono">
-                    BDI = [((1 + AC + S + R + G) * (1 + DF) * (1 + L)) / (1 - I)] - 1
-                  </p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <ContextualHelp topic="bdi_orcamentos" variant="badge" triggerText="Entenda as taxas do BDI" />
-                  <button
-                    type="button"
-                    onClick={() => setShowBdiDetails(!showBdiDetails)}
-                    className="text-xs text-emerald-400 hover:text-emerald-300 font-medium flex items-center gap-1"
-                  >
-                    {showBdiDetails ? 'Recolher Taxas' : 'Ajustar Taxas Detalhadas'}
-                    <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showBdiDetails ? 'rotate-180' : ''}`} />
-                  </button>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <div className="bg-slate-900/60 border border-slate-800 p-3 rounded-xl">
-                  <span className="text-[10px] text-slate-400 block uppercase font-medium">BDI Calculado</span>
-                  <span className="text-lg font-bold text-emerald-400 font-mono mt-0.5 block">
-                    {financialSummary.bdiPercentage}%
+            {/* REQUISITO 3: UX Dinâmica de Precificação */}
+            {isSimplified ? (
+              /* CARD SIMPLIFICADO: Apenas % de Margem (Markup) - Campos BDI Corporativos Ocultos */
+              <div className="glass-panel p-5 sm:p-6 rounded-2xl border border-amber-500/30 bg-gradient-to-b from-amber-500/5 via-slate-900/60 to-slate-900/40 space-y-4 animate-fade-in shadow-xl">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-800">
+                  <div>
+                    <h2 className="text-sm font-bold text-white flex items-center gap-2">
+                      <Zap className="w-4 h-4 text-amber-400" />
+                      Margem Direta sobre Custo (Markup)
+                    </h2>
+                    <p className="text-[11px] text-amber-300/90 font-mono mt-0.5">
+                      Fórmula: Preço Final = Custo Total × (1 + Markup %)
+                    </p>
+                  </div>
+                  <span className="text-[11px] px-2.5 py-1 rounded-lg bg-amber-500/10 text-amber-300 border border-amber-500/20 font-medium">
+                    Sem taxas corporativas (AC, Seguros, Riscos, DF ocultos)
                   </span>
                 </div>
-                <div className="bg-slate-900/60 border border-slate-800 p-3 rounded-xl">
-                  <span className="text-[10px] text-slate-400 block uppercase font-medium">Lucro Bruto (L)</span>
-                  <div className="flex items-center gap-1 mt-0.5">
-                    <input
-                      type="number"
-                      step="0.01"
-                      {...register('l_rate')}
-                      className="w-16 bg-slate-800 border border-slate-700 rounded px-1.5 py-0.5 text-xs text-white font-mono"
-                    />
-                    <span className="text-xs text-slate-400">%</span>
+
+                <div className="grid grid-cols-1 sm:grid-cols-12 gap-5 items-center">
+                  <div className="sm:col-span-5 space-y-1.5">
+                    <label className="block text-xs font-semibold text-slate-200">
+                      % de Margem (Markup) *
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        {...register('markup_percentage')}
+                        placeholder="Ex: 30"
+                        className="w-full bg-slate-900 border border-amber-500/40 rounded-xl px-4 py-2.5 text-base font-bold text-white font-mono focus:outline-none focus:ring-2 focus:ring-amber-500/50 shadow-inner"
+                      />
+                      <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-sm font-bold text-amber-400">
+                        %
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-400">
+                      Sua margem líquida aplicada diretamente sobre cada insumo e serviço.
+                    </p>
+                  </div>
+
+                  {/* Atalhos rápidos de margem */}
+                  <div className="sm:col-span-7 space-y-2">
+                    <label className="block text-xs font-medium text-slate-400">
+                      Atalhos Rápidos de Margem Comercial:
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      {[15, 20, 25, 30, 40, 50].map((preset) => (
+                        <button
+                          key={preset}
+                          type="button"
+                          onClick={() => setValue('markup_percentage', preset, { shouldValidate: true })}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-semibold font-mono transition-all ${
+                            Number(watchedValues.markup_percentage) === preset
+                              ? 'bg-amber-500 text-slate-950 font-bold shadow-md shadow-amber-500/25'
+                              : 'bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700'
+                          }`}
+                        >
+                          +{preset}%
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
-                <div className="bg-slate-900/60 border border-slate-800 p-3 rounded-xl">
-                  <span className="text-[10px] text-slate-400 block uppercase font-medium">Tributos (I)</span>
-                  <div className="flex items-center gap-1 mt-0.5">
-                    <input
-                      type="number"
-                      step="0.01"
-                      {...register('i_rate')}
-                      className="w-16 bg-slate-800 border border-slate-700 rounded px-1.5 py-0.5 text-xs text-white font-mono"
-                    />
-                    <span className="text-xs text-slate-400">%</span>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3 border-t border-slate-800/80">
+                  <div className="bg-slate-900/70 border border-slate-800 p-3 rounded-xl">
+                    <span className="text-[10px] text-slate-400 block uppercase font-medium">Margem Aplicada</span>
+                    <span className="text-lg font-bold text-amber-400 font-mono mt-0.5 block">
+                      +{financialSummary.marginPercentage}%
+                    </span>
                   </div>
-                </div>
-                <div className="bg-slate-900/60 border border-slate-800 p-3 rounded-xl">
-                  <span className="text-[10px] text-slate-400 block uppercase font-medium">Desconto</span>
-                  <div className="flex items-center gap-1 mt-0.5">
-                    <span className="text-xs text-slate-500">R$</span>
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      {...register('discount_amount')}
-                      className="w-20 bg-slate-800 border border-slate-700 rounded px-1.5 py-0.5 text-xs text-white font-mono"
-                    />
+                  <div className="bg-slate-900/70 border border-slate-800 p-3 rounded-xl">
+                    <span className="text-[10px] text-slate-400 block uppercase font-medium">Lucro Agregado</span>
+                    <span className="text-lg font-bold text-emerald-400 font-mono mt-0.5 block">
+                      +{formatCurrency(financialSummary.marginAmount)}
+                    </span>
+                  </div>
+                  <div className="bg-slate-900/70 border border-slate-800 p-3 rounded-xl">
+                    <span className="text-[10px] text-slate-400 block uppercase font-medium">Desconto Comercial</span>
+                    <div className="flex items-center gap-1 mt-0.5">
+                      <span className="text-xs text-slate-500">R$</span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        {...register('discount_amount')}
+                        className="w-full bg-slate-800 border border-slate-700 rounded px-2 py-0.5 text-xs text-white font-mono"
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
-
-              {/* Taxas Detalhadas Expandíveis */}
-              {showBdiDetails && (
-                <div className="p-4 rounded-xl bg-slate-900/40 border border-slate-800 grid grid-cols-2 sm:grid-cols-5 gap-3 text-xs animate-fade-in">
+            ) : (
+              /* CARD CORPORATIVO: Fórmula TCU e Campos Analíticos (AC, S, R, G, DF, L, I) */
+              <div className="glass-panel p-5 sm:p-6 rounded-2xl border border-slate-800 space-y-4 animate-fade-in">
+                <div className="flex items-center justify-between">
                   <div>
-                    <label className="text-[11px] text-slate-400 block">Admin Central (AC %)</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      {...register('ac_rate')}
-                      className="w-full mt-1 bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1 text-xs text-white font-mono"
-                    />
+                    <h2 className="text-sm font-bold text-white flex items-center gap-2">
+                      <Percent className="w-4 h-4 text-emerald-400" />
+                      Parâmetros Analíticos de BDI (Fórmula TCU)
+                    </h2>
+                    <p className="text-[11px] text-slate-400 mt-0.5 font-mono">
+                      BDI = [((1 + AC + S + R + G) * (1 + DF) * (1 + L)) / (1 - I)] - 1
+                    </p>
                   </div>
-                  <div>
-                    <label className="text-[11px] text-slate-400 block">Seguros (S %)</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      {...register('s_rate')}
-                      className="w-full mt-1 bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1 text-xs text-white font-mono"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[11px] text-slate-400 block">Riscos (R %)</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      {...register('r_rate')}
-                      className="w-full mt-1 bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1 text-xs text-white font-mono"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[11px] text-slate-400 block">Garantias (G %)</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      {...register('g_rate')}
-                      className="w-full mt-1 bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1 text-xs text-white font-mono"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[11px] text-slate-400 block">Desp. Financ. (DF %)</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      {...register('df_rate')}
-                      className="w-full mt-1 bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1 text-xs text-white font-mono"
-                    />
+                  <div className="flex items-center gap-2">
+                    <ContextualHelp topic="bdi_orcamentos" variant="badge" triggerText="Entenda as taxas do BDI" />
+                    <button
+                      type="button"
+                      onClick={() => setShowBdiDetails(!showBdiDetails)}
+                      className="text-xs text-emerald-400 hover:text-emerald-300 font-medium flex items-center gap-1"
+                    >
+                      {showBdiDetails ? 'Recolher Taxas' : 'Ajustar Taxas Detalhadas'}
+                      <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showBdiDetails ? 'rotate-180' : ''}`} />
+                    </button>
                   </div>
                 </div>
-              )}
-            </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div className="bg-slate-900/60 border border-slate-800 p-3 rounded-xl">
+                    <span className="text-[10px] text-slate-400 block uppercase font-medium">BDI Calculado</span>
+                    <span className="text-lg font-bold text-emerald-400 font-mono mt-0.5 block">
+                      +{financialSummary.marginPercentage}%
+                    </span>
+                  </div>
+                  <div className="bg-slate-900/60 border border-slate-800 p-3 rounded-xl">
+                    <span className="text-[10px] text-slate-400 block uppercase font-medium">Lucro Bruto (L)</span>
+                    <div className="flex items-center gap-1 mt-0.5">
+                      <input
+                        type="number"
+                        step="0.01"
+                        {...register('l_rate')}
+                        className="w-16 bg-slate-800 border border-slate-700 rounded px-1.5 py-0.5 text-xs text-white font-mono"
+                      />
+                      <span className="text-xs text-slate-400">%</span>
+                    </div>
+                  </div>
+                  <div className="bg-slate-900/60 border border-slate-800 p-3 rounded-xl">
+                    <span className="text-[10px] text-slate-400 block uppercase font-medium">Tributos (I)</span>
+                    <div className="flex items-center gap-1 mt-0.5">
+                      <input
+                        type="number"
+                        step="0.01"
+                        {...register('i_rate')}
+                        className="w-16 bg-slate-800 border border-slate-700 rounded px-1.5 py-0.5 text-xs text-white font-mono"
+                      />
+                      <span className="text-xs text-slate-400">%</span>
+                    </div>
+                  </div>
+                  <div className="bg-slate-900/60 border border-slate-800 p-3 rounded-xl">
+                    <span className="text-[10px] text-slate-400 block uppercase font-medium">Desconto</span>
+                    <div className="flex items-center gap-1 mt-0.5">
+                      <span className="text-xs text-slate-500">R$</span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        {...register('discount_amount')}
+                        className="w-20 bg-slate-800 border border-slate-700 rounded px-1.5 py-0.5 text-xs text-white font-mono"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Taxas Detalhadas Expandíveis do BDI Corporativo */}
+                {showBdiDetails && (
+                  <div className="p-4 rounded-xl bg-slate-900/40 border border-slate-800 grid grid-cols-2 sm:grid-cols-5 gap-3 text-xs animate-fade-in">
+                    <div>
+                      <label className="text-[11px] text-slate-400 block">Admin Central (AC %)</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        {...register('ac_rate')}
+                        className="w-full mt-1 bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1 text-xs text-white font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[11px] text-slate-400 block">Seguros (S %)</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        {...register('s_rate')}
+                        className="w-full mt-1 bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1 text-xs text-white font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[11px] text-slate-400 block">Riscos (R %)</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        {...register('r_rate')}
+                        className="w-full mt-1 bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1 text-xs text-white font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[11px] text-slate-400 block">Garantias (G %)</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        {...register('g_rate')}
+                        className="w-full mt-1 bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1 text-xs text-white font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[11px] text-slate-400 block">Desp. Financ. (DF %)</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        {...register('df_rate')}
+                        className="w-full mt-1 bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1 text-xs text-white font-mono"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Bloco 3: Lista de Itens do Orçamento (useFieldArray) */}
             <div className="glass-panel p-5 sm:p-6 rounded-2xl border border-slate-800 space-y-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
                 <div>
                   <h2 className="text-sm font-bold text-white flex items-center gap-2">
-                    <Layers className="w-4 h-4 text-emerald-400" />
+                    <Layers className={`w-4 h-4 ${isSimplified ? 'text-amber-400' : 'text-emerald-400'}`} />
                     Itens e Serviços Orçados ({fields.length})
                   </h2>
                   <p className="text-[11px] text-slate-400">
-                    Contrato misto: combine produtos e serviços com precificação automática.
+                    {isSimplified
+                      ? 'Adicione materiais e mão de obra com precificação automática via Markup.'
+                      : 'Contrato misto: combine produtos e serviços com precificação técnica analítica.'}
                   </p>
                 </div>
 
@@ -739,7 +947,7 @@ export function NovoOrcamentoClient() {
                           <label className="block text-[11px] text-slate-400 mb-0.5">Descrição do Item *</label>
                           <input
                             {...register(`items.${index}.description`)}
-                            placeholder="Ex: Cimento CP-II ou Alvenaria Estrutural"
+                            placeholder="Ex: Cimento CP-II ou Instalação de Revestimento Porcelanato"
                             className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-emerald-500"
                           />
                         </div>
@@ -778,8 +986,10 @@ export function NovoOrcamentoClient() {
                         </div>
 
                         <div>
-                          <span className="block text-[11px] text-slate-400 mb-0.5">Preço Unit. Venda (c/ BDI)</span>
-                          <span className="block text-xs font-mono font-bold text-emerald-400 py-1.5">
+                          <span className="block text-[11px] text-slate-400 mb-0.5">
+                            Preço Unit. Venda (c/ {isSimplified ? 'Markup' : 'BDI'})
+                          </span>
+                          <span className={`block text-xs font-mono font-bold py-1.5 ${isSimplified ? 'text-amber-400' : 'text-emerald-400'}`}>
                             {formatCurrency(itemBreakdown?.unitPrice || 0)}
                           </span>
                         </div>
@@ -801,11 +1011,17 @@ export function NovoOrcamentoClient() {
           {/* Coluna da Direita: Painel Resumo em Tempo Real e Botão de Emissão (4 cols) */}
           <div className="lg:col-span-4 sticky top-20 space-y-4">
             <div className="glass-panel p-5 sm:p-6 rounded-2xl border border-slate-800 shadow-2xl relative overflow-hidden backdrop-blur-xl">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none" />
+              <div
+                className={`absolute top-0 right-0 w-32 h-32 rounded-full blur-2xl pointer-events-none ${
+                  isSimplified ? 'bg-amber-500/10' : 'bg-emerald-500/10'
+                }`}
+              />
 
               <h3 className="text-sm font-bold text-white mb-4 pb-2 border-b border-slate-800 flex items-center justify-between">
                 <span>Resumo da Proposta</span>
-                <span className="text-[11px] font-mono text-emerald-400">BDI: +{financialSummary.bdiPercentage}%</span>
+                <span className={`text-[11px] font-mono font-bold ${isSimplified ? 'text-amber-400' : 'text-emerald-400'}`}>
+                  {isSimplified ? `Markup: +${financialSummary.marginPercentage}%` : `BDI: +${financialSummary.marginPercentage}%`}
+                </span>
               </h3>
 
               <div className="space-y-3 text-xs">
@@ -822,11 +1038,11 @@ export function NovoOrcamentoClient() {
                   <span className="font-mono font-bold text-white">{formatCurrency(financialSummary.totalCost)}</span>
                 </div>
 
-                <div className="flex items-center justify-between text-emerald-400">
+                <div className={`flex items-center justify-between ${isSimplified ? 'text-amber-400' : 'text-emerald-400'}`}>
                   <span className="flex items-center gap-1">
-                    Margem BDI Agregada:
+                    {isSimplified ? 'Margem Markup Agregada:' : 'Margem BDI Agregada:'}
                   </span>
-                  <span className="font-mono font-bold">+{formatCurrency(financialSummary.bdiAmount)}</span>
+                  <span className="font-mono font-bold">+{formatCurrency(financialSummary.marginAmount)}</span>
                 </div>
 
                 {financialSummary.discount > 0 && (
@@ -841,7 +1057,11 @@ export function NovoOrcamentoClient() {
                   <span className="text-[11px] text-slate-400 uppercase tracking-wider block font-semibold">
                     Valor Final do Contrato (Grand Total)
                   </span>
-                  <span className="text-2xl sm:text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-teal-300 to-cyan-400 font-mono block mt-1">
+                  <span className={`text-2xl sm:text-3xl font-extrabold text-transparent bg-clip-text font-mono block mt-1 ${
+                    isSimplified
+                      ? 'bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-200'
+                      : 'bg-gradient-to-r from-emerald-400 via-teal-300 to-cyan-400'
+                  }`}>
                     {formatCurrency(financialSummary.grandTotal)}
                   </span>
                 </div>
@@ -850,27 +1070,41 @@ export function NovoOrcamentoClient() {
               <button
                 type="submit"
                 disabled={createMutation.isPending}
-                className="w-full mt-6 bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-slate-950 font-bold py-3 px-4 rounded-xl text-sm flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/25 transition-all duration-200 disabled:opacity-60"
+                className={`w-full mt-6 bg-gradient-to-r ${
+                  isSimplified
+                    ? 'from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 shadow-amber-500/25'
+                    : 'from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-slate-950 shadow-emerald-500/25'
+                } font-bold py-3 px-4 rounded-xl text-sm flex items-center justify-center gap-2 shadow-lg transition-all duration-200 disabled:opacity-60`}
               >
                 {createMutation.isPending ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    Processando BDI & Emitindo...
+                    Processando & Emitindo...
                   </>
                 ) : (
                   <>
                     <CheckCircle2 className="w-4 h-4 stroke-[2.5]" />
-                    Gerar Proposta Comercial
+                    {isSimplified ? 'Gerar Proposta com Markup' : 'Gerar Proposta Comercial com BDI'}
                   </>
                 )}
               </button>
             </div>
 
             <div className="p-4 rounded-xl bg-slate-900/40 border border-slate-800/80 text-[11px] text-slate-400 space-y-1">
-              <span className="font-bold text-slate-300 block">Isolamento Multi-tenant:</span>
+              <span className="font-bold text-slate-300 block">Modo Selecionado:</span>
               <p>
-                O orçamento será gravado em <code className="text-emerald-400 font-mono">quotes</code> com status inicial{' '}
-                <strong className="text-slate-200">Draft</strong> e código sequencial automático vinculado exclusivamente à sua empresa.
+                {isSimplified ? (
+                  <>
+                    Orçamento Simplificado com cálculo direto:{' '}
+                    <strong className="text-amber-300">Custo Total × (1 + Markup %)</strong>.
+                    Ideal para emissão rápida por MEIs, Engenheiros Solo e Arquitetos.
+                  </>
+                ) : (
+                  <>
+                    Orçamento Técnico Corporativo com fórmula padrão TCU:{' '}
+                    <strong className="text-emerald-300">BDI Analítico desmembrado</strong>.
+                  </>
+                )}
               </p>
             </div>
           </div>

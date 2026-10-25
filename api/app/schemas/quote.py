@@ -141,6 +141,19 @@ class QuoteBase(BaseModel):
         example=Decimal("0.0865"),
     )
 
+    # Método de Precificação: BDI ou MARKUP
+    calculation_type: str = Field(
+        default="BDI",
+        description="Método de cálculo: 'BDI' (analítico corporativo) ou 'MARKUP' (simplificado para autônomos/MEI)",
+        example="BDI",
+    )
+    markup_percentage: Optional[Decimal] = Field(
+        default=Decimal("0.0000"),
+        ge=0,
+        description="Margem percentual de Markup aplicada diretamente sobre os custos (ex: 30% = 0.3000 ou 30.0)",
+        example=Decimal("0.3000"),
+    )
+
     discount_amount: Decimal = Field(
         default=Decimal("0.0000"),
         ge=0,
@@ -162,6 +175,8 @@ class QuoteUpdate(BaseModel):
     status: Optional[QuoteStatus] = None
     title: Optional[str] = Field(None, min_length=2, max_length=255)
     description: Optional[str] = None
+    calculation_type: Optional[str] = None
+    markup_percentage: Optional[Decimal] = Field(None, ge=0)
     discount_amount: Optional[Decimal] = Field(None, ge=0)
     valid_until: Optional[date] = None
     notes: Optional[str] = None
@@ -171,11 +186,13 @@ class QuoteResponse(QuoteBase):
     id: UUID
     tenant_id: UUID
     status: QuoteStatus
-    bdi_multiplier: Decimal = Field(..., description="Multiplicador global de BDI calculado pelo motor")
+    calculation_type: str = "BDI"
+    markup_percentage: Optional[Decimal] = None
+    bdi_multiplier: Decimal = Field(..., description="Multiplicador global de BDI ou taxa de Markup calculado pelo motor")
     total_cost: Decimal = Field(..., description="Custo direto total somado de todos os itens")
     total_products_cost: Decimal = Field(..., description="Custo direto de insumos e produtos")
     total_services_cost: Decimal = Field(..., description="Custo direto de serviços e mão de obra")
-    bdi_amount: Decimal = Field(..., description="Valor monetário agregado pelo BDI")
+    bdi_amount: Decimal = Field(..., description="Valor monetário agregado pelo BDI ou Markup")
     grand_total: Decimal = Field(..., description="Preço final comercial da proposta")
     created_at: datetime
     updated_at: datetime

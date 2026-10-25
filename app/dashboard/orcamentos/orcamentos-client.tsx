@@ -19,6 +19,7 @@ import {
   ArrowUpRight,
   Building2,
   Calendar,
+  Zap,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { ContextualHelp } from '@/components/help/contextual-help';
@@ -41,9 +42,13 @@ interface Quote {
   title: string;
   description?: string | null;
   status: 'draft' | 'sent' | 'approved' | 'rejected' | 'converted';
-  subtotal_cost: number;
+  calculation_type?: 'BDI' | 'MARKUP' | string;
+  markup_percentage?: number | null;
+  total_cost?: number;
+  subtotal_cost?: number;
   bdi_multiplier: number;
-  subtotal_price: number;
+  bdi_amount?: number;
+  subtotal_price?: number;
   discount_amount: number;
   grand_total: number;
   valid_until?: string | null;
@@ -103,9 +108,11 @@ export function OrcamentosClient() {
           title,
           description,
           status,
-          subtotal_cost,
+          calculation_type,
+          markup_percentage,
+          total_cost,
           bdi_multiplier,
-          subtotal_price,
+          bdi_amount,
           discount_amount,
           grand_total,
           valid_until,
@@ -360,7 +367,10 @@ export function OrcamentosClient() {
               </thead>
               <tbody className="divide-y divide-slate-800/60 text-xs text-slate-300">
                 {filteredQuotes.map((quote) => {
-                  const bdiPerc = ((Number(quote.bdi_multiplier) || 1) - 1) * 100;
+                  const rawMult = Number(quote.bdi_multiplier) || 0;
+                  const marginPerc = rawMult > 1 ? (rawMult - 1) * 100 : rawMult * 100;
+                  const isMarkup = quote.calculation_type === 'MARKUP';
+                  const baseCost = Number(quote.total_cost ?? quote.subtotal_cost ?? 0);
 
                   return (
                     <tr
@@ -368,8 +378,14 @@ export function OrcamentosClient() {
                       className="hover:bg-slate-800/30 transition-colors group"
                     >
                       <td className="px-5 py-3.5">
-                        <div className="font-semibold text-white group-hover:text-emerald-400 transition-colors">
-                          {quote.title}
+                        <div className="font-semibold text-white group-hover:text-emerald-400 transition-colors flex items-center gap-2">
+                          <span>{quote.title}</span>
+                          {isMarkup && (
+                            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 uppercase tracking-wider">
+                              <Zap className="w-2.5 h-2.5" />
+                              Markup
+                            </span>
+                          )}
                         </div>
                         <div className="text-[11px] text-slate-500 font-mono mt-0.5">
                           {quote.code || 'S/N'} •{' '}
@@ -392,13 +408,20 @@ export function OrcamentosClient() {
                       </td>
 
                       <td className="px-5 py-3.5 text-right font-mono text-slate-400">
-                        {formatCurrency(Number(quote.subtotal_cost) || 0)}
+                        {formatCurrency(baseCost)}
                       </td>
 
                       <td className="px-5 py-3.5 text-center">
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-mono font-bold bg-teal-500/10 text-teal-400 border border-teal-500/20">
-                          +{bdiPerc.toFixed(2)}%
-                        </span>
+                        {isMarkup ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-mono font-bold bg-amber-500/10 text-amber-300 border border-amber-500/25">
+                            <Zap className="w-3 h-3 text-amber-400" />
+                            +{marginPerc.toFixed(1)}% Markup
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-mono font-bold bg-teal-500/10 text-teal-400 border border-teal-500/20">
+                            +{marginPerc.toFixed(1)}% BDI
+                          </span>
+                        )}
                       </td>
 
                       <td className="px-5 py-3.5 text-right font-mono font-bold text-emerald-400 text-sm">

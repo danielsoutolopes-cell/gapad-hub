@@ -150,7 +150,7 @@ async def create_quote(
         if not quote_code:
             quote_code = await _generate_quote_code(client, supabase_base_url, token, tenant_id)
 
-        # 3. Execução do Motor de BDI (Round Half-to-Even com precisão Decimal)
+        # 3. Execução do Motor de Precificação (BDI ou MARKUP)
         raw_items = [item.model_dump() for item in payload.items]
         try:
             financials = calculate_quote_financials(
@@ -163,11 +163,13 @@ async def create_quote(
                 i_rate=payload.i_rate,
                 discount_amount=payload.discount_amount,
                 items=raw_items,
+                calculation_type=payload.calculation_type,
+                markup_percentage=payload.markup_percentage,
             )
         except ValueError as err:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail=f"Erro de parametrização de BDI: {str(err)}",
+                detail=f"Erro de parametrização de precificação: {str(err)}",
             ) from err
 
         # 4. Gravação do Cabeçalho do Orçamento (quotes)
@@ -179,6 +181,8 @@ async def create_quote(
             "title": payload.title,
             "description": payload.description,
             "status": QuoteStatus.DRAFT.value,
+            "calculation_type": financials["calculation_type"],
+            "markup_percentage": financials["markup_percentage"],
             "ac_rate": float(payload.ac_rate),
             "s_rate": float(payload.s_rate),
             "r_rate": float(payload.r_rate),
