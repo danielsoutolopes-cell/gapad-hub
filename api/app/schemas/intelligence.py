@@ -71,3 +71,50 @@ class LegislationSyncResponse(BaseModel):
     new_alerts_detected: int = Field(..., description="Número de alterações inéditas registradas no banco")
     message: str = Field(..., description="Mensagem de resumo do ciclo de Tax Intelligence")
     details: List[Dict[str, Any]] = Field(default_factory=list, description="Detalhes das novas ocorrências salvas")
+
+
+# ------------------------------------------------------------------------------
+# Schemas de OCR Preditivo de Documentos Fiscais de Fornecedores (Contas a Pagar)
+# ------------------------------------------------------------------------------
+class OcrItemSchema(BaseModel):
+    item_numero: Optional[int] = Field(None, description="Número ordinal do item na nota (1, 2, ...)")
+    codigo: Optional[str] = Field(None, description="Código do produto ou NCM (8 dígitos)")
+    descricao: str = Field(..., description="Descrição detalhada do insumo ou material")
+    unidade: Optional[str] = Field("UN", description="Unidade de medida (SC, UN, KG, M, M2, M3, BR, PC, etc.)")
+    quantidade: float = Field(..., ge=0, description="Quantidade faturada")
+    valor_unitario: float = Field(..., ge=0, description="Preço unitário do insumo")
+    valor_total: float = Field(..., ge=0, description="Valor total do item")
+
+
+class OcrFornecedorSchema(BaseModel):
+    razao_social: str = Field(..., description="Razão Social ou Nome Empresarial do Fornecedor")
+    nome_fantasia: Optional[str] = Field(None, description="Nome Fantasia do Fornecedor")
+    cnpj: str = Field(..., description="CNPJ do Fornecedor sanitizado (14 dígitos numéricos)")
+    inscricao_estadual: Optional[str] = Field(None, description="Inscrição Estadual")
+    cidade: Optional[str] = Field(None, description="Município do Fornecedor")
+    uf: Optional[str] = Field(None, description="UF do Fornecedor (2 letras)")
+
+
+class OcrParsedPayload(BaseModel):
+    fornecedor: OcrFornecedorSchema = Field(..., description="Dados cadastrais do fornecedor extraídos da nota")
+    data_emissao: Optional[str] = Field(None, description="Data de emissão do documento no formato AAAA-MM-DD")
+    data_vencimento: Optional[str] = Field(None, description="Data de vencimento para o Contas a Pagar (AAAA-MM-DD)")
+    numero_nota: Optional[str] = Field(None, description="Número da Nota Fiscal (NF-e, NFC-e, NFS-e ou Recibo)")
+    serie: Optional[str] = Field("1", description="Série do documento fiscal")
+    chave_acesso: Optional[str] = Field(None, description="Chave de acesso de 44 ou 50 dígitos numéricos")
+    tipo_documento: Optional[str] = Field("NFE", description="Tipo identificado: NFE, NFCE, NFSE, RECIBO_COMPRA")
+    valor_total: float = Field(..., ge=0, description="Valor Total da Nota Fiscal (a ser lançado no Contas a Pagar)")
+    valor_produtos: Optional[float] = Field(None, ge=0, description="Soma dos valores dos produtos/materiais")
+    valor_frete: Optional[float] = Field(0.0, ge=0, description="Valor do frete destacado")
+    valor_desconto: Optional[float] = Field(0.0, ge=0, description="Valor de descontos aplicados")
+    itens: List[OcrItemSchema] = Field(default_factory=list, description="Lista de insumos/itens discriminados")
+    tributos: Optional[Dict[str, Any]] = Field(default_factory=dict, description="Tributos destacados (ICMS, IPI, PIS, COFINS, ISS)")
+    observacoes: Optional[str] = Field(None, description="Informações complementares ou condições de pagamento")
+
+
+class OcrParseResponse(BaseModel):
+    success: bool = Field(True, description="Indicador de sucesso do parsing preditivo")
+    confidence_score: float = Field(..., ge=0.0, le=1.0, description="Índice de acurácia preditiva da extração (0.00 a 1.00)")
+    parsed_payload: OcrParsedPayload = Field(..., description="Carga de dados fiscais estruturada para o Contas a Pagar")
+    processing_time_seconds: Optional[float] = Field(None, description="Tempo total de processamento e inferência da IA")
+    file_info: Optional[Dict[str, Any]] = Field(default_factory=dict, description="Metadados do arquivo temporário enviado")

@@ -100,6 +100,10 @@ from app.schemas.intelligence import (
     LegislationUpdateResponse,
     LegislationAlertsListResponse,
     LegislationSyncResponse,
+    OcrItemSchema,
+    OcrFornecedorSchema,
+    OcrParsedPayload,
+    OcrParseResponse,
 )
 
 __all__ += [
@@ -115,4 +119,8 @@ __all__ += [
     "LegislationUpdateResponse",
     "LegislationAlertsListResponse",
     "LegislationSyncResponse",
+    "OcrItemSchema",
+    "OcrFornecedorSchema",
+    "OcrParsedPayload",
+    "OcrParseResponse",
 ]

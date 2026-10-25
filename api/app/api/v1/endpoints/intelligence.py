@@ -10,7 +10,7 @@ import logging
 from typing import Any, Dict, List, Optional
 from datetime import datetime
 
-from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Query, status
+from fastapi import APIRouter, BackgroundTasks, File, Header, HTTPException, Query, UploadFile, status
 
 from app.schemas.intelligence import (
     LegislationAlertsListResponse,
@@ -18,8 +18,10 @@ from app.schemas.intelligence import (
     LegislationImpactLevel,
     LegislationSyncResponse,
     LegislationUpdateResponse,
+    OcrParseResponse,
 )
 from app.services.legislation_monitor import legislation_monitor
+from app.services.ocr_service import ocr_service
 
 logger = logging.getLogger("gadap.intelligence_api")
 
@@ -159,4 +161,35 @@ async def sync_legislation_intelligence(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Falha ao executar ciclo de monitoramento legislativo: {str(exc)}",
+        ) from exc
+
+
+# ------------------------------------------------------------------------------
+# Rota de OCR Preditivo com LLM (Contas a Pagar)
+# ------------------------------------------------------------------------------
+@router.post(
+    "/ocr/parse",
+    response_model=OcrParseResponse,
+    status_code=status.HTTP_200_OK,
+    summary="OCR preditivo de notas fiscais de insumos (Contas a Pagar)",
+    description=(
+        "Recebe um arquivo (PDF ou imagem) da nota fiscal de insumos ou compras de fornecedor. "
+        "Persiste o documento temporariamente no servidor, envia ao LLM multimodal (Gemini 2.5 Flash) "
+        "para extração de Fornecedor (CNPJ), Data, Valor Total e Itens discriminados, "
+        "e retorna o parsed_payload acompanhado do confidence_score para preencher o Contas a Pagar."
+    ),
+)
+async def parse_invoice_ocr(
+    file: UploadFile = File(..., description="Arquivo PDF ou imagem (PNG, JPEG, WebP) da nota fiscal"),
+) -> OcrParseResponse:
+    """Extrai informações cadastrais e contábeis da nota fiscal de fornecedor."""
+    try:
+        return await ocr_service.process_invoice_file(file)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Falha inesperada no processamento de OCR preditivo.")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Erro interno durante processamento de OCR da nota fiscal: {str(exc)}",
         ) from exc
