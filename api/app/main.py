@@ -16,6 +16,7 @@ from app.api.v1.endpoints.measurements import router as measurements_router
 from app.api.v1.endpoints.backoffice import router as backoffice_router
 from app.api.v1.endpoints.fiscal import router as fiscal_router
 from app.api.v1.endpoints.intelligence import router as intelligence_router
+from app.api.v1.endpoints.analytics import router as analytics_router
 
 # Configuração de Logs
 logging.basicConfig(
@@ -99,6 +100,11 @@ app.include_router(
     intelligence_router,
     prefix=f"{settings.API_V1_STR}/intelligence",
     tags=["Tax Intelligence & Monitoramento Legal (Fase 10)"],
+)
+app.include_router(
+    analytics_router,
+    prefix=f"{settings.API_V1_STR}/analytics",
+    tags=["Analytics & Dashboards Executivos (Módulo 4.7)"],
 )
 
 # Registro de Handler RFC 7807 para Problemas Fiscais e Validações

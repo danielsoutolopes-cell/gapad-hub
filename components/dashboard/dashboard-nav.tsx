@@ -17,6 +17,7 @@ import {
   GraduationCap,
   Crown,
   Sparkles,
+  LayoutDashboard,
 } from 'lucide-react';
 import { logout } from '@/app/actions/auth';
 
@@ -29,6 +30,11 @@ export function DashboardNav({ tenantName = 'Empresa Teste', isSuperAdmin = fals
   const pathname = usePathname();
 
   const navItems = [
+    {
+      href: '/dashboard',
+      label: 'Executivo',
+      icon: LayoutDashboard,
+    },
     {
       href: '/dashboard/obras',
       label: 'Obras',
@@ -95,7 +101,10 @@ export function DashboardNav({ tenantName = 'Empresa Teste', isSuperAdmin = fals
             <nav className="hidden md:flex items-center gap-1">
               {navItems.map((item) => {
                 const Icon = item.icon;
-                const isActive = pathname === item.href || pathname?.startsWith(`${item.href}/`);
+                const isActive =
+                  item.href === '/dashboard'
+                    ? pathname === '/dashboard'
+                    : pathname === item.href || pathname?.startsWith(`${item.href}/`);
                 return (
                   <Link
                     key={item.href}

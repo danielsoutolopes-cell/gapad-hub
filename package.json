@@ -21,6 +21,7 @@
     "react-dom": "^18.3.1",
     "react-dropzone": "^20.1.4",
     "react-hook-form": "^7.53.1",
+    "recharts": "^3.10.1",
     "tailwind-merge": "^2.5.4",
     "zod": "^3.23.8"
   },
