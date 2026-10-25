@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import date as dt_date, datetime
 from decimal import Decimal
 from enum import Enum
 from typing import Any, Dict, List, Optional
@@ -189,8 +189,8 @@ class SubMeasurementBase(BaseModel):
         description="URL da Nota Fiscal de Serviço emitida pelo prestador",
         example="https://storage.gadap.com.br/invoices/nfse_subempreiteiro_4512.pdf",
     )
-    measurement_date: Optional[date] = Field(
-        default_factory=date.today,
+    measurement_date: Optional[dt_date] = Field(
+        default_factory=dt_date.today,
         description="Data de referência ou fechamento do boletim de medição",
         example="2026-10-25",
     )
@@ -210,12 +210,12 @@ class SubMeasurementCreate(SubMeasurementBase):
 class SubMeasurementUpdate(BaseModel):
     measured_value: Optional[Decimal] = Field(None, ge=0, decimal_places=4)
     invoice_url: Optional[str] = None
-    measurement_date: Optional[date] = None
+    measurement_date: Optional[dt_date] = None
     notes: Optional[str] = None
 
 
 class SubMeasurementApprovalRequest(BaseModel):
-    due_date: Optional[date] = Field(
+    due_date: Optional[dt_date] = Field(
         None,
         description="Data de vencimento para o Contas a Pagar gerado. Se nulo, adota D+15.",
         example="2026-11-10",
@@ -278,8 +278,8 @@ class SubcontractTransactionBase(BaseModel):
         description="Valor da movimentação financeira (R$)",
         example=Decimal("12000.0000"),
     )
-    date: Optional[date] = Field(
-        default_factory=date.today,
+    date: Optional[dt_date] = Field(
+        default_factory=dt_date.today,
         description="Data da movimentação",
         example="2026-10-25",
     )
@@ -292,7 +292,7 @@ class SubcontractTransactionBase(BaseModel):
 
 
 class SubcontractTransactionCreate(SubcontractTransactionBase):
-    due_date: Optional[date] = Field(
+    due_date: Optional[dt_date] = Field(
         None,
         description="Data de vencimento para o lançamento em Contas a Pagar (se type == 'PAYMENT')",
     )
@@ -357,8 +357,8 @@ class SubcontractBase(BaseModel):
         description="Status operacional do subcontrato",
         example=SubcontractStatus.ACTIVE,
     )
-    start_date: Optional[date] = Field(None, description="Data de início da prestação dos serviços")
-    end_date: Optional[date] = Field(None, description="Data prevista de conclusão dos serviços")
+    start_date: Optional[dt_date] = Field(None, description="Data de início da prestação dos serviços")
+    end_date: Optional[dt_date] = Field(None, description="Data prevista de conclusão dos serviços")
     notes: Optional[str] = Field(None, description="Observações contratuais e cláusulas de garantia")
 
     @field_validator("technical_retention_percentage")
@@ -381,8 +381,8 @@ class SubcontractUpdate(BaseModel):
     total_value: Optional[Decimal] = None
     technical_retention_percentage: Optional[Decimal] = None
     status: Optional[SubcontractStatus] = None
-    start_date: Optional[date] = None
-    end_date: Optional[date] = None
+    start_date: Optional[dt_date] = None
+    end_date: Optional[dt_date] = None
     notes: Optional[str] = None
 
     @field_validator("technical_retention_percentage")

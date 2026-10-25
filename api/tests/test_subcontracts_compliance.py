@@ -1,5 +1,10 @@
+import sys
+import os
 from decimal import Decimal
 from typing import Any
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
 from app.services.subcontract_compliance_service import (
     SubcontractComplianceService,
     ComplianceBlockedException,
@@ -141,4 +146,17 @@ def test_farol_red_pagamentos_maior_medicao_e_acima_80_porcento():
     )
     assert res["risk_status"] == "RED"
     assert res["financial_exposure"] == Decimal("45000.0000")
+
+
+if __name__ == "__main__":
+    test_compliance_audit_missing_documents()
+    test_compliance_audit_unverified_documents()
+    test_compliance_audit_approved()
+    test_tax_and_technical_withholdings_regular_supplier()
+    test_tax_and_technical_withholdings_mei_supplier()
+    test_enforce_compliance_blocks_when_not_compliant()
+    test_farol_green_pagamentos_menor_ou_igual_medicao()
+    test_farol_yellow_pagamentos_maior_medicao_mas_abaixo_80_porcento()
+    test_farol_red_pagamentos_maior_medicao_e_acima_80_porcento()
+    print("Todos os testes de test_subcontracts_compliance.py passaram com sucesso!")
 
