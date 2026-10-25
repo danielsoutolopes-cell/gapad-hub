@@ -12,11 +12,17 @@ Gera fisicamente:
 import os
 import sys
 
-# Garante suporte a UTF-8 no stdout/stderr no Windows
-if sys.stdout.encoding != "utf-8":
-    sys.stdout.reconfigure(encoding="utf-8")
-if sys.stderr.encoding != "utf-8":
-    sys.stderr.reconfigure(encoding="utf-8")
+# Garante suporte a UTF-8 no stdout/stderr no Windows de forma segura para analisadores estáticos
+if hasattr(sys.stdout, "reconfigure"):
+    try:
+        getattr(sys.stdout, "reconfigure")(encoding="utf-8")
+    except Exception:
+        pass
+if hasattr(sys.stderr, "reconfigure"):
+    try:
+        getattr(sys.stderr, "reconfigure")(encoding="utf-8")
+    except Exception:
+        pass
 
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.colors import HexColor

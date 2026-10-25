@@ -1,4 +1,5 @@
 from decimal import Decimal
+from typing import Any
 from app.services.subcontract_compliance_service import (
     SubcontractComplianceService,
     ComplianceBlockedException,
@@ -101,7 +102,9 @@ def test_enforce_compliance_blocks_when_not_compliant():
         assert False, "Deveria ter lançado ComplianceBlockedException"
     except ComplianceBlockedException as exc:
         assert exc.status_code == 422
-        assert exc.detail["error"] == "COMPLIANCE_LOCK_ACTIVE"
+        detail_data: Any = exc.detail
+        assert isinstance(detail_data, dict)
+        assert detail_data.get("error") == "COMPLIANCE_LOCK_ACTIVE"
 
 
 def test_farol_green_pagamentos_menor_ou_igual_medicao():
