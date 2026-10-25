@@ -14,6 +14,7 @@ import {
   LogOut,
   ShieldCheck,
   BookOpen,
+  GraduationCap,
 } from 'lucide-react';
 import { logout } from '@/app/actions/auth';
 
@@ -54,6 +55,11 @@ export function DashboardNav({ tenantName = 'Empresa Teste' }: DashboardNavProps
       href: '/dashboard/servicos',
       label: 'Serviços',
       icon: Wrench,
+    },
+    {
+      href: '/dashboard/academy',
+      label: 'Academy',
+      icon: GraduationCap,
     },
   ];
 
@@ -102,6 +108,15 @@ export function DashboardNav({ tenantName = 'Empresa Teste' }: DashboardNavProps
 
           {/* Lado Direito: Badge RLS, Guia Rápido e Botão Sair */}
           <div className="flex items-center gap-3">
+            <Link
+              href="/dashboard/academy"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold text-teal-300 bg-teal-500/10 hover:bg-teal-500/20 border border-teal-500/20 transition-all hover:scale-[1.02]"
+              title="Academy - Curso Prático"
+            >
+              <GraduationCap className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Academy</span>
+            </Link>
+
             <Link
               href="/dashboard/ajuda/guia-rapido"
               className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 transition-all hover:scale-[1.02]"
