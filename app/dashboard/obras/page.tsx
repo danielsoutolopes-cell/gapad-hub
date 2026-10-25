@@ -31,9 +31,14 @@ export default async function ObrasPage() {
     }
   }
 
+  const isSuperAdmin =
+    user.app_metadata?.is_superadmin === true ||
+    user.user_metadata?.is_superadmin === true ||
+    user.app_metadata?.role === 'superadmin';
+
   return (
     <div className="min-h-screen bg-[#090d16] text-slate-100 flex flex-col">
-      <DashboardNav tenantName={tenantName} />
+      <DashboardNav tenantName={tenantName} isSuperAdmin={isSuperAdmin} />
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 w-full">
         <ObrasClient />
       </main>

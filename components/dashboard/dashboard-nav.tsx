@@ -15,14 +15,16 @@ import {
   ShieldCheck,
   BookOpen,
   GraduationCap,
+  Crown,
 } from 'lucide-react';
 import { logout } from '@/app/actions/auth';
 
 interface DashboardNavProps {
   tenantName?: string;
+  isSuperAdmin?: boolean;
 }
 
-export function DashboardNav({ tenantName = 'Empresa Teste' }: DashboardNavProps) {
+export function DashboardNav({ tenantName = 'Empresa Teste', isSuperAdmin = false }: DashboardNavProps) {
   const pathname = usePathname();
 
   const navItems = [
@@ -108,6 +110,17 @@ export function DashboardNav({ tenantName = 'Empresa Teste' }: DashboardNavProps
 
           {/* Lado Direito: Badge RLS, Guia Rápido e Botão Sair */}
           <div className="flex items-center gap-3">
+            {isSuperAdmin && (
+              <Link
+                href="/backoffice"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold text-red-400 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 transition-all hover:scale-[1.02]"
+                title="Painel Master • God Mode"
+              >
+                <Crown className="w-3.5 h-3.5 text-red-400" />
+                <span className="hidden sm:inline">God Mode</span>
+              </Link>
+            )}
+
             <Link
               href="/dashboard/academy"
               className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold text-teal-300 bg-teal-500/10 hover:bg-teal-500/20 border border-teal-500/20 transition-all hover:scale-[1.02]"
