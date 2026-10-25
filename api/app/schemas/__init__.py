@@ -61,4 +61,16 @@ __all__ = [
     "QuoteCreate",
     "QuoteUpdate",
     "QuoteResponse",
+    "ProjectStatus",
+    "ProjectBase",
+    "ProjectCreate",
+    "ProjectUpdate",
+    "ProjectResponse",
 ]
+from app.schemas.project import (
+    ProjectStatus,
+    ProjectBase,
+    ProjectCreate,
+    ProjectUpdate,
+    ProjectResponse,
+)
