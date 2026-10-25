@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from app.core.config import settings
 from app.services.evolution_whatsapp import EvolutionWhatsAppClient
+from app.core.errors import ProblemException, problem_exception_handler
 from app.api.v1.endpoints.clients import router as clients_router
 from app.api.v1.endpoints.suppliers import router as suppliers_router
 from app.api.v1.endpoints.products import router as products_router
@@ -13,6 +14,7 @@ from app.api.v1.endpoints.quotes import router as quotes_router
 from app.api.v1.endpoints.projects import router as projects_router
 from app.api.v1.endpoints.measurements import router as measurements_router
 from app.api.v1.endpoints.backoffice import router as backoffice_router
+from app.api.v1.endpoints.fiscal import router as fiscal_router
 
 # Configuração de Logs
 logging.basicConfig(
@@ -87,6 +89,14 @@ app.include_router(
     prefix=f"{settings.API_V1_STR}/backoffice",
     tags=["Backoffice Master (Super Admin)"],
 )
+app.include_router(
+    fiscal_router,
+    prefix=f"{settings.API_V1_STR}/fiscal",
+    tags=["Motor Fiscal & NFS-e (Fase 9)"],
+)
+
+# Registro de Handler RFC 7807 para Problemas Fiscais e Validações
+app.add_exception_handler(ProblemException, problem_exception_handler)
 
 
 # ------------------------------------------------------------------------------

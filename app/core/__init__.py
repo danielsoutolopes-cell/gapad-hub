@@ -1,0 +1,3 @@
+"""
+GADAP Hub Core Module
+"""
