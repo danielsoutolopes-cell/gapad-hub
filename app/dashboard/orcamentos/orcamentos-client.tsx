@@ -21,6 +21,7 @@ import {
   Calendar,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+import { ContextualHelp } from '@/components/help/contextual-help';
 
 interface QuoteItem {
   id: string;
@@ -213,13 +214,16 @@ export function OrcamentosClient() {
           </p>
         </div>
 
-        <Link
-          href="/dashboard/orcamentos/novo"
-          className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 font-bold text-xs sm:text-sm shadow-lg shadow-emerald-500/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
-        >
-          <Plus className="w-4 h-4 stroke-[3]" />
-          Novo Orçamento
-        </Link>
+        <div className="flex items-center gap-3">
+          <ContextualHelp topic="bdi_orcamentos" variant="badge" triggerText="O que é BDI?" />
+          <Link
+            href="/dashboard/orcamentos/novo"
+            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 font-bold text-xs sm:text-sm shadow-lg shadow-emerald-500/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
+          >
+            <Plus className="w-4 h-4 stroke-[3]" />
+            Novo Orçamento
+          </Link>
+        </div>
       </div>
 
       {/* KPI Cards */}

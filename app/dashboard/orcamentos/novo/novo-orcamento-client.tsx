@@ -28,6 +28,7 @@ import {
   Info,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+import { ContextualHelp } from '@/components/help/contextual-help';
 
 // -----------------------------------------------------------------------------
 // 1. Schema de Validação com Zod
@@ -492,14 +493,17 @@ export function NovoOrcamentoClient() {
                     BDI = [((1 + AC + S + R + G) * (1 + DF) * (1 + L)) / (1 - I)] - 1
                   </p>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setShowBdiDetails(!showBdiDetails)}
-                  className="text-xs text-emerald-400 hover:text-emerald-300 font-medium flex items-center gap-1"
-                >
-                  {showBdiDetails ? 'Recolher Taxas' : 'Ajustar Taxas Detalhadas'}
-                  <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showBdiDetails ? 'rotate-180' : ''}`} />
-                </button>
+                <div className="flex items-center gap-2">
+                  <ContextualHelp topic="bdi_orcamentos" variant="badge" triggerText="Entenda as taxas do BDI" />
+                  <button
+                    type="button"
+                    onClick={() => setShowBdiDetails(!showBdiDetails)}
+                    className="text-xs text-emerald-400 hover:text-emerald-300 font-medium flex items-center gap-1"
+                  >
+                    {showBdiDetails ? 'Recolher Taxas' : 'Ajustar Taxas Detalhadas'}
+                    <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showBdiDetails ? 'rotate-180' : ''}`} />
+                  </button>
+                </div>
               </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">

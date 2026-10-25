@@ -29,6 +29,7 @@ import {
   Percent,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+import { ContextualHelp } from '@/components/help/contextual-help';
 
 // -----------------------------------------------------------------------------
 // 1. Schema de Validação com Zod
@@ -521,17 +522,20 @@ export function MedicoesObraClient({ projectId }: MedicoesObraClientProps) {
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={() => {
-            setErrorMessage(null);
-            setIsModalOpen(true);
-          }}
-          className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 font-bold text-xs sm:text-sm shadow-lg shadow-emerald-500/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
-        >
-          <Plus className="w-4 h-4 stroke-[3]" />
-          Lançar Medição
-        </button>
+        <div className="flex items-center gap-3">
+          <ContextualHelp topic="medicoes" variant="badge" triggerText="Como funciona a Retenção?" />
+          <button
+            type="button"
+            onClick={() => {
+              setErrorMessage(null);
+              setIsModalOpen(true);
+            }}
+            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 font-bold text-xs sm:text-sm shadow-lg shadow-emerald-500/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
+          >
+            <Plus className="w-4 h-4 stroke-[3]" />
+            Lançar Medição
+          </button>
+        </div>
       </div>
 
       {/* KPI Cards: Acompanhamento Físico-Financeiro */}
@@ -879,7 +883,10 @@ export function MedicoesObraClient({ projectId }: MedicoesObraClientProps) {
               {/* UX AVANÇADA: PREVIEW EM TEMPO REAL DO VALOR LÍQUIDO A RECEBER */}
               <div className="p-4 rounded-xl bg-slate-900/70 border border-slate-800 space-y-2.5">
                 <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center justify-between">
-                  <span>Conferência Prévia (Cálculo em Tempo Real)</span>
+                  <div className="flex items-center gap-1.5">
+                    <span>Conferência Prévia (Cálculo em Tempo Real)</span>
+                    <ContextualHelp topic="medicoes" variant="icon" />
+                  </div>
                   <span className="text-emerald-400 font-normal normal-case">
                     Motor Determinístico Ativo
                   </span>
