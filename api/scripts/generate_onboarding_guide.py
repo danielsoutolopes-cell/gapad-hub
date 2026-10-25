@@ -14,7 +14,7 @@ Pode ser executado diretamente em qualquer ambiente com Python 3.
 import os
 import sys
 
-DOCUMENT_CONTENT = """# GADAP Hub • Enterprise Construction ERP
+DOCUMENT_CONTENT = r"""# GADAP Hub • Enterprise Construction ERP
 ## Manual de Onboarding, Guia Rápido de 1ª Utilização e Curso Prático Integrado
 **Documento Oficial de Treinamento e Sucesso do Cliente Piloto**  
 *Versão: 1.0 (Release Piloto) • Publicação: Outubro/2026 • GADAP Technologies*
@@ -356,21 +356,24 @@ def generate_pdf_if_available(markdown_path: str, pdf_path: str):
     Caso contrário, registra instruções claras de portabilidade.
     """
     try:
-        import markdown
-        html = markdown.markdown(DOCUMENT_CONTENT, extensions=["tables", "fenced_code"])
+        import importlib
+        md_lib = importlib.import_module("markdown")
+        html = getattr(md_lib, "markdown")(DOCUMENT_CONTENT, extensions=["tables", "fenced_code"])
         
-        # Tentativa com WeasyPrint ou xhtml2pdf se disponível
+        # Tentativa com xhtml2pdf se disponível
         try:
-            from xhtml2pdf import pisa
-            with open(pdf_path, "wb") as pdf_file:
-                pisa_status = pisa.CreatePDF(html, dest=pdf_file)
-                if not pisa_status.err:
-                    print(f"[OK] PDF compilado com sucesso via xhtml2pdf em: {pdf_path}")
-                    return True
-        except ImportError:
+            pisa_lib = importlib.import_module("xhtml2pdf.pisa")
+            pisa = getattr(pisa_lib, "pisa", None)
+            if pisa and hasattr(pisa, "CreatePDF"):
+                with open(pdf_path, "wb") as pdf_file:
+                    pisa_status = pisa.CreatePDF(html, dest=pdf_file)
+                    if not pisa_status.err:
+                        print(f"[OK] PDF compilado com sucesso via xhtml2pdf em: {pdf_path}")
+                        return True
+        except (ImportError, Exception):
             pass
 
-    except ImportError:
+    except (ImportError, Exception):
         pass
         
     print(f"[INFO] Arquivo Markdown gerado perfeitamente para visualização e distribuição (.md).")
