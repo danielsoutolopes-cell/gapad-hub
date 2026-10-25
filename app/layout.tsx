@@ -1,6 +1,11 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { QueryProvider } from '@/components/providers/query-provider';
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+};
 
 export const metadata: Metadata = {
   title: 'GADAP Hub - Gestão e Inteligência Fiscal para Obras e Serviços',
@@ -16,7 +21,6 @@ export const metadata: Metadata = {
     'Supabase RLS',
   ],
   authors: [{ name: 'GADAP Hub Team' }],
-  viewport: 'width=device-width, initial-scale=1',
 };
 
 export default function RootLayout({
