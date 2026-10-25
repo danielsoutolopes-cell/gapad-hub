@@ -27,6 +27,13 @@ import {
   Check,
   Tag,
   Percent,
+  Receipt,
+  FileText,
+  ExternalLink,
+  Download,
+  Sparkles,
+  Copy,
+  CheckCheck,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { ContextualHelp } from '@/components/help/contextual-help';
@@ -97,6 +104,20 @@ export function MedicoesObraClient({ projectId }: MedicoesObraClientProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [approvingId, setApprovingId] = useState<string | null>(null);
+  const [issuingMeasurementId, setIssuingMeasurementId] = useState<string | null>(null);
+  const [loadingPdfId, setLoadingPdfId] = useState<string | null>(null);
+  const [copiedKey, setCopiedKey] = useState(false);
+  const [issuedNfseModal, setIssuedNfseModal] = useState<{
+    measurementSeq: number;
+    number: number;
+    series: string;
+    accessKey: string;
+    pdfUrl: string;
+    xmlUrl: string;
+    netAmount: number;
+    issRetained: boolean;
+    issRetainedAmount: number;
+  } | null>(null);
 
   // ---------------------------------------------------------------------------
   // 2. Consulta dos Detalhes da Obra
@@ -208,6 +229,45 @@ export function MedicoesObraClient({ projectId }: MedicoesObraClientProps) {
 
       if (error) throw error;
       return (data || []) as MeasurementItem[];
+    },
+  });
+
+  // ---------------------------------------------------------------------------
+  // 3.1. Consulta das Notas Fiscais Emitidas para a Obra (TanStack Query)
+  // ---------------------------------------------------------------------------
+  const { data: fiscalInvoicesMap = {}, refetch: refetchFiscalInvoices } = useQuery<
+    Record<
+      string,
+      {
+        id: string;
+        number: number;
+        series: string;
+        access_key: string;
+        pdf_url?: string;
+        xml_url?: string;
+        status: string;
+      }
+    >
+  >({
+    queryKey: ['fiscal_invoices', projectId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('fiscal_invoices')
+        .select('id, measurement_id, number, series, access_key, pdf_url, xml_url, status')
+        .eq('project_id', projectId);
+
+      if (error) {
+        console.warn('Falha ao carregar fiscal_invoices da obra:', error);
+        return {};
+      }
+
+      const map: Record<string, any> = {};
+      (data || []).forEach((inv) => {
+        if (inv.measurement_id) {
+          map[inv.measurement_id] = inv;
+        }
+      });
+      return map;
     },
   });
 
@@ -397,6 +457,143 @@ export function MedicoesObraClient({ projectId }: MedicoesObraClientProps) {
       alert(`Falha ao aprovar medição: ${err.message || 'Erro inesperado'}`);
     },
   });
+
+  // ---------------------------------------------------------------------------
+  // 6.1. Mutação TanStack Query para Emissão de NFS-e (Padrão Nacional)
+  // ---------------------------------------------------------------------------
+  const issueNfseMutation = useMutation({
+    mutationFn: async (measurement: MeasurementItem) => {
+      setIssuingMeasurementId(measurement.id);
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session) {
+        throw new Error('Sessão expirada. Faça login novamente.');
+      }
+
+      const desc = `Medição #${measurement.numero_sequencial} - Execução de obras e serviços de engenharia civil referente ao período de ${new Date(measurement.periodo_inicio).toLocaleDateString('pt-BR')} a ${new Date(measurement.periodo_fim).toLocaleDateString('pt-BR')}.`;
+
+      const payload = {
+        project_id: projectId,
+        measurement_id: measurement.id,
+        discriminacao_servicos: desc,
+        valores: {
+          valor_servicos: Number(measurement.valor_medido),
+          valor_deducoes: 0,
+          aliquota_iss: 5.0,
+          iss_retido: null, // Motor fiscal valida competência territorial da LC 116/2003
+          aliquota_inss: 5.0,
+        },
+        whatsapp_notification: true,
+      };
+
+      const res = await fetch('/api/v1/fiscal/invoices/issue-nfse', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+          'x-tenant-id':
+            session.user.app_metadata?.tenant_id || session.user.user_metadata?.tenant_id || '',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const responseData = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const errorDetail =
+          responseData.detail || responseData.title || 'Falha ao transmitir e autorizar NFS-e.';
+        throw new Error(errorDetail);
+      }
+
+      return responseData;
+    },
+    onSuccess: async (data, variables) => {
+      setIssuingMeasurementId(null);
+
+      // Gera a Presigned URL segura do Supabase Storage para visualização imediata do PDF
+      let presignedPdfUrl = data.pdf_url;
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        const tenantId =
+          session?.user?.app_metadata?.tenant_id || session?.user?.user_metadata?.tenant_id;
+        if (tenantId && data.access_key) {
+          const filePath = `${tenantId}/${data.access_key}.pdf`;
+          const { data: signed } = await supabase.storage
+            .from('xml-fiscais')
+            .createSignedUrl(filePath, 3600); // 1 hora de vigência
+          if (signed?.signedUrl) {
+            presignedPdfUrl = signed.signedUrl;
+          }
+        }
+      } catch (err) {
+        console.warn('Falha ao gerar presigned url:', err);
+      }
+
+      // Abre modal comemorativo e informativo da NFS-e
+      setIssuedNfseModal({
+        measurementSeq: variables.numero_sequencial,
+        number: data.number,
+        series: data.series || '1',
+        accessKey: data.access_key,
+        pdfUrl: presignedPdfUrl,
+        xmlUrl: data.xml_url,
+        netAmount: Number(data.net_amount || variables.valor_liquido),
+        issRetained: Boolean(data.iss_retained),
+        issRetainedAmount: Number(data.iss_retained_amount || 0),
+      });
+
+      // Atualiza caches do TanStack Query: a medição passa para "faturada"
+      await queryClient.invalidateQueries({ queryKey: ['measurements', projectId] });
+      await queryClient.invalidateQueries({ queryKey: ['fiscal_invoices', projectId] });
+    },
+    onError: (err: any) => {
+      setIssuingMeasurementId(null);
+      alert(`Erro na Emissão da NFS-e Nacional: ${err.message || 'Erro inesperado'}`);
+    },
+  });
+
+  // ---------------------------------------------------------------------------
+  // 6.2. Helper para Abrir DANFSE (PDF) usando Presigned URL do Supabase Storage
+  // ---------------------------------------------------------------------------
+  const handleOpenPdf = async (measurementId: string, directUrl?: string, accessKey?: string) => {
+    try {
+      setLoadingPdfId(measurementId);
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const tenantId =
+        session?.user?.app_metadata?.tenant_id || session?.user?.user_metadata?.tenant_id;
+
+      if (accessKey && tenantId) {
+        const filePath = `${tenantId}/${accessKey}.pdf`;
+        const { data: signed, error: signError } = await supabase.storage
+          .from('xml-fiscais')
+          .createSignedUrl(filePath, 3600);
+
+        if (!signError && signed?.signedUrl) {
+          window.open(signed.signedUrl, '_blank', 'noopener,noreferrer');
+          setLoadingPdfId(null);
+          return;
+        }
+      }
+
+      if (directUrl) {
+        window.open(directUrl, '_blank', 'noopener,noreferrer');
+      } else {
+        alert('URL do PDF da NFS-e indisponível no momento.');
+      }
+    } catch (e: any) {
+      console.error('Falha ao abrir PDF da NFS-e:', e);
+      if (directUrl) {
+        window.open(directUrl, '_blank', 'noopener,noreferrer');
+      }
+    } finally {
+      setLoadingPdfId(null);
+    }
+  };
 
   const onSubmit = (formData: MeasurementFormData) => {
     setErrorMessage(null);
@@ -727,8 +924,8 @@ export function MedicoesObraClient({ projectId }: MedicoesObraClientProps) {
                             type="button"
                             onClick={() => approveMeasurementMutation.mutate(m.id)}
                             disabled={isApproving}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25 border border-emerald-500/30 transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50"
-                            title="Aprovar medição e liberar para faturamento"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25 border border-emerald-500/30 transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 shadow-sm"
+                            title="Aprovar medição e liberar para faturamento fiscal"
                           >
                             {isApproving ? (
                               <>
@@ -742,10 +939,65 @@ export function MedicoesObraClient({ projectId }: MedicoesObraClientProps) {
                               </>
                             )}
                           </button>
+                        ) : m.status === 'aprovada' ? (
+                          <button
+                            type="button"
+                            onClick={() => issueNfseMutation.mutate(m)}
+                            disabled={issuingMeasurementId === m.id}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white shadow-md shadow-purple-500/20 transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50"
+                            title="Emitir NFS-e Padrão Nacional (Receita Federal)"
+                          >
+                            {issuingMeasurementId === m.id ? (
+                              <>
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                Emitindo NFS-e...
+                              </>
+                            ) : (
+                              <>
+                                <Receipt className="w-3.5 h-3.5" />
+                                Emitir NFS-e
+                              </>
+                            )}
+                          </button>
+                        ) : m.status === 'faturada' ? (
+                          <div className="flex items-center justify-end gap-2">
+                            {fiscalInvoicesMap[m.id] && (
+                              <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-mono font-semibold text-purple-300 bg-purple-500/15 border border-purple-500/30 px-2 py-0.5 rounded-md">
+                                <FileCheck2 className="w-3 h-3 text-purple-400" />
+                                NFS-e #{fiscalInvoicesMap[m.id].number}
+                              </span>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleOpenPdf(
+                                  m.id,
+                                  fiscalInvoicesMap[m.id]?.pdf_url,
+                                  fiscalInvoicesMap[m.id]?.access_key
+                                )
+                              }
+                              disabled={loadingPdfId === m.id}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-sky-400 hover:bg-slate-700/80 hover:text-sky-300 border border-slate-700 transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 shadow-sm"
+                              title="Visualizar DANFSE (PDF Presigned URL)"
+                            >
+                              {loadingPdfId === m.id ? (
+                                <>
+                                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                  Abrindo PDF...
+                                </>
+                              ) : (
+                                <>
+                                  <FileText className="w-3.5 h-3.5 text-sky-400" />
+                                  Visualizar PDF
+                                  <ExternalLink className="w-3 h-3 text-slate-500" />
+                                </>
+                              )}
+                            </button>
+                          </div>
                         ) : (
                           <span className="text-[11px] text-slate-500 font-medium inline-flex items-center gap-1">
-                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                            Liberada
+                            <AlertCircle className="w-3.5 h-3.5 text-rose-400" />
+                            {m.status}
                           </span>
                         )}
                       </td>
@@ -962,6 +1214,134 @@ export function MedicoesObraClient({ projectId }: MedicoesObraClientProps) {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* --------------------------------------------------------------------- */}
+      {/* 9. Modal Comemorativo de NFS-e Emitida com Sucesso                     */}
+      {/* --------------------------------------------------------------------- */}
+      {issuedNfseModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md animate-fade-in overflow-y-auto">
+          <div className="glass-panel w-full max-w-lg rounded-2xl border border-purple-500/30 bg-[#0c0f1d] shadow-2xl overflow-hidden my-8 p-6 space-y-5">
+            {/* Cabeçalho do Modal */}
+            <div className="flex items-start justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-purple-500/20 to-indigo-500/20 border border-purple-500/30 flex items-center justify-center text-purple-400 shadow-inner">
+                  <Receipt className="w-6 h-6" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-emerald-500/15 text-emerald-400 border border-emerald-500/20">
+                      Autorizada • Receita Federal
+                    </span>
+                    <Sparkles className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
+                  </div>
+                  <h3 className="text-lg font-bold text-white mt-0.5">
+                    NFS-e Nº {issuedNfseModal.number} Emitida!
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    {issuedNfseModal.measurementSeq}ª Medição faturada com sucesso no Padrão Nacional.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIssuedNfseModal(null)}
+                className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Chave de Acesso Nacional de 50 dígitos */}
+            <div className="bg-slate-900/90 rounded-xl p-3.5 border border-slate-800 space-y-1.5">
+              <div className="flex items-center justify-between text-[11px] text-slate-400">
+                <span className="font-semibold text-slate-300">Chave de Acesso Nacional (50 Dígitos)</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(issuedNfseModal.accessKey);
+                    setCopiedKey(true);
+                    setTimeout(() => setCopiedKey(false), 2000);
+                  }}
+                  className="inline-flex items-center gap-1 text-[10px] text-purple-400 hover:text-purple-300 transition-colors"
+                >
+                  {copiedKey ? (
+                    <>
+                      <CheckCheck className="w-3 h-3 text-emerald-400" />
+                      Copiada!
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-3 h-3" />
+                      Copiar Chave
+                    </>
+                  )}
+                </button>
+              </div>
+              <p className="font-mono text-xs text-purple-300 break-all select-all leading-relaxed bg-purple-950/30 p-2 rounded-lg border border-purple-500/10">
+                {issuedNfseModal.accessKey}
+              </p>
+            </div>
+
+            {/* Demonstrativo Financeiro Rápido */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-slate-900/60 p-3 rounded-xl border border-slate-800">
+                <span className="text-[11px] text-slate-400 block">Retenção de ISS (Obra)</span>
+                <span className="text-sm font-bold text-amber-400 font-mono mt-0.5 block">
+                  {issuedNfseModal.issRetained ? (
+                    <>R$ {issuedNfseModal.issRetainedAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (Retido)</>
+                  ) : (
+                    <>Isento / Prestador</>
+                  )}
+                </span>
+                <span className="text-[10px] text-slate-500 block mt-0.5">
+                  {issuedNfseModal.issRetained ? 'LC 116/2003 Art. 3º, III' : 'Devido na Sede'}
+                </span>
+              </div>
+
+              <div className="bg-slate-900/60 p-3 rounded-xl border border-slate-800">
+                <span className="text-[11px] text-slate-400 block">Valor Líquido a Receber</span>
+                <span className="text-sm font-bold text-emerald-400 font-mono mt-0.5 block">
+                  R$ {issuedNfseModal.netAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </span>
+                <span className="text-[10px] text-emerald-400/80 block mt-0.5">
+                  Líquido pós-retenções
+                </span>
+              </div>
+            </div>
+
+            {/* Alerta de Notificação WhatsApp */}
+            <div className="flex items-center gap-2 p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-xs">
+              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+              <span>Notificação com resumo e PDF despachada para o WhatsApp do cliente via Evolution API.</span>
+            </div>
+
+            {/* Botões de Ação */}
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setIssuedNfseModal(null)}
+                className="px-4 py-2 rounded-xl text-xs sm:text-sm text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+              >
+                Concluir
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (issuedNfseModal.pdfUrl) {
+                    window.open(issuedNfseModal.pdfUrl, '_blank', 'noopener,noreferrer');
+                  }
+                }}
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold text-xs sm:text-sm shadow-lg shadow-purple-500/25 transition-all hover:scale-[1.02] active:scale-[0.98]"
+              >
+                <FileText className="w-4 h-4" />
+                Visualizar DANFSE (PDF)
+                <ExternalLink className="w-3.5 h-3.5 text-purple-300" />
+              </button>
+            </div>
           </div>
         </div>
       )}

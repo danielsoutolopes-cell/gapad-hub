@@ -34,7 +34,25 @@ def get_current_tenant_and_token(
         tenant_id_raw = (
             payload.get("app_metadata", {}).get("tenant_id")
             or payload.get("user_metadata", {}).get("tenant_id")
+            or payload.get("tenant_id")
         )
+
+        # Fallback: Consulta direta na tabela public.users se não estiver nas claims do JWT
+        if not tenant_id_raw and payload.get("sub"):
+            user_id = payload.get("sub")
+            from app.core.config import settings
+            import httpx
+            service_key = settings.SUPABASE_SERVICE_ROLE_KEY
+            if service_key and settings.SUPABASE_URL:
+                try:
+                    url = f"{settings.SUPABASE_URL.rstrip('/')}/rest/v1/users?auth_user_id=eq.{user_id}&select=tenant_id"
+                    h = {"apikey": service_key, "Authorization": f"Bearer {service_key}"}
+                    with httpx.Client(timeout=3.0) as client:
+                        resp = client.get(url, headers=h)
+                        if resp.status_code == 200 and resp.json():
+                            tenant_id_raw = resp.json()[0].get("tenant_id")
+                except Exception as e:
+                    logger.warning("Falha ao consultar tenant_id em public.users: %s", e)
 
         if not tenant_id_raw:
             logger.warning("Tentativa de acesso por usuário sem tenant_id vinculado nas claims.")
