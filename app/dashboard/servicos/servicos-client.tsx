@@ -18,8 +18,14 @@ import {
   Percent,
   Calculator,
   ShieldAlert,
+  Sparkles,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+import {
+  SERVICE_FISCAL_PRESETS,
+  matchServiceFiscalPreset,
+  generateServiceCode,
+} from '@/lib/service-fiscal-helper';
 
 // -----------------------------------------------------------------------------
 // 1. Schema de Validação com Zod
@@ -107,6 +113,7 @@ export function ServicosClient() {
     register,
     handleSubmit,
     setValue,
+    watch,
     reset,
     formState: { errors },
   } = useForm<ServiceFormData>({
@@ -122,11 +129,51 @@ export function ServicosClient() {
       default_price: 0,
       unit_of_measure: 'M2',
       iss_aliquota: 5.0,
-      iss_retido_default: false,
+      iss_retido_default: true,
       inss_retencao_aliquota: 11.0,
       is_active: true,
     },
   });
+
+  const [fiscalFeedback, setFiscalFeedback] = useState<string | null>(null);
+
+  // Geração manual ou automática do Código Interno
+  const handleAutoGenerateCode = (customLc?: string) => {
+    const lc = customLc || watch('lc116_code') || '07.02';
+    const preset = SERVICE_FISCAL_PRESETS.find((p) => p.lc116_code === lc);
+    const prefix = preset ? `SRV-${preset.prefix}` : 'SRV';
+    const newCode = generateServiceCode(lc, prefix);
+    setValue('code', newCode);
+  };
+
+  // Quando o usuário seleciona um Subitem da LC 116/03
+  const handleLc116Change = (selectedLc: string) => {
+    setValue('lc116_code', selectedLc);
+    const preset = SERVICE_FISCAL_PRESETS.find((p) => p.lc116_code === selectedLc);
+    if (preset) {
+      setValue('nbs_code', preset.nbs_code);
+      setValue('cnae_code', preset.cnae_code);
+      setValue('unit_of_measure', preset.unit_of_measure);
+      setValue('iss_aliquota', preset.iss_aliquota);
+      setValue('iss_retido_default', preset.iss_retido_default);
+      setValue('inss_retencao_aliquota', preset.inss_retencao_aliquota);
+
+      const currentCode = watch('code');
+      if (!currentCode || currentCode.trim() === '') {
+        handleAutoGenerateCode(selectedLc);
+      }
+      setFiscalFeedback(`✓ Enquadramento aplicado: ${preset.lc116_label} | NBS: ${preset.nbs_code}`);
+    }
+  };
+
+  // Quando o usuário digita a Descrição do Serviço, auto-detecta a regra fiscal
+  const handleDescriptionBlur = (desc: string) => {
+    if (!desc || desc.trim().length < 3) return;
+    const match = matchServiceFiscalPreset(desc);
+    if (match) {
+      handleLc116Change(match.lc116_code);
+    }
+  };
 
   const getAuthToken = async (): Promise<string> => {
     const {
@@ -450,21 +497,40 @@ export function ServicosClient() {
                 </div>
               )}
 
+              {/* Feedback de Inteligência Fiscal */}
+              {fiscalFeedback && (
+                <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs flex items-center gap-2">
+                  <Sparkles className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
+                  <span className="font-medium">{fiscalFeedback}</span>
+                </div>
+              )}
+
               {/* Código e Descrição */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-xs font-medium text-slate-300 mb-1">Código Interno</label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-medium text-slate-300">Código Interno</label>
+                    <button
+                      type="button"
+                      onClick={() => handleAutoGenerateCode()}
+                      className="text-[11px] text-emerald-400 hover:text-emerald-300 flex items-center gap-1 font-medium transition-colors"
+                      title="Gerar código SKU automático para o serviço"
+                    >
+                      <Sparkles className="w-3 h-3" /> Gerar
+                    </button>
+                  </div>
                   <input
                     {...register('code')}
-                    placeholder="Ex: SRV-EST-002"
-                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs sm:text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                    placeholder="Ex: SRV-OBR-702-101"
+                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs sm:text-sm text-white placeholder-slate-500 font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
                   />
                 </div>
                 <div className="sm:col-span-2">
                   <label className="block text-xs font-medium text-slate-300 mb-1">Descrição do Serviço *</label>
                   <input
                     {...register('name')}
-                    placeholder="Ex: Concretagem Estrutural FCK 30 Mpa"
+                    onBlur={(e) => handleDescriptionBlur(e.target.value)}
+                    placeholder="Ex: Serviço de Alvenaria e Concretagem / Piscina / Manta"
                     className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs sm:text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
                   />
                   {errors.name && <p className="text-red-400 text-[11px] mt-1">{errors.name.message}</p>}
@@ -477,14 +543,14 @@ export function ServicosClient() {
                   <label className="block text-xs font-medium text-slate-300 mb-1">Subitem LC 116/03 *</label>
                   <select
                     {...register('lc116_code')}
+                    onChange={(e) => handleLc116Change(e.target.value)}
                     className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs sm:text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
                   >
-                    <option value="07.02">07.02 - Execução de obras de construção civil</option>
-                    <option value="07.03">07.03 - Elaboração de planos diretores, projetos</option>
-                    <option value="07.04">07.04 - Demolição</option>
-                    <option value="07.05">07.05 - Reparação, conservação e reforma de edifícios</option>
-                    <option value="07.06">07.06 - Colocação e instalação de revestimentos</option>
-                    <option value="07.17">07.17 - Engenharia, arquitetura e geologia</option>
+                    {SERVICE_FISCAL_PRESETS.map((preset) => (
+                      <option key={preset.lc116_code} value={preset.lc116_code}>
+                        {preset.lc116_label}
+                      </option>
+                    ))}
                   </select>
                   {errors.lc116_code && <p className="text-red-400 text-[11px] mt-1">{errors.lc116_code.message}</p>}
                 </div>
