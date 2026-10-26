@@ -23,6 +23,10 @@ import {
   MessageCircle,
   Copy,
   Check,
+  HardHat,
+  Tag,
+  Zap,
+  Wrench,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 
@@ -64,6 +68,8 @@ const supplierFormSchema = z
     address_neighborhood: z.string().max(100).optional(),
     address_city: z.string().max(100).optional(),
     address_state: z.string().max(2).optional(),
+    is_subcontractor: z.boolean().default(false),
+    specialty_ids: z.array(z.string()).optional(),
     notes: z.string().optional(),
     is_active: z.boolean().default(true),
   })
@@ -81,6 +87,12 @@ const supplierFormSchema = z
   );
 
 type SupplierFormData = z.infer<typeof supplierFormSchema>;
+
+interface SpecialtyOption {
+  id: string;
+  name: string;
+  description?: string | null;
+}
 
 interface SupplierItem {
   id: string;
@@ -103,6 +115,7 @@ interface SupplierItem {
   address_city?: string | null;
   address_state?: string | null;
   is_subcontractor?: boolean;
+  specialties?: string[];
   notes?: string | null;
   is_active: boolean;
   created_at: string;
@@ -180,6 +193,8 @@ export function FornecedoresClient() {
   };
 
   const selectedPersonType = watch('person_type');
+  const isSubcontractorChecked = watch('is_subcontractor');
+  const selectedSpecialtyIds = watch('specialty_ids') || [];
 
   // Token JWT para autorização da API FastAPI
   const getAuthToken = async (): Promise<string> => {
@@ -193,6 +208,24 @@ export function FornecedoresClient() {
   };
 
   // ---------------------------------------------------------------------------
+  // TanStack Query: Especialidades Técnicas Disponíveis
+  // ---------------------------------------------------------------------------
+  const { data: specialtiesList = [] } = useQuery<SpecialtyOption[]>({
+    queryKey: ['specialties-catalog'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('specialties')
+        .select('id, name, description')
+        .order('name');
+      if (error) {
+        console.warn('Erro ao listar especialidades:', error);
+        return [];
+      }
+      return data || [];
+    },
+  });
+
+  // ---------------------------------------------------------------------------
   // TanStack Query: Listagem de Fornecedores
   // ---------------------------------------------------------------------------
   const {
@@ -204,16 +237,18 @@ export function FornecedoresClient() {
     queryKey: ['suppliers', searchTerm, selectedCategory],
     queryFn: async () => {
       const token = await getAuthToken();
-      const url = new URL('/api/v1/suppliers', window.location.origin);
-      if (searchTerm.trim()) {
-        url.searchParams.set('search', searchTerm.trim());
-      }
-      if (selectedCategory && selectedCategory !== 'all') {
-        url.searchParams.set('category', selectedCategory);
-      }
+      let fetchedSuppliers: SupplierItem[] = [];
 
       // 1. Tenta API FastAPI
       try {
+        const url = new URL('/api/v1/suppliers', window.location.origin);
+        if (searchTerm.trim()) {
+          url.searchParams.set('search', searchTerm.trim());
+        }
+        if (selectedCategory && selectedCategory !== 'all') {
+          url.searchParams.set('category', selectedCategory);
+        }
+
         const response = await fetch(url.toString(), {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -222,30 +257,60 @@ export function FornecedoresClient() {
         });
 
         if (response.ok) {
-          return await response.json();
+          fetchedSuppliers = await response.json();
         }
       } catch (e) {
         console.warn('Fallback para Supabase Client ao listar fornecedores...', e);
       }
 
-      // 2. Fallback resiliente via Supabase Client (RLS nativo)
-      let query = supabase
-        .from('suppliers')
-        .select('*')
-        .order('created_at', { ascending: false });
+      // 2. Fallback resiliente via Supabase Client (RLS nativo) se necessário
+      if (!fetchedSuppliers || fetchedSuppliers.length === 0) {
+        let query = supabase
+          .from('suppliers')
+          .select('*')
+          .order('created_at', { ascending: false });
 
-      if (searchTerm.trim()) {
-        query = query.or(`name.ilike.%${searchTerm.trim()}%,document.ilike.%${searchTerm.trim()}%`);
-      }
-      if (selectedCategory && selectedCategory !== 'all') {
-        query = query.eq('category', selectedCategory);
+        if (searchTerm.trim()) {
+          query = query.or(`name.ilike.%${searchTerm.trim()}%,document.ilike.%${searchTerm.trim()}%`);
+        }
+        if (selectedCategory && selectedCategory !== 'all') {
+          query = query.eq('category', selectedCategory);
+        }
+
+        const { data, error: supaErr } = await query;
+        if (supaErr) {
+          throw new Error(`Falha ao consultar fornecedores: ${supaErr.message}`);
+        }
+        fetchedSuppliers = (data || []) as SupplierItem[];
       }
 
-      const { data, error: supaErr } = await query;
-      if (supaErr) {
-        throw new Error(`Falha ao consultar fornecedores: ${supaErr.message}`);
+      // 3. Enriquecer com especialidades de supplier_specialties
+      try {
+        const { data: links } = await supabase
+          .from('supplier_specialties')
+          .select('supplier_id, specialties(name)');
+        
+        if (links) {
+          const specMap: Record<string, string[]> = {};
+          links.forEach((l: any) => {
+            const suppId = l.supplier_id;
+            const sName = l.specialties?.name;
+            if (suppId && sName) {
+              if (!specMap[suppId]) specMap[suppId] = [];
+              specMap[suppId].push(sName);
+            }
+          });
+
+          fetchedSuppliers = fetchedSuppliers.map((s) => ({
+            ...s,
+            specialties: specMap[s.id] || [],
+          }));
+        }
+      } catch (err) {
+        console.warn('Não foi possível carregar especialidades dos fornecedores:', err);
       }
-      return (data || []) as SupplierItem[];
+
+      return fetchedSuppliers;
     },
   });
 
@@ -461,9 +526,23 @@ export function FornecedoresClient() {
                       </span>
                     </td>
                     <td className="py-3.5 px-4">
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-slate-800 text-slate-300 border border-slate-700">
-                        {CATEGORIES.find((c) => c.value === sup.category)?.label || sup.category || 'Geral'}
-                      </span>
+                      <div className="flex flex-col gap-1 items-start">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-slate-800 text-slate-300 border border-slate-700">
+                          {CATEGORIES.find((c) => c.value === sup.category)?.label || sup.category || 'Geral'}
+                        </span>
+                        {sup.specialties && sup.specialties.length > 0 && (
+                          <div className="flex flex-wrap gap-1">
+                            {sup.specialties.map((spec: string) => (
+                              <span
+                                key={spec}
+                                className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30"
+                              >
+                                {spec}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     </td>
                     <td className="py-3.5 px-4">
                       {sup.contact_name && (
@@ -631,6 +710,76 @@ export function FornecedoresClient() {
                     ))}
                   </select>
                 </div>
+              </div>
+
+              {/* Bloco de Subcontratação e Especialidades Técnicas (Eletricista, etc) */}
+              <div className="p-4 rounded-xl border border-teal-500/30 bg-gradient-to-r from-teal-950/20 via-slate-900/40 to-slate-900/60 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <HardHat className="w-4 h-4 text-teal-400" />
+                    <div>
+                      <span className="text-xs font-bold text-white block">É Subcontratado / Mão de Obra de Canteiro?</span>
+                      <span className="text-[11px] text-slate-400 block">
+                        Habilita alocação direta em Obras, boletins de medição e conta corrente.
+                      </span>
+                    </div>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      {...register('is_subcontractor')}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-500"></div>
+                  </label>
+                </div>
+
+                {/* Seleção de Especialidades se for Subcontratado ou Subempreiteiro */}
+                {(isSubcontractorChecked || watch('category') === 'subempreiteira') && (
+                  <div className="pt-3 border-t border-slate-800/80 space-y-2 animate-fade-in">
+                    <label className="block text-xs font-semibold text-teal-300 flex items-center justify-between">
+                      <span className="flex items-center gap-1.5">
+                        <Tag className="w-3.5 h-3.5" />
+                        Especialidades / Campos de Atuação:
+                      </span>
+                      <span className="text-[10px] text-slate-400 font-normal">
+                        Clique para selecionar ou desmarcar
+                      </span>
+                    </label>
+
+                    <div className="flex flex-wrap gap-1.5">
+                      {specialtiesList.map((spec) => {
+                        const isSelected = selectedSpecialtyIds.includes(spec.id);
+                        return (
+                          <button
+                            key={spec.id}
+                            type="button"
+                            onClick={() => {
+                              const current = selectedSpecialtyIds;
+                              if (isSelected) {
+                                setValue(
+                                  'specialty_ids',
+                                  current.filter((id) => id !== spec.id)
+                                );
+                              } else {
+                                setValue('specialty_ids', [...current, spec.id]);
+                              }
+                            }}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-all ${
+                              isSelected
+                                ? 'bg-teal-500 text-slate-950 font-bold shadow-md shadow-teal-500/20'
+                                : 'bg-slate-900/90 text-slate-300 border border-slate-800 hover:border-slate-700 hover:text-white'
+                            }`}
+                          >
+                            <Zap className={`w-3 h-3 ${isSelected ? 'text-slate-950' : 'text-teal-400'}`} />
+                            {spec.name}
+                            {isSelected && <Check className="w-3 h-3 ml-0.5" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Contatos */}
@@ -825,6 +974,27 @@ export function FornecedoresClient() {
                 </div>
               </div>
 
+              {/* Especialidades Técnicas */}
+              {selectedSupplier.specialties && selectedSupplier.specialties.length > 0 && (
+                <div>
+                  <h4 className="text-xs font-semibold text-slate-300 mb-2 flex items-center gap-1.5">
+                    <Wrench className="w-3.5 h-3.5 text-teal-400" />
+                    Especialidades Técnicas / Mão de Obra
+                  </h4>
+                  <div className="flex flex-wrap gap-1.5">
+                    {selectedSupplier.specialties.map((spec: string) => (
+                      <span
+                        key={spec}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-emerald-500/10 border border-emerald-500/30 text-emerald-300"
+                      >
+                        <Check className="w-3 h-3 text-emerald-400" />
+                        {spec}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Contato Comercial */}
               <div>
                 <h4 className="text-xs font-semibold text-slate-300 mb-2">Contato & Comunicação</h4>
@@ -844,9 +1014,20 @@ export function FornecedoresClient() {
                     </div>
                   )}
                   {selectedSupplier.phone && (
-                    <div className="flex items-center gap-2">
-                      <Phone className="w-3.5 h-3.5 text-slate-500" />
-                      <span>{selectedSupplier.phone}</span>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Phone className="w-3.5 h-3.5 text-slate-500" />
+                        <span>{selectedSupplier.phone}</span>
+                      </div>
+                      <a
+                        href={`https://wa.me/55${selectedSupplier.phone.replace(/\D/g, '')}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold text-white bg-emerald-600 hover:bg-emerald-500 transition-colors shadow-sm"
+                      >
+                        <MessageCircle className="w-3.5 h-3.5 fill-white" />
+                        Conversar no WhatsApp
+                      </a>
                     </div>
                   )}
                 </div>

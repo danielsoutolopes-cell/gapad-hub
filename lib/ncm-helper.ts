@@ -42,7 +42,6 @@ export const NCM_CONSTRUCTION_MAP: Record<string, { category: string; label: str
 
   // 39 - Plásticos e suas obras (Hidráulica / Conexões)
   '3917': { category: 'hidraulica', label: 'Tubos e seus acessórios (juntas, cotovelos) de plásticos (PVC/PPR)', unit: 'BARRA' },
-  '3925': { category: 'acabamento', label: 'Artefatos para apetrechamento de construções de plástico', unit: 'UN' },
 
   // 32 - Tintas, vernizes, impermeabilizantes e resinas
   '3208': { category: 'tintas_quimicos', label: 'Tintas e vernizes à base de polímeros sintéticos', unit: 'GL' },

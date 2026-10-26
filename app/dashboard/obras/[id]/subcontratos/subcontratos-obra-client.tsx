@@ -33,6 +33,7 @@ import {
   Scale,
   Receipt,
   HelpCircle,
+  MessageCircle,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { ContextualHelp } from '@/components/help/contextual-help';
@@ -56,6 +57,8 @@ export interface SupplierItem {
   trade_name?: string | null;
   document?: string | null;
   tax_regime?: string | null;
+  phone?: string | null;
+  email?: string | null;
   is_subcontractor?: boolean;
 }
 
@@ -1107,8 +1110,13 @@ function PaymentModal({
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [paymentMethod, setPaymentMethod] = useState<'PIX' | 'TRANSFER' | 'OUTRO'>('PIX');
+  const [pixKey, setPixKey] = useState<string>('');
+  const [successPayment, setSuccessPayment] = useState<{ amount: number; date: string; method: string } | null>(null);
+
   const partnerName =
     subcontract.suppliers?.trade_name || subcontract.suppliers?.name || 'Fornecedor';
+  const partnerPhone = subcontract.suppliers?.phone || '';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1127,6 +1135,13 @@ function PaymentModal({
       } = await supabase.auth.getSession();
       if (!session) throw new Error('Sessão expirada. Faça login novamente.');
 
+      const obsFull = [
+        `[Método: ${paymentMethod}${pixKey ? ` - Chave/Conta: ${pixKey}` : ''}]`,
+        observation.trim(),
+      ]
+        .filter(Boolean)
+        .join(' ');
+
       const res = await fetch(`/api/v1/subcontracts/${subcontract.id}/transactions`, {
         method: 'POST',
         headers: {
@@ -1138,7 +1153,7 @@ function PaymentModal({
           amount: numAmount,
           date: paymentDate,
           due_date: dueDate,
-          observation: observation.trim() || undefined,
+          observation: obsFull || undefined,
           create_financial_entry: createFinancialEntry,
         }),
       });
@@ -1148,12 +1163,33 @@ function PaymentModal({
         throw new Error(resJson.detail || 'Erro ao registrar pagamento na conta corrente.');
       }
 
+      setSuccessPayment({
+        amount: numAmount,
+        date: paymentDate,
+        method: paymentMethod,
+      });
       onSuccess(resJson);
     } catch (err: any) {
       setError(err.message || 'Falha ao processar pagamento.');
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleOpenWhatsApp = () => {
+    if (!successPayment) return;
+    const cleanPhone = (partnerPhone || '').replace(/\D/g, '');
+    const numStr = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(successPayment.amount);
+    const dateFormatted = formatDate(successPayment.date);
+    const obraNome = subcontract.projects?.name || 'Obra';
+
+    const message = `Olá, *${partnerName}*!\n\nInformamos que foi lançado um *Adiantamento Financeiro* no valor de *${numStr}* referente aos serviços contratados na obra *${obraNome}*.\n\n📅 *Data:* ${dateFormatted}\n💳 *Forma:* ${successPayment.method}${pixKey ? ` (${pixKey})` : ''}\n${observation ? `📝 *Obs:* ${observation}\n` : ''}\nO saldo da sua conta corrente na obra foi atualizado automaticamente. Em caso de dúvidas, estamos à disposição!`;
+
+    const targetUrl = cleanPhone
+      ? `https://wa.me/55${cleanPhone}?text=${encodeURIComponent(message)}`
+      : `https://wa.me/?text=${encodeURIComponent(message)}`;
+
+    window.open(targetUrl, '_blank');
   };
 
   return (
@@ -1166,9 +1202,10 @@ function PaymentModal({
               <CreditCard className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-white">Lançar Pagamento (Conta Corrente)</h3>
+              <h3 className="text-base font-bold text-white">Lançar Adiantamento / Pagamento</h3>
               <p className="text-xs text-slate-400">
                 Parceiro: <span className="text-slate-200 font-semibold">{partnerName}</span>
+                {partnerPhone && <span className="text-emerald-400 ml-1.5 font-mono">({partnerPhone})</span>}
               </p>
             </div>
           </div>
@@ -1181,115 +1218,223 @@ function PaymentModal({
           </button>
         </div>
 
-        {/* Formulário */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          {error && (
-            <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 shrink-0" />
-              <span>{error}</span>
+        {/* Modal de Sucesso com Ação WhatsApp */}
+        {successPayment ? (
+          <div className="p-6 space-y-5 text-center animate-fade-in">
+            <div className="w-14 h-14 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 flex items-center justify-center mx-auto shadow-lg shadow-emerald-500/10">
+              <CheckCircle2 className="w-8 h-8" />
             </div>
-          )}
 
-          {/* Destaque da Política Zero Travas */}
-          <div className="p-3.5 rounded-xl bg-gradient-to-r from-emerald-950/30 to-teal-950/20 border border-emerald-500/30 text-xs text-slate-300 space-y-1">
-            <div className="font-bold text-emerald-400 flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5" />
-              Política Zero Travas (Agilidade em Canteiro)
+            <div className="space-y-1">
+              <h4 className="text-lg font-bold text-white">Adiantamento Lançado com Sucesso!</h4>
+              <p className="text-xs text-slate-400">
+                O valor de <span className="font-mono font-bold text-emerald-400">{formatCurrency(successPayment.amount)}</span> foi registrado na conta corrente de <span className="text-white font-medium">{partnerName}</span>.
+              </p>
             </div>
-            <p className="text-slate-300 text-[11px] leading-relaxed">
-              O pagamento é lançado imediatamente na conta corrente e pode gerar despesa automática no
-              Contas a Pagar. Não é exigida medição prévia. O Farol é recalculado sem travar sua obra.
-            </p>
+
+            <div className="p-4 rounded-xl bg-slate-900/80 border border-slate-800 text-left text-xs space-y-2">
+              <div className="flex justify-between items-center text-slate-300">
+                <span className="text-slate-400">Método:</span>
+                <span className="font-semibold text-white">{successPayment.method}</span>
+              </div>
+              <div className="flex justify-between items-center text-slate-300">
+                <span className="text-slate-400">Data Desembolso:</span>
+                <span className="font-mono text-white">{formatDate(successPayment.date)}</span>
+              </div>
+              {pixKey && (
+                <div className="flex justify-between items-center text-slate-300">
+                  <span className="text-slate-400">Chave / Identificação:</span>
+                  <span className="font-mono text-emerald-300">{pixKey}</span>
+                </div>
+              )}
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-center gap-3 pt-2">
+              <button
+                type="button"
+                onClick={handleOpenWhatsApp}
+                className="w-full sm:flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 transition-all shadow-md shadow-emerald-600/30"
+              >
+                <MessageCircle className="w-4 h-4 fill-white" />
+                Enviar Comprovante via WhatsApp
+              </button>
+              <button
+                type="button"
+                onClick={onClose}
+                className="w-full sm:w-auto px-5 py-2.5 rounded-xl text-xs font-semibold text-slate-300 hover:bg-slate-800 transition-colors"
+              >
+                Concluir
+              </button>
+            </div>
           </div>
+        ) : (
+          /* Formulário */
+          <form onSubmit={handleSubmit} className="p-6 space-y-4">
+            {error && (
+              <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{error}</span>
+              </div>
+            )}
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">
-                Valor do Pagamento (R$) *
-              </label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 font-mono text-xs">
-                  R$
-                </span>
+            {/* Destaque da Política Zero Travas */}
+            <div className="p-3.5 rounded-xl bg-gradient-to-r from-emerald-950/30 to-teal-950/20 border border-emerald-500/30 text-xs text-slate-300 space-y-1">
+              <div className="font-bold text-emerald-400 flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5" />
+                Política Zero Travas (Adiantamento & Agilidade)
+              </div>
+              <p className="text-slate-300 text-[11px] leading-relaxed">
+                Adiantamentos podem ser liberados sem nenhuma medição física prévia. A conta corrente
+                registra a exposição com farol recalculado em tempo real e permite notificação instantânea via WhatsApp.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  Valor do Pagamento / Adiantamento (R$) *
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 font-mono text-xs">
+                    R$
+                  </span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    required
+                    autoFocus
+                    placeholder="0,00"
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                    className="w-full pl-9 pr-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white font-mono text-sm focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  Data do Desembolso *
+                </label>
                 <input
-                  type="number"
-                  step="0.01"
+                  type="date"
                   required
-                  autoFocus
-                  placeholder="0,00"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white font-mono text-sm focus:outline-none focus:border-emerald-500"
+                  value={paymentDate}
+                  onChange={(e) => setPaymentDate(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs sm:text-sm focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+            </div>
+
+            {/* Forma de Pagamento */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  Forma de Pagamento
+                </label>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod('PIX')}
+                    className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-semibold border transition-all ${
+                      paymentMethod === 'PIX'
+                        ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-300'
+                        : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    Pix
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod('TRANSFER')}
+                    className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-semibold border transition-all ${
+                      paymentMethod === 'TRANSFER'
+                        ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-300'
+                        : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    Transferência
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod('OUTRO')}
+                    className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-semibold border transition-all ${
+                      paymentMethod === 'OUTRO'
+                        ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-300'
+                        : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    Outro
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  {paymentMethod === 'PIX' ? 'Chave Pix (Opcional)' : 'Identificador / Conta'}
+                </label>
+                <input
+                  type="text"
+                  placeholder={paymentMethod === 'PIX' ? 'Ex: CNPJ, celular, email...' : 'Ex: Banco Itaú Ag 1234 C/C 5678-9'}
+                  value={pixKey}
+                  onChange={(e) => setPixKey(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs sm:text-sm focus:outline-none focus:border-emerald-500 placeholder:text-slate-600"
                 />
               </div>
             </div>
 
             <div>
               <label className="block text-xs font-semibold text-slate-300 mb-1">
-                Data do Desembolso *
+                Observação / Justificativa do Desembolso
               </label>
-              <input
-                type="date"
-                required
-                value={paymentDate}
-                onChange={(e) => setPaymentDate(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs sm:text-sm focus:outline-none focus:border-emerald-500"
+              <textarea
+                rows={2}
+                value={observation}
+                onChange={(e) => setObservation(e.target.value)}
+                placeholder="Ex: Adiantamento financeiro para mobilização inicial da equipe de elétrica..."
+                className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs sm:text-sm focus:outline-none focus:border-emerald-500 placeholder:text-slate-600"
               />
             </div>
-          </div>
 
-          <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1">
-              Observação / Justificativa do Desembolso
-            </label>
-            <textarea
-              rows={2}
-              value={observation}
-              onChange={(e) => setObservation(e.target.value)}
-              placeholder="Ex: Vale semanal da equipe de elétrica, adiantamento para insumos..."
-              className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs sm:text-sm focus:outline-none focus:border-emerald-500 placeholder:text-slate-600"
-            />
-          </div>
-
-          {/* Toggle Contas a Pagar */}
-          <div className="flex items-center justify-between p-3 rounded-xl bg-slate-950/60 border border-slate-800">
-            <div className="space-y-0.5">
-              <span className="text-xs font-semibold text-slate-200 block">
-                Integrar ao Contas a Pagar
-              </span>
-              <span className="text-[11px] text-slate-400 block">
-                Cria título financeiro da despesa automaticamente em `financial_entries`.
-              </span>
+            {/* Toggle Contas a Pagar */}
+            <div className="flex items-center justify-between p-3 rounded-xl bg-slate-950/60 border border-slate-800">
+              <div className="space-y-0.5">
+                <span className="text-xs font-semibold text-slate-200 block">
+                  Integrar ao Contas a Pagar
+                </span>
+                <span className="text-[11px] text-slate-400 block">
+                  Cria título financeiro da despesa automaticamente em `financial_entries`.
+                </span>
+              </div>
+              <input
+                type="checkbox"
+                id="finEntryCheckbox"
+                checked={createFinancialEntry}
+                onChange={(e) => setCreateFinancialEntry(e.target.checked)}
+                className="w-4 h-4 rounded text-emerald-500 bg-slate-900 border-slate-700 focus:ring-0 cursor-pointer"
+              />
             </div>
-            <input
-              type="checkbox"
-              id="finEntryCheckbox"
-              checked={createFinancialEntry}
-              onChange={(e) => setCreateFinancialEntry(e.target.checked)}
-              className="w-4 h-4 rounded text-emerald-500 bg-slate-900 border-slate-700 focus:ring-0 cursor-pointer"
-            />
-          </div>
 
-          {/* Botões do Rodapé */}
-          <div className="pt-3 border-t border-slate-800 flex items-center justify-end gap-2">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={isLoading}
-              className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-300 hover:bg-slate-800/80 transition-colors"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-slate-950 bg-gradient-to-r from-emerald-400 to-teal-400 hover:from-emerald-300 hover:to-teal-300 transition-all shadow-md shadow-emerald-500/20 disabled:opacity-50"
-            >
-              {isLoading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-              Confirmar Desembolso
-            </button>
-          </div>
-        </form>
+            {/* Botões do Rodapé */}
+            <div className="pt-3 border-t border-slate-800 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={onClose}
+                disabled={isLoading}
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-300 hover:bg-slate-800/80 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-slate-950 bg-gradient-to-r from-emerald-400 to-teal-400 hover:from-emerald-300 hover:to-teal-300 transition-all shadow-md shadow-emerald-500/20 disabled:opacity-50"
+              >
+                {isLoading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                Confirmar Desembolso
+              </button>
+            </div>
+          </form>
+        )}
       </div>
     </div>
   );

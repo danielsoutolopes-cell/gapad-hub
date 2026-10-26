@@ -296,7 +296,7 @@ async def list_subcontracts(
 
     params: Dict[str, str] = {
         "tenant_id": f"eq.{tenant_id}",
-        "select": "*,suppliers(id,name,trade_name,document,tax_regime,is_subcontractor),projects(id,name,code)",
+        "select": "*,suppliers(id,name,trade_name,document,phone,tax_regime,is_subcontractor),projects(id,name,code)",
         "order": "created_at.desc",
     }
     if project_id:

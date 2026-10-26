@@ -71,6 +71,14 @@ class SupplierBase(BaseModel):
         default_factory=dict,
         description="Dados bancários e chave PIX para pagamentos",
     )
+    is_subcontractor: bool = Field(
+        default=False,
+        description="Flag indicando se atua como subempreiteiro / mão de obra terceirizada",
+    )
+    specialty_ids: Optional[list[UUID]] = Field(
+        default=None,
+        description="Lista de IDs de especialidades técnicas vinculadas ao parceiro",
+    )
     notes: Optional[str] = None
     is_active: bool = True
 
@@ -115,6 +123,8 @@ class SupplierUpdate(BaseModel):
     address_state: Optional[str] = Field(None, min_length=2, max_length=2)
     address_zip_code: Optional[str] = None
     bank_info: Optional[Dict[str, Any]] = None
+    is_subcontractor: Optional[bool] = None
+    specialty_ids: Optional[list[UUID]] = None
     notes: Optional[str] = None
     is_active: Optional[bool] = None
 

@@ -123,7 +123,13 @@ async def create_supplier(
                     detail=f"Já existe um fornecedor cadastrado com o documento '{payload.document}' nesta empresa.",
                 )
 
-            # 2. Inserção
+            specialty_ids = supplier_dict.pop("specialty_ids", None)
+            
+            # Se categoria for subempreiteira ou tiver especialidade, garante is_subcontractor = True
+            if supplier_dict.get("category") == "subempreiteira" or specialty_ids:
+                supplier_dict["is_subcontractor"] = True
+
+            # 2. Inserção do Fornecedor
             insert_resp = await client.post(
                 supabase_url,
                 headers=_get_supabase_headers(token),
@@ -137,8 +143,27 @@ async def create_supplier(
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                     detail="O banco de dados não retornou o registro de fornecedor criado.",
                 )
+            created_supplier = created_records[0]
+            supplier_id = created_supplier["id"]
 
-            return SupplierResponse.model_validate(created_records[0])
+            # 3. Vínculo de Especialidades Técnicas se fornecidas
+            if specialty_ids:
+                base_url = settings.SUPABASE_URL.rstrip('/')
+                spec_links = [
+                    {
+                        "tenant_id": str(tenant_id),
+                        "supplier_id": str(supplier_id),
+                        "specialty_id": str(s_id),
+                    }
+                    for s_id in specialty_ids
+                ]
+                await client.post(
+                    f"{base_url}/rest/v1/supplier_specialties",
+                    headers={**_get_supabase_headers(token), "Prefer": "resolution=ignore-duplicates"},
+                    json=spec_links,
+                )
+
+            return SupplierResponse.model_validate(created_supplier)
 
         except HTTPException:
             raise
