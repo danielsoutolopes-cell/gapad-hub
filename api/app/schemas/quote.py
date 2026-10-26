@@ -202,3 +202,13 @@ class QuoteResponse(QuoteBase):
     model_config = {
         "from_attributes": True
     }
+
+
+class QuoteConvertResponse(BaseModel):
+    message: str = "Orçamento aprovado e convertido em Obra com sucesso."
+    quote: QuoteResponse
+    project: Dict[str, Any]
+    cronograma: List[Dict[str, Any]] = Field(
+        default_factory=list,
+        description="Etapas do cronograma físico-financeiro inicial gerado a partir dos itens do orçamento",
+    )

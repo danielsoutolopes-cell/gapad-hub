@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 import httpx
 from app.core.config import settings
 from app.core.deps import get_current_tenant_and_token
-from app.schemas.quote import QuoteCreate, QuoteResponse, QuoteStatus, QuoteUpdate
+from app.schemas.quote import QuoteConvertResponse, QuoteCreate, QuoteResponse, QuoteStatus, QuoteUpdate
 from app.services.bdi_calculator import calculate_quote_financials
 
 logger = logging.getLogger("gadap.quotes")
@@ -54,6 +54,7 @@ async def _generate_quote_code(client: httpx.AsyncClient, supabase_base_url: str
     return f"{prefix}001"
 
 
+@router.get("", response_model=List[QuoteResponse], include_in_schema=False)
 @router.get(
     "/",
     response_model=List[QuoteResponse],
@@ -108,6 +109,7 @@ async def list_quotes(
             ) from exc
 
 
+@router.post("", response_model=QuoteResponse, include_in_schema=False)
 @router.post(
     "/",
     response_model=QuoteResponse,
@@ -382,3 +384,141 @@ async def delete_quote(
         )
         resp.raise_for_status()
         return None
+
+
+@router.post(
+    "/{quote_id}/convert-to-project",
+    response_model=QuoteConvertResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Aprovar orçamento e converter automaticamente em Obra (Projects) com Cronograma Físico-Financeiro",
+    description=(
+        "Trava o orçamento mudando o status para 'approved'/'converted', "
+        "cria a Obra na tabela projects espelhando o valor contratual e cliente, "
+        "e estrutura o cronograma físico-financeiro espelhado nos itens de composição."
+    ),
+)
+async def convert_quote_to_project(
+    quote_id: UUID,
+    auth_data: Tuple[UUID, str] = Depends(get_current_tenant_and_token),
+) -> QuoteConvertResponse:
+    tenant_id, token = auth_data
+    supabase_base_url = settings.SUPABASE_URL.rstrip("/")
+
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        # 1. Carrega o orçamento com itens e cliente
+        quote_resp = await client.get(
+            f"{supabase_base_url}/rest/v1/quotes",
+            headers=_get_supabase_headers(token),
+            params={
+                "id": f"eq.{quote_id}",
+                "tenant_id": f"eq.{tenant_id}",
+                "select": "*,client:clients(id,name,document,address_street,address_number,address_city,address_state,address_zip_code)",
+            },
+        )
+        quote_resp.raise_for_status()
+        quotes = quote_resp.json()
+        if not quotes:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Orçamento {quote_id} não encontrado ou não pertence a este tenant.",
+            )
+        quote_data = quotes[0]
+
+        # 2. Carrega os itens do orçamento
+        items_resp = await client.get(
+            f"{supabase_base_url}/rest/v1/quote_items",
+            headers=_get_supabase_headers(token),
+            params={
+                "quote_id": f"eq.{quote_id}",
+                "tenant_id": f"eq.{tenant_id}",
+                "order": "created_at.asc",
+            },
+        )
+        items_resp.raise_for_status()
+        quote_items = items_resp.json()
+        quote_data["items"] = quote_items
+
+        # 3. Gera código e dados da Obra a partir do orçamento
+        client_info = quote_data.get("client") or {}
+        project_code = f"OBR-{quote_data.get('code', 'ORC')}"
+        project_name = f"Obra: {quote_data.get('title')}"
+        contract_value = float(quote_data.get("grand_total") or 0.0)
+
+        # 4. Cria a Obra em public.projects
+        project_payload = {
+            "tenant_id": str(tenant_id),
+            "client_id": str(quote_data["client_id"]),
+            "code": project_code,
+            "name": project_name,
+            "description": quote_data.get("description") or f"Obra originada do Orçamento {quote_data.get('code')}",
+            "contract_value": contract_value,
+            "technical_retention_perc": 5.0,
+            "status": "planejamento",
+            "address_street": client_info.get("address_street"),
+            "address_number": client_info.get("address_number"),
+            "address_city": client_info.get("address_city") or "São Paulo",
+            "address_state": client_info.get("address_state") or "SP",
+            "address_zip_code": client_info.get("address_zip_code"),
+            "start_date": datetime.now().strftime("%Y-%m-%d"),
+            "end_date_planned": (datetime.now().date().replace(year=datetime.now().year + 1)).strftime("%Y-%m-%d"),
+        }
+
+        proj_resp = await client.post(
+            f"{supabase_base_url}/rest/v1/projects",
+            headers=_get_supabase_headers(token),
+            json=project_payload,
+        )
+        if not proj_resp.is_success:
+            logger.error("Falha ao criar Obra a partir do orçamento: %s", proj_resp.text)
+            raise HTTPException(
+                status_code=proj_resp.status_code,
+                detail=f"Erro ao criar Obra no banco de dados: {proj_resp.text}",
+            )
+        created_project = proj_resp.json()[0]
+        project_id = created_project["id"]
+
+        # 5. Atualiza o Orçamento para travado ('approved') e vincula project_id
+        update_quote_payload = {
+            "status": QuoteStatus.APPROVED.value,
+            "project_id": str(project_id),
+        }
+        patch_quote_resp = await client.patch(
+            f"{supabase_base_url}/rest/v1/quotes",
+            headers=_get_supabase_headers(token),
+            params={"id": f"eq.{quote_id}", "tenant_id": f"eq.{tenant_id}"},
+            json=update_quote_payload,
+        )
+        patch_quote_resp.raise_for_status()
+        quote_data["status"] = QuoteStatus.APPROVED.value
+        quote_data["project_id"] = str(project_id)
+
+        # 6. Estrutura o Cronograma Físico-Financeiro espelhado nos itens aprovados
+        cronograma = []
+        accumulated_pct = 0.0
+        total_items_val = sum(float(it.get("total_price") or 0.0) for it in quote_items)
+        if total_items_val == 0.0:
+            total_items_val = contract_value or 1.0
+
+        for idx, item in enumerate(quote_items, start=1):
+            item_price = float(item.get("total_price") or 0.0)
+            weight_pct = round((item_price / total_items_val) * 100.0, 2)
+            accumulated_pct = round(accumulated_pct + weight_pct, 2)
+            cronograma.append({
+                "etapa_sequencial": idx,
+                "item_id": item.get("id"),
+                "tipo": item.get("item_type"),
+                "descricao": item.get("description"),
+                "unidade": item.get("unit_of_measure"),
+                "quantidade": float(item.get("quantity") or 0.0),
+                "valor_total": item_price,
+                "peso_percentual": weight_pct,
+                "peso_acumulado": min(accumulated_pct, 100.0),
+                "status": "planejado",
+            })
+
+        return QuoteConvertResponse(
+            message=f"Orçamento {quote_data.get('code')} travado e convertido com sucesso na Obra {project_code}.",
+            quote=QuoteResponse.model_validate(quote_data),
+            project=created_project,
+            cronograma=cronograma,
+        )

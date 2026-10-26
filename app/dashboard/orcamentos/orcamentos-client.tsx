@@ -38,6 +38,7 @@ interface Quote {
   id: string;
   tenant_id: string;
   client_id: string;
+  project_id?: string | null;
   code?: string | null;
   title: string;
   description?: string | null;
@@ -104,6 +105,7 @@ export function OrcamentosClient() {
           id,
           tenant_id,
           client_id,
+          project_id,
           code,
           title,
           description,
@@ -433,14 +435,54 @@ export function OrcamentosClient() {
                       </td>
 
                       <td className="px-5 py-3.5 text-right">
-                        <Link
-                          href={`/dashboard/orcamentos/novo?clone_id=${quote.id}`}
-                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium text-slate-400 hover:text-white bg-slate-800/50 hover:bg-slate-800 border border-slate-700/60 transition-colors"
-                          title="Usar como modelo"
-                        >
-                          <ChevronRight className="w-3.5 h-3.5" />
-                          Ver / Editar
-                        </Link>
+                        <div className="flex items-center justify-end gap-1.5">
+                          {quote.project_id ? (
+                            <Link
+                              href={`/dashboard/obras/${quote.project_id}/medicoes`}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 transition-colors"
+                              title="Acessar Obra e Cronograma Físico-Financeiro"
+                            >
+                              <TrendingUp className="w-3.5 h-3.5" />
+                              Obra
+                            </Link>
+                          ) : (
+                            quote.status === 'draft' && (
+                              <button
+                                onClick={async () => {
+                                  if (!confirm(`Deseja aprovar e converter o orçamento "${quote.title}" em Obra com Cronograma Físico-Financeiro?`)) return;
+                                  try {
+                                    const { data: { session } } = await supabase.auth.getSession();
+                                    if (!session) return;
+                                    const res = await fetch(`/api/v1/quotes/${quote.id}/convert-to-project`, {
+                                      method: 'POST',
+                                      headers: { Authorization: `Bearer ${session.access_token}` },
+                                    });
+                                    if (res.ok) {
+                                      refetch();
+                                    } else {
+                                      alert('Erro ao converter orçamento em obra.');
+                                    }
+                                  } catch (e) {
+                                    console.error(e);
+                                  }
+                                }}
+                                className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-medium text-purple-400 bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/20 transition-colors"
+                                title="Aprovar e Converter em Obra"
+                              >
+                                <CheckCircle2 className="w-3.5 h-3.5" />
+                                Aprovar
+                              </button>
+                            )
+                          )}
+                          <Link
+                            href={`/dashboard/orcamentos/novo?clone_id=${quote.id}`}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium text-slate-400 hover:text-white bg-slate-800/50 hover:bg-slate-800 border border-slate-700/60 transition-colors"
+                            title="Usar como modelo"
+                          >
+                            <ChevronRight className="w-3.5 h-3.5" />
+                            Ver
+                          </Link>
+                        </div>
                       </td>
                     </tr>
                   );
