@@ -238,8 +238,8 @@ async def _enrich_subcontract_data(
     )
     transactions = tx_res.json() if tx_res.is_success else []
 
-    total_paid_tx = sum(Decimal(str(tx.get("amount", "0"))) for tx in transactions if tx.get("type") == "PAYMENT")
-    total_measured_tx = sum(Decimal(str(tx.get("amount", "0"))) for tx in transactions if tx.get("type") == "MEASUREMENT")
+    total_paid_tx = sum((Decimal(str(tx.get("amount", "0"))) for tx in transactions if tx.get("type") == "PAYMENT"), Decimal("0.0000"))
+    total_measured_tx = sum((Decimal(str(tx.get("amount", "0"))) for tx in transactions if tx.get("type") == "MEASUREMENT"), Decimal("0.0000"))
 
     # 3. Busca medições formais aprovadas
     meas_res = await client.get(
@@ -248,7 +248,7 @@ async def _enrich_subcontract_data(
         params={"subcontract_id": f"eq.{sub_id}", "tenant_id": f"eq.{tenant_id}", "status": "eq.approved", "select": "measured_value"},
     )
     measurements = meas_res.json() if meas_res.is_success else []
-    total_measured_meas = sum(Decimal(str(m.get("measured_value", "0"))) for m in measurements)
+    total_measured_meas = sum((Decimal(str(m.get("measured_value", "0"))) for m in measurements), Decimal("0.0000"))
 
     # Total medido consolidado
     total_measured = max(total_measured_tx, total_measured_meas)
@@ -312,10 +312,10 @@ async def list_subcontracts(
             res.raise_for_status()
             subcontracts = res.json()
 
-            enriched_list = []
+            enriched_list: List[SubcontractResponse] = []
             for sub in subcontracts:
                 enriched = await _enrich_subcontract_data(client, base_url, token, tenant_id, sub)
-                enriched_list.append(enriched)
+                enriched_list.append(SubcontractResponse.model_validate(enriched))
 
             return enriched_list
         except Exception as exc:
@@ -376,7 +376,7 @@ async def create_subcontract(
                 raise HTTPException(status_code=400, detail="Erro ao criar subcontrato.")
 
             enriched = await _enrich_subcontract_data(client, base_url, token, tenant_id, records[0])
-            return enriched
+            return SubcontractResponse.model_validate(enriched)
         except httpx.HTTPStatusError as exc:
             logger.error("Erro ao inserir subcontrato: %s", exc.response.text)
             raise HTTPException(
@@ -415,7 +415,7 @@ async def get_subcontract_by_id(
                 raise HTTPException(status_code=404, detail="Subcontrato não encontrado.")
 
             enriched = await _enrich_subcontract_data(client, base_url, token, tenant_id, records[0])
-            return enriched
+            return SubcontractResponse.model_validate(enriched)
         except HTTPException:
             raise
         except Exception as exc:
@@ -462,7 +462,7 @@ async def update_subcontract(
                 raise HTTPException(status_code=404, detail="Subcontrato não encontrado para atualização.")
 
             enriched = await _enrich_subcontract_data(client, base_url, token, tenant_id, records[0])
-            return enriched
+            return SubcontractResponse.model_validate(enriched)
         except HTTPException:
             raise
         except Exception as exc:

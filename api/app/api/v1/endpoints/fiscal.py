@@ -15,7 +15,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from uuid import UUID, uuid4
 
 import httpx
-from fastapi import APIRouter, Depends, Header, Query, Request, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, status
 
 from app.core.config import settings
 from app.core.deps import get_current_tenant_and_token
@@ -282,6 +282,8 @@ async def issue_nfse(
     else:
         # Se não houver obra vinculada, utiliza o município do prestador
         obra = ObraConstrucaoCivilSchema(
+            cno=None,
+            art=None,
             municipio_obra_ibge=prestador.codigo_municipio_ibge,
             municipio_obra_nome="Município Sede",
         )

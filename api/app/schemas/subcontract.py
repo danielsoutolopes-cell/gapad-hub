@@ -52,13 +52,13 @@ class SpecialtyBase(BaseModel):
         min_length=2,
         max_length=100,
         description="Nome da especialidade (ex: Elétrica, Hidráulica, Alvenaria, Pintura)",
-        example="Elétrica",
+        examples=["Elétrica"],
     )
     description: Optional[str] = Field(
         None,
         max_length=255,
         description="Descrição detalhada do campo de atuação",
-        example="Instalações de média/baixa tensão e infraestrutura",
+        examples=["Instalações de média/baixa tensão e infraestrutura"],
     )
 
 
@@ -90,18 +90,18 @@ class ComplianceDocumentBase(BaseModel):
     document_type: ComplianceDocType = Field(
         ...,
         description="Tipo de documento obrigatório de compliance trabalhista/previdenciário",
-        example=ComplianceDocType.GFIP,
+        examples=[ComplianceDocType.GFIP],
     )
     file_url: str = Field(
         ...,
         description="URL de armazenamento do arquivo (Supabase Storage / S3)",
-        example="https://storage.gadap.com.br/compliance/gfip_competencia_10_2026.pdf",
+        examples=["https://storage.gadap.com.br/compliance/gfip_competencia_10_2026.pdf"],
     )
     notes: Optional[str] = Field(
         None,
         max_length=500,
         description="Observações técnicas ou número de protocolo da certidão",
-        example="GFIP com código 150 e comprovante de transmissão Conectividade Social",
+        examples=["GFIP com código 150 e comprovante de transmissão Conectividade Social"],
     )
 
 
@@ -113,12 +113,12 @@ class ComplianceDocumentVerify(BaseModel):
     is_verified: bool = Field(
         ...,
         description="Status de auditoria humana/IA: true para aprovado e sem pendências",
-        example=True,
+        examples=[True],
     )
     notes: Optional[str] = Field(
         None,
         description="Parecer técnico da auditoria documental",
-        example="Documento conferido e válido até 30/11/2026.",
+        examples=["Documento conferido e válido até 30/11/2026."],
     )
 
 
@@ -175,24 +175,24 @@ class SubMeasurementBase(BaseModel):
         default=1,
         ge=1,
         description="Número sequencial do boletim de medição",
-        example=1,
+        examples=[1],
     )
     measured_value: Decimal = Field(
         ...,
-        ge=0,
+        ge=Decimal("0"),
         decimal_places=4,
         description="Valor bruto medido dos serviços executados no período (R$)",
-        example=Decimal("15000.0000"),
+        examples=[Decimal("15000.0000")],
     )
     invoice_url: Optional[str] = Field(
         None,
         description="URL da Nota Fiscal de Serviço emitida pelo prestador",
-        example="https://storage.gadap.com.br/invoices/nfse_subempreiteiro_4512.pdf",
+        examples=["https://storage.gadap.com.br/invoices/nfse_subempreiteiro_4512.pdf"],
     )
     measurement_date: Optional[dt_date] = Field(
         default_factory=dt_date.today,
         description="Data de referência ou fechamento do boletim de medição",
-        example="2026-10-25",
+        examples=["2026-10-25"],
     )
     notes: Optional[str] = Field(
         None,
@@ -208,7 +208,7 @@ class SubMeasurementCreate(SubMeasurementBase):
 
 
 class SubMeasurementUpdate(BaseModel):
-    measured_value: Optional[Decimal] = Field(None, ge=0, decimal_places=4)
+    measured_value: Optional[Decimal] = Field(None, ge=Decimal("0"), decimal_places=4)
     invoice_url: Optional[str] = None
     measurement_date: Optional[dt_date] = None
     notes: Optional[str] = None
@@ -218,21 +218,21 @@ class SubMeasurementApprovalRequest(BaseModel):
     due_date: Optional[dt_date] = Field(
         None,
         description="Data de vencimento para o Contas a Pagar gerado. Se nulo, adota D+15.",
-        example="2026-11-10",
+        examples=["2026-11-10"],
     )
     custom_iss_rate: Optional[Decimal] = Field(
         None,
-        ge=0,
+        ge=Decimal("0"),
         le=Decimal("0.10"),
         description="Alíquota específica de ISS municipal (ex: 5% = 0.05). Se nulo, adota 5%.",
-        example=Decimal("0.0500"),
+        examples=[Decimal("0.0500")],
     )
     custom_inss_rate: Optional[Decimal] = Field(
         None,
-        ge=0,
+        ge=Decimal("0"),
         le=Decimal("0.20"),
         description="Alíquota de INSS retenção (ex: 11% = 0.11). Se nulo, adota 11% para não-MEI.",
-        example=Decimal("0.1100"),
+        examples=[Decimal("0.1100")],
     )
     notes: Optional[str] = Field(
         None,
@@ -269,25 +269,25 @@ class SubcontractTransactionBase(BaseModel):
     type: TransactionType = Field(
         ...,
         description="Tipo de movimentação na conta corrente: 'PAYMENT' (Desembolso/Pagamento) ou 'MEASUREMENT' (Avanço Medido)",
-        example=TransactionType.PAYMENT,
+        examples=[TransactionType.PAYMENT],
     )
     amount: Decimal = Field(
         ...,
-        ge=0,
+        ge=Decimal("0"),
         decimal_places=4,
         description="Valor da movimentação financeira (R$)",
-        example=Decimal("12000.0000"),
+        examples=[Decimal("12000.0000")],
     )
     date: Optional[dt_date] = Field(
         default_factory=dt_date.today,
         description="Data da movimentação",
-        example="2026-10-25",
+        examples=["2026-10-25"],
     )
     observation: Optional[str] = Field(
         None,
         max_length=500,
         description="Histórico da transação (ex: Adiantamento quinzenal de mão de obra)",
-        example="Adiantamento para compra de materiais e diárias",
+        examples=["Adiantamento para compra de materiais e diárias"],
     )
 
 
@@ -330,32 +330,32 @@ class SubcontractBase(BaseModel):
         None,
         max_length=50,
         description="Código ou número de identificação do contrato (ex: SUB-2026-001)",
-        example="SUB-2026-001",
+        examples=["SUB-2026-001"],
     )
     scope_description: str = Field(
         ...,
         min_length=5,
         description="Descrição detalhada do escopo de serviços contratados",
-        example="Instalação de revestimentos cerâmicos e porcelanatos nos blocos A e B",
+        examples=["Instalação de revestimentos cerâmicos e porcelanatos nos blocos A e B"],
     )
     total_value: Decimal = Field(
         ...,
-        ge=0,
+        ge=Decimal("0"),
         decimal_places=4,
         description="Valor total global do subcontrato (R$)",
-        example=Decimal("85000.0000"),
+        examples=[Decimal("85000.0000")],
     )
     technical_retention_percentage: Decimal = Field(
         default=Decimal("0.0500"),
-        ge=0,
+        ge=Decimal("0"),
         le=Decimal("1.0000"),
         description="Percentual de retenção técnica como garantia contratual (ex: 5% = 0.0500)",
-        example=Decimal("0.0500"),
+        examples=[Decimal("0.0500")],
     )
     status: SubcontractStatus = Field(
         default=SubcontractStatus.ACTIVE,
         description="Status operacional do subcontrato",
-        example=SubcontractStatus.ACTIVE,
+        examples=[SubcontractStatus.ACTIVE],
     )
     start_date: Optional[dt_date] = Field(None, description="Data de início da prestação dos serviços")
     end_date: Optional[dt_date] = Field(None, description="Data prevista de conclusão dos serviços")
@@ -403,17 +403,17 @@ class SubcontractResponse(SubcontractBase):
     specialties: List[str] = Field(
         default=[],
         description="Lista de especialidades de atuação do fornecedor",
-        example=["Elétrica", "Hidráulica"],
+        examples=[["Elétrica", "Hidráulica"]],
     )
     total_paid: Decimal = Field(
         default=Decimal("0.0000"),
         description="Total desembolsado e pago ao terceirizado na conta corrente",
-        example=Decimal("20000.0000"),
+        examples=[Decimal("20000.0000")],
     )
     total_measured: Decimal = Field(
         default=Decimal("0.0000"),
         description="Total físico acumulado em medições aprovadas",
-        example=Decimal("25000.0000"),
+        examples=[Decimal("25000.0000")],
     )
     balance_remaining: Decimal = Field(
         default=Decimal("0.0000"),
@@ -426,7 +426,7 @@ class SubcontractResponse(SubcontractBase):
     risk_status: RiskStatus = Field(
         default=RiskStatus.GREEN,
         description="Farol de Risco: GREEN (Pagamentos <= Medição), YELLOW (Pagamentos > Medição, < 80% Contrato), RED (Pagamentos > Medição e >= 80% Contrato)",
-        example=RiskStatus.GREEN,
+        examples=[RiskStatus.GREEN],
     )
     risk_description: str = Field(
         default="Ok: Pagamentos cobertos por medição física.",

@@ -15,7 +15,8 @@
     },
     "api": {
       "root": "api",
-      "framework": "fastapi"
+      "framework": "fastapi",
+      "entrypoint": "main:app"
     }
   },
   "rewrites": [

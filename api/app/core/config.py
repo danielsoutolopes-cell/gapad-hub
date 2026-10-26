@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -42,6 +42,12 @@ class Settings(BaseSettings):
         case_sensitive=False,
         extra="ignore",
     )
+
+    def model_post_init(self, __context: Any) -> None:
+        if not self.SUPABASE_ANON_KEY and self.NEXT_PUBLIC_SUPABASE_ANON_KEY:
+            self.SUPABASE_ANON_KEY = self.NEXT_PUBLIC_SUPABASE_ANON_KEY
+        if not self.SUPABASE_URL and self.NEXT_PUBLIC_SUPABASE_URL:
+            self.SUPABASE_URL = self.NEXT_PUBLIC_SUPABASE_URL
 
     def get_supabase_url(self) -> str:
         return self.SUPABASE_URL or self.NEXT_PUBLIC_SUPABASE_URL or "https://dkjcgrwztyhcsyxlajia.supabase.co"

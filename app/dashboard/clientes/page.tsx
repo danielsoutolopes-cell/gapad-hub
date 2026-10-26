@@ -148,7 +148,7 @@ export default function ClientesPage() {
   };
 
   // ---------------------------------------------------------------------------
-  // 3. TanStack Query: Fetch da listagem (/api/v1/clients)
+  // 3. TanStack Query: Fetch da listagem (/api/v1/clients) com Fallback Supabase
   // ---------------------------------------------------------------------------
   const {
     data: clients = [],
@@ -164,19 +164,38 @@ export default function ClientesPage() {
         url.searchParams.set('search', searchTerm.trim());
       }
 
-      const response = await fetch(url.toString(), {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
+      // 1. Tenta API FastAPI
+      try {
+        const response = await fetch(url.toString(), {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Falha ao carregar clientes: ${errorText}`);
+        if (response.ok) {
+          return await response.json();
+        }
+        console.warn('FastAPI /api/v1/clients retornou status não-200. Ativando fallback Supabase...');
+      } catch (e) {
+        console.warn('Falha de rede ao conectar com FastAPI. Ativando fallback Supabase...', e);
       }
 
-      return response.json();
+      // 2. Fallback resiliente via Supabase Client (com isolamento RLS por tenant)
+      let query = supabase
+        .from('clients')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (searchTerm.trim()) {
+        query = query.or(`name.ilike.%${searchTerm.trim()}%,document.ilike.%${searchTerm.trim()}%`);
+      }
+
+      const { data, error: supaErr } = await query;
+      if (supaErr) {
+        throw new Error(`Falha ao carregar clientes: ${supaErr.message}`);
+      }
+      return (data || []) as ClientItem[];
     },
   });
 
@@ -187,21 +206,36 @@ export default function ClientesPage() {
     mutationFn: async (formData: ClientFormData) => {
       const token = await getAuthToken();
 
-      const response = await fetch('/api/v1/clients', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData),
-      });
+      try {
+        const response = await fetch('/api/v1/clients', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(formData),
+        });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.detail || 'Falha ao salvar cliente.');
+        if (response.ok) {
+          return await response.json();
+        }
+      } catch (e) {
+        console.warn('Erro na rota FastAPI, acionando fallback Supabase...', e);
       }
 
-      return response.json();
+      // Fallback Supabase
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const tenantId = session?.user?.app_metadata?.tenant_id || session?.user?.user_metadata?.tenant_id;
+      const { data, error: insertErr } = await supabase
+        .from('clients')
+        .insert([{ ...formData, tenant_id: tenantId }])
+        .select()
+        .single();
+
+      if (insertErr) throw new Error(insertErr.message || 'Falha ao salvar cliente.');
+      return data;
     },
     onSuccess: () => {
       // Invalidação compulsória do cache do TanStack Query
