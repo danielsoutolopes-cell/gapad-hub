@@ -25,6 +25,7 @@ def _get_supabase_headers(token: str) -> Dict[str, str]:
     }
 
 
+@router.get("", include_in_schema=False)
 @router.get(
     "/",
     response_model=List[ProductResponse],
@@ -84,6 +85,7 @@ async def list_products(
             ) from exc
 
 
+@router.post("", include_in_schema=False)
 @router.post(
     "/",
     response_model=ProductResponse,

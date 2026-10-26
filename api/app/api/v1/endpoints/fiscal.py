@@ -687,7 +687,7 @@ async def create_tax_credit(
     total_credit = cbs_amount + ibs_amount
 
     credit_record = {
-        "tenant_id": str(tenant_id),
+        "tenant_id": tenant_id,
         "project_id": str(payload.project_id) if payload.project_id else None,
         "financial_entry_id": str(payload.financial_entry_id) if payload.financial_entry_id else None,
         "document_number": payload.document_number,
