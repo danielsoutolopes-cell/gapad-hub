@@ -77,6 +77,8 @@ interface ProductItem {
 
 const UNITS = ['UN', 'SC', 'M2', 'M3', 'KG', 'TON', 'L', 'ML', 'BARRA', 'ROLO', 'CX'];
 
+import { lookupNcm } from '@/lib/ncm-helper';
+
 const PRODUCT_CATEGORIES = [
   { value: 'aglomerantes', label: 'Cimentos & Aglomerantes' },
   { value: 'agregados', label: 'Areias, Britas & Agregados' },
@@ -85,6 +87,10 @@ const PRODUCT_CATEGORIES = [
   { value: 'hidraulica', label: 'Tubos & Conexões Hidráulicas' },
   { value: 'eletrica', label: 'Fios, Cabos & Elétrica' },
   { value: 'tintas_quimicos', label: 'Tintas & Impermeabilizantes' },
+  { value: 'acabamento', label: 'Pisos, Revestimentos & Granitos' },
+  { value: 'cobertura', label: 'Telhas & Coberturas' },
+  { value: 'loucas_metais', label: 'Louças & Metais Sanitários' },
+  { value: 'madeira', label: 'Madeiras & Esquadrias' },
   { value: 'outros', label: 'Outros Materiais' },
 ];
 
@@ -96,11 +102,14 @@ export function ProdutosClient() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [loadingNcm, setLoadingNcm] = useState<boolean>(false);
+  const [ncmFeedback, setNcmFeedback] = useState<string | null>(null);
 
   const {
     register,
     handleSubmit,
     setValue,
+    watch,
     reset,
     formState: { errors },
   } = useForm<ProductFormData>({
@@ -120,6 +129,37 @@ export function ProdutosClient() {
       is_active: true,
     },
   });
+
+  const handleNcmLookup = async (ncmValue: string) => {
+    const cleanNcm = ncmValue.replace(/\D/g, '');
+    if (cleanNcm.length < 4) {
+      setNcmFeedback(null);
+      return;
+    }
+    setLoadingNcm(true);
+    setNcmFeedback(null);
+    try {
+      const info = await lookupNcm(cleanNcm);
+      if (info) {
+        if (info.suggestedCategory && info.suggestedCategory !== 'outros') {
+          setValue('category', info.suggestedCategory);
+        }
+        if (info.defaultUnit && UNITS.includes(info.defaultUnit)) {
+          setValue('unit_of_measure', info.defaultUnit);
+        }
+        // Se o campo nome estiver vazio, sugere a descrição oficial do NCM
+        const currentName = watch('name');
+        if (!currentName || currentName.trim() === '') {
+          setValue('name', info.description);
+        }
+        setNcmFeedback(`✓ NCM Identificado: ${info.description}`);
+      }
+    } catch (e) {
+      console.warn('Falha na consulta automática do NCM:', e);
+    } finally {
+      setLoadingNcm(false);
+    }
+  };
 
   const getAuthToken = async (): Promise<string> => {
     const {
@@ -458,13 +498,26 @@ export function ProdutosClient() {
               {/* NCM, Unidade e Categoria */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-xs font-medium text-slate-300 mb-1">Código NCM (8 dígitos) *</label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-medium text-slate-300">Código NCM (8 dígitos) *</label>
+                    {loadingNcm && (
+                      <span className="text-[10px] text-emerald-400 flex items-center gap-1">
+                        <Loader2 className="w-2.5 h-2.5 animate-spin" /> Buscando NCM...
+                      </span>
+                    )}
+                  </div>
                   <input
                     {...register('ncm')}
                     maxLength={10}
                     placeholder="Ex: 25232910"
+                    onBlur={(e) => handleNcmLookup(e.target.value)}
                     className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs sm:text-sm text-white placeholder-slate-500 font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
                   />
+                  {ncmFeedback && (
+                    <p className="text-[11px] text-emerald-400 mt-1 truncate font-medium">
+                      {ncmFeedback}
+                    </p>
+                  )}
                   {errors.ncm && <p className="text-red-400 text-[11px] mt-1">{errors.ncm.message}</p>}
                 </div>
 

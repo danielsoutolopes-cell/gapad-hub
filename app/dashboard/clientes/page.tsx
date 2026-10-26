@@ -59,8 +59,11 @@ const clientFormSchema = z
     phone: z.string().min(8, 'Telefone inválido.').or(z.literal('')).optional(),
     state_registration: z.string().max(30).optional(),
     municipal_registration: z.string().max(30).optional(),
+    address_zip_code: z.string().max(10).optional(),
     address_street: z.string().max(255).optional(),
     address_number: z.string().max(30).optional(),
+    address_complement: z.string().max(100).optional(),
+    address_neighborhood: z.string().max(100).optional(),
     address_city: z.string().max(100).optional(),
     address_state: z.string().max(2).optional(),
     notes: z.string().optional(),
@@ -108,6 +111,7 @@ export default function ClientesPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [loadingCep, setLoadingCep] = useState<boolean>(false);
 
   // Hook Form com Zod Resolver
   const {
@@ -128,11 +132,36 @@ export default function ClientesPage() {
       phone: '',
       state_registration: '',
       municipal_registration: '',
+      address_zip_code: '',
+      address_street: '',
+      address_number: '',
+      address_complement: '',
+      address_neighborhood: '',
       address_city: '',
       address_state: '',
       is_active: true,
     },
   });
+
+  const handleCepLookup = async (cepValue: string) => {
+    const cleanCep = cepValue.replace(/\D/g, '');
+    if (cleanCep.length !== 8) return;
+    setLoadingCep(true);
+    try {
+      const res = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`);
+      const data = await res.json();
+      if (!data.erro) {
+        setValue('address_street', data.logradouro || '');
+        setValue('address_neighborhood', data.bairro || '');
+        setValue('address_city', data.localidade || '');
+        setValue('address_state', data.uf || '');
+      }
+    } catch (err) {
+      console.warn('Falha na consulta automática do CEP:', err);
+    } finally {
+      setLoadingCep(false);
+    }
+  };
 
   const selectedPersonType = watch('person_type');
 
@@ -706,33 +735,118 @@ export default function ClientesPage() {
                 </div>
               </div>
 
-              {/* Cidade e Estado */}
-              <div className="grid grid-cols-3 gap-3">
-                <div className="col-span-2">
-                  <label className="block text-xs font-semibold text-slate-300 mb-1.5" htmlFor="client-city">
-                    Cidade
+              {/* Seção de Endereço Completo */}
+              <div className="pt-2 border-t border-slate-800/80">
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+                    <MapPin className="w-3.5 h-3.5 text-emerald-400" />
+                    Endereço Completo & Faturamento
                   </label>
-                  <input
-                    id="client-city"
-                    type="text"
-                    placeholder="São Paulo"
-                    {...register('address_city')}
-                    className="w-full bg-slate-900/90 border border-slate-700/80 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
-                  />
+                  {loadingCep && (
+                    <span className="text-[11px] text-emerald-400 flex items-center gap-1">
+                      <Loader2 className="w-3 h-3 animate-spin" /> Buscando CEP...
+                    </span>
+                  )}
                 </div>
 
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1.5" htmlFor="client-state">
-                    UF
-                  </label>
-                  <input
-                    id="client-state"
-                    type="text"
-                    maxLength={2}
-                    placeholder="SP"
-                    {...register('address_state')}
-                    className="w-full uppercase bg-slate-900/90 border border-slate-700/80 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
-                  />
+                <div className="space-y-3">
+                  {/* CEP e Logradouro */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-400 mb-1" htmlFor="client-cep">
+                        CEP
+                      </label>
+                      <input
+                        id="client-cep"
+                        type="text"
+                        placeholder="00000-000"
+                        {...register('address_zip_code')}
+                        onBlur={(e) => handleCepLookup(e.target.value)}
+                        className="w-full bg-slate-900/90 border border-slate-700/80 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                      />
+                    </div>
+                    <div className="sm:col-span-2">
+                      <label className="block text-[11px] font-semibold text-slate-400 mb-1" htmlFor="client-street">
+                        Logradouro / Rua / Av.
+                      </label>
+                      <input
+                        id="client-street"
+                        type="text"
+                        placeholder="Ex: Av. das Nações Unidas"
+                        {...register('address_street')}
+                        className="w-full bg-slate-900/90 border border-slate-700/80 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Número, Complemento e Bairro */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-400 mb-1" htmlFor="client-number">
+                        Número
+                      </label>
+                      <input
+                        id="client-number"
+                        type="text"
+                        placeholder="14200"
+                        {...register('address_number')}
+                        className="w-full bg-slate-900/90 border border-slate-700/80 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-400 mb-1" htmlFor="client-complement">
+                        Complemento
+                      </label>
+                      <input
+                        id="client-complement"
+                        type="text"
+                        placeholder="Torre Sul, 12º Andar"
+                        {...register('address_complement')}
+                        className="w-full bg-slate-900/90 border border-slate-700/80 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-400 mb-1" htmlFor="client-neighborhood">
+                        Bairro
+                      </label>
+                      <input
+                        id="client-neighborhood"
+                        type="text"
+                        placeholder="Brooklin"
+                        {...register('address_neighborhood')}
+                        className="w-full bg-slate-900/90 border border-slate-700/80 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Cidade e Estado */}
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="col-span-2">
+                      <label className="block text-[11px] font-semibold text-slate-400 mb-1" htmlFor="client-city">
+                        Cidade
+                      </label>
+                      <input
+                        id="client-city"
+                        type="text"
+                        placeholder="São Paulo"
+                        {...register('address_city')}
+                        className="w-full bg-slate-900/90 border border-slate-700/80 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-400 mb-1" htmlFor="client-state">
+                        UF
+                      </label>
+                      <input
+                        id="client-state"
+                        type="text"
+                        maxLength={2}
+                        placeholder="SP"
+                        {...register('address_state')}
+                        className="w-full uppercase bg-slate-900/90 border border-slate-700/80 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
 
