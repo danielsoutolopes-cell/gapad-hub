@@ -103,6 +103,7 @@ export function ProdutosClient() {
   const supabase = createClient();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<ProductItem | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -406,9 +407,13 @@ export function ProdutosClient() {
                       : null;
 
                   return (
-                    <tr key={p.id} className="hover:bg-slate-800/30 transition-colors">
+                    <tr
+                      key={p.id}
+                      onClick={() => setSelectedProduct(p)}
+                      className="hover:bg-slate-800/40 cursor-pointer transition-colors group"
+                    >
                       <td className="py-3.5 px-4">
-                        <div className="font-semibold text-white">{p.name}</div>
+                        <div className="font-semibold text-white group-hover:text-emerald-300 transition-colors">{p.name}</div>
                         {p.code && (
                           <div className="text-xs font-mono text-emerald-400/90">{p.code}</div>
                         )}
@@ -655,6 +660,114 @@ export function ProdutosClient() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Detalhes do Produto / Material */}
+      {selectedProduct && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in">
+          <div className="w-full max-w-xl bg-[#0b101b] border border-slate-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col">
+            <div className="p-5 border-b border-slate-800 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-emerald-500/15 text-emerald-400 flex items-center justify-center">
+                  <Package className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">{selectedProduct.name}</h3>
+                  <p className="text-xs font-mono text-emerald-400">
+                    {selectedProduct.code || 'SKU não informado'}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedProduct(null)}
+                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4 overflow-y-auto max-h-[75vh]">
+              {/* Enquadramento Fiscal e NCM */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 p-3.5 rounded-xl bg-slate-900/60 border border-slate-800">
+                <div>
+                  <span className="text-[11px] text-slate-400 block">Classificação NCM</span>
+                  <span className="text-xs font-mono font-semibold text-emerald-400 flex items-center gap-1">
+                    <Tag className="w-3 h-3" />
+                    {formatNcm(selectedProduct.ncm)}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[11px] text-slate-400 block">Categoria</span>
+                  <span className="text-xs font-semibold text-white">
+                    {PRODUCT_CATEGORIES.find((c) => c.value === selectedProduct.category)?.label || selectedProduct.category || 'Geral'}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[11px] text-slate-400 block">Unidade de Medida</span>
+                  <span className="text-xs font-mono font-bold text-teal-300">
+                    {selectedProduct.unit_of_measure}
+                  </span>
+                </div>
+              </div>
+
+              {/* Precificação e Margem */}
+              <div>
+                <h4 className="text-xs font-semibold text-slate-300 mb-2">Custos & Formação de Preço</h4>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  <div className="p-3 rounded-xl bg-slate-900/40 border border-slate-800">
+                    <span className="text-[10px] text-slate-400 block">Custo Unitário Base</span>
+                    <span className="text-sm font-mono font-bold text-white">
+                      {formatCurrency(Number(selectedProduct.base_cost))}
+                    </span>
+                  </div>
+                  <div className="p-3 rounded-xl bg-slate-900/40 border border-slate-800">
+                    <span className="text-[10px] text-slate-400 block">Preço de Venda / Fat.</span>
+                    <span className="text-sm font-mono font-bold text-emerald-300">
+                      {formatCurrency(Number(selectedProduct.sale_price))}
+                    </span>
+                  </div>
+                  <div className="p-3 rounded-xl bg-slate-900/40 border border-slate-800 col-span-2 sm:col-span-1">
+                    <span className="text-[10px] text-slate-400 block">Margem Bruta Estimada</span>
+                    <span className="text-sm font-mono font-bold text-teal-400">
+                      {Number(selectedProduct.sale_price) > 0 && Number(selectedProduct.base_cost) > 0
+                        ? `${(((Number(selectedProduct.sale_price) - Number(selectedProduct.base_cost)) / Number(selectedProduct.sale_price)) * 100).toFixed(1)}%`
+                        : '—'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Detalhes Técnicos e Estoque */}
+              <div className="pt-3 border-t border-slate-800 space-y-2 text-xs">
+                {selectedProduct.brand && (
+                  <div className="flex justify-between py-1 border-b border-slate-800/40">
+                    <span className="text-slate-400">Marca / Fabricante:</span>
+                    <span className="text-white font-medium">{selectedProduct.brand}</span>
+                  </div>
+                )}
+                {selectedProduct.description && (
+                  <div className="py-1">
+                    <span className="text-slate-400 block mb-1">Especificações Técnicas:</span>
+                    <p className="text-slate-300 bg-slate-900/50 p-2.5 rounded-lg border border-slate-800/60 leading-relaxed">
+                      {selectedProduct.description}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="p-4 border-t border-slate-800 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setSelectedProduct(null)}
+                className="px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-slate-800 hover:bg-slate-700 text-white transition-colors"
+              >
+                Fechar
+              </button>
+            </div>
           </div>
         </div>
       )}

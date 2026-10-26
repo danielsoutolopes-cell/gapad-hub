@@ -95,8 +95,15 @@ interface SupplierItem {
   contact_name?: string | null;
   state_registration?: string | null;
   municipal_registration?: string | null;
+  address_zip_code?: string | null;
+  address_street?: string | null;
+  address_number?: string | null;
+  address_complement?: string | null;
+  address_neighborhood?: string | null;
   address_city?: string | null;
   address_state?: string | null;
+  is_subcontractor?: boolean;
+  notes?: string | null;
   is_active: boolean;
   created_at: string;
 }
@@ -114,6 +121,7 @@ export function FornecedoresClient() {
   const supabase = createClient();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedSupplier, setSelectedSupplier] = useState<SupplierItem | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -418,9 +426,13 @@ export function FornecedoresClient() {
                 </tr>
               ) : (
                 suppliers.map((sup) => (
-                  <tr key={sup.id} className="hover:bg-slate-800/30 transition-colors">
+                  <tr
+                    key={sup.id}
+                    onClick={() => setSelectedSupplier(sup)}
+                    className="hover:bg-slate-800/40 cursor-pointer transition-colors group"
+                  >
                     <td className="py-3.5 px-4">
-                      <div className="font-semibold text-white">{sup.name}</div>
+                      <div className="font-semibold text-white group-hover:text-emerald-300 transition-colors">{sup.name}</div>
                       {sup.trade_name && (
                         <div className="text-xs text-slate-400">{sup.trade_name}</div>
                       )}
@@ -430,7 +442,10 @@ export function FornecedoresClient() {
                         <span>{formatDocument(sup.document, sup.person_type)}</span>
                         <button
                           type="button"
-                          onClick={() => handleCopy(sup.document, sup.id)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleCopy(sup.document, sup.id);
+                          }}
                           className="text-slate-500 hover:text-emerald-400 transition-colors"
                           title="Copiar documento limpo"
                         >
@@ -758,6 +773,117 @@ export function FornecedoresClient() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Detalhes do Fornecedor / Subempreiteiro */}
+      {selectedSupplier && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in">
+          <div className="w-full max-w-xl bg-[#0b101b] border border-slate-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col">
+            <div className="p-5 border-b border-slate-800 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-emerald-500/15 text-emerald-400 flex items-center justify-center">
+                  <Truck className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">{selectedSupplier.name}</h3>
+                  <p className="text-xs text-slate-400">
+                    {selectedSupplier.trade_name || (selectedSupplier.person_type === 'PJ' ? 'Pessoa Jurídica' : 'Pessoa Física')}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedSupplier(null)}
+                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4 overflow-y-auto max-h-[75vh]">
+              {/* Documento, Categoria e Status */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 p-3.5 rounded-xl bg-slate-900/60 border border-slate-800">
+                <div>
+                  <span className="text-[11px] text-slate-400 block">Documento</span>
+                  <span className="text-xs font-mono font-semibold text-white">
+                    {formatDocument(selectedSupplier.document, selectedSupplier.person_type)}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[11px] text-slate-400 block">Categoria</span>
+                  <span className="text-xs font-semibold text-emerald-400">
+                    {CATEGORIES.find((c) => c.value === selectedSupplier.category)?.label || selectedSupplier.category || 'Geral'}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[11px] text-slate-400 block">Tipo de Parceiro</span>
+                  <span className="text-xs font-semibold text-teal-300">
+                    {selectedSupplier.is_subcontractor ? 'Subempreiteiro / Obra' : 'Fornecedor Padrão'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Contato Comercial */}
+              <div>
+                <h4 className="text-xs font-semibold text-slate-300 mb-2">Contato & Comunicação</h4>
+                <div className="space-y-2 text-xs text-slate-300">
+                  {selectedSupplier.contact_name && (
+                    <div className="flex items-center gap-2">
+                      <User className="w-3.5 h-3.5 text-slate-500" />
+                      <span>Responsável: <strong>{selectedSupplier.contact_name}</strong></span>
+                    </div>
+                  )}
+                  {selectedSupplier.email && (
+                    <div className="flex items-center gap-2">
+                      <Mail className="w-3.5 h-3.5 text-slate-500" />
+                      <a href={`mailto:${selectedSupplier.email}`} className="text-emerald-400 hover:underline">
+                        {selectedSupplier.email}
+                      </a>
+                    </div>
+                  )}
+                  {selectedSupplier.phone && (
+                    <div className="flex items-center gap-2">
+                      <Phone className="w-3.5 h-3.5 text-slate-500" />
+                      <span>{selectedSupplier.phone}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Endereço Completo */}
+              <div className="pt-3 border-t border-slate-800">
+                <h4 className="text-xs font-semibold text-slate-300 mb-2 flex items-center gap-1.5">
+                  <MapPin className="w-3.5 h-3.5 text-emerald-400" />
+                  Localização & Endereço
+                </h4>
+                <div className="text-xs text-slate-400 space-y-1">
+                  <p>
+                    {selectedSupplier.address_street
+                      ? `${selectedSupplier.address_street}, ${selectedSupplier.address_number || 'S/N'}${selectedSupplier.address_complement ? ` - ${selectedSupplier.address_complement}` : ''}`
+                      : 'Logradouro não informado'}
+                  </p>
+                  <p>
+                    {selectedSupplier.address_neighborhood ? `Bairro: ${selectedSupplier.address_neighborhood} | ` : ''}
+                    {selectedSupplier.address_city || '—'} - {selectedSupplier.address_state || '—'}
+                  </p>
+                  {selectedSupplier.address_zip_code && (
+                    <p className="font-mono text-[11px] text-slate-500">CEP: {selectedSupplier.address_zip_code}</p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="p-4 border-t border-slate-800 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setSelectedSupplier(null)}
+                className="px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-slate-800 hover:bg-slate-700 text-white transition-colors"
+              >
+                Fechar
+              </button>
+            </div>
           </div>
         </div>
       )}

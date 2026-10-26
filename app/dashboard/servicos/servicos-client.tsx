@@ -105,6 +105,7 @@ export function ServicosClient() {
   const supabase = createClient();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedService, setSelectedService] = useState<ServiceItem | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedLc116, setSelectedLc116] = useState<string>('all');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -406,9 +407,13 @@ export function ServicosClient() {
                 </tr>
               ) : (
                 services.map((s) => (
-                  <tr key={s.id} className="hover:bg-slate-800/30 transition-colors">
+                  <tr
+                    key={s.id}
+                    onClick={() => setSelectedService(s)}
+                    className="hover:bg-slate-800/40 cursor-pointer transition-colors group"
+                  >
                     <td className="py-3.5 px-4">
-                      <div className="font-semibold text-white">{s.name}</div>
+                      <div className="font-semibold text-white group-hover:text-emerald-300 transition-colors">{s.name}</div>
                       {s.code && (
                         <div className="text-xs font-mono text-emerald-400/90">{s.code}</div>
                       )}
@@ -668,6 +673,132 @@ export function ServicosClient() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Detalhes do Serviço */}
+      {selectedService && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in">
+          <div className="w-full max-w-xl bg-[#0b101b] border border-slate-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col">
+            <div className="p-5 border-b border-slate-800 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-emerald-500/15 text-emerald-400 flex items-center justify-center">
+                  <Wrench className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">{selectedService.name}</h3>
+                  <p className="text-xs font-mono text-emerald-400">
+                    {selectedService.code || 'Código não informado'}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedService(null)}
+                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4 overflow-y-auto max-h-[75vh]">
+              {/* Enquadramento Fiscal: LC 116 e NBS */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 p-3.5 rounded-xl bg-slate-900/60 border border-slate-800">
+                <div>
+                  <span className="text-[11px] text-slate-400 block">Subitem LC 116/03</span>
+                  <span className="text-xs font-mono font-bold text-emerald-400">
+                    {selectedService.lc116_code}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[11px] text-slate-400 block">Código NBS</span>
+                  <span className="text-xs font-mono font-semibold text-white">
+                    {selectedService.nbs_code}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[11px] text-slate-400 block">Unidade de Medição</span>
+                  <span className="text-xs font-mono font-bold text-teal-300">
+                    {selectedService.unit_of_measure}
+                  </span>
+                </div>
+              </div>
+
+              {/* Regras Fiscais e Retenções */}
+              <div>
+                <h4 className="text-xs font-semibold text-slate-300 mb-2">Tributação & Retenções na Fonte</h4>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="p-3 rounded-xl bg-slate-900/40 border border-slate-800">
+                    <span className="text-[10px] text-slate-400 block">ISS Municipal</span>
+                    <span className="text-sm font-mono font-bold text-blue-400">
+                      {Number(selectedService.iss_aliquota).toFixed(2)}%
+                    </span>
+                    <span className="text-[10px] text-slate-400 block mt-0.5">
+                      {selectedService.iss_retido_default ? '✓ Retido na Fonte pelo Tomador' : 'Devido pelo Prestador'}
+                    </span>
+                  </div>
+                  <div className="p-3 rounded-xl bg-slate-900/40 border border-slate-800">
+                    <span className="text-[10px] text-slate-400 block">Retenção INSS</span>
+                    <span className="text-sm font-mono font-bold text-amber-400">
+                      {Number(selectedService.inss_retencao_aliquota).toFixed(2)}%
+                    </span>
+                    <span className="text-[10px] text-slate-400 block mt-0.5">
+                      Cessão de Mão de Obra / Empreitada
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Custos e Preço Padrão */}
+              <div>
+                <h4 className="text-xs font-semibold text-slate-300 mb-2">Composição de Preço</h4>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="p-3 rounded-xl bg-slate-900/40 border border-slate-800">
+                    <span className="text-[10px] text-slate-400 block">Custo Base Operacional</span>
+                    <span className="text-sm font-mono font-bold text-white">
+                      {formatCurrency(Number(selectedService.base_cost))}
+                    </span>
+                  </div>
+                  <div className="p-3 rounded-xl bg-slate-900/40 border border-slate-800">
+                    <span className="text-[10px] text-slate-400 block">Preço Padrão de Faturamento</span>
+                    <span className="text-sm font-mono font-bold text-emerald-300">
+                      {formatCurrency(Number(selectedService.default_price))}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* CNAE e Descrição */}
+              {(selectedService.cnae_code || selectedService.description) && (
+                <div className="pt-3 border-t border-slate-800 space-y-2 text-xs">
+                  {selectedService.cnae_code && (
+                    <div className="flex justify-between py-1 border-b border-slate-800/40">
+                      <span className="text-slate-400">CNAE Vinculado:</span>
+                      <span className="text-white font-mono">{selectedService.cnae_code}</span>
+                    </div>
+                  )}
+                  {selectedService.description && (
+                    <div className="py-1">
+                      <span className="text-slate-400 block mb-1">Memorial / Escopo Técnico:</span>
+                      <p className="text-slate-300 bg-slate-900/50 p-2.5 rounded-lg border border-slate-800/60 leading-relaxed">
+                        {selectedService.description}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="p-4 border-t border-slate-800 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setSelectedService(null)}
+                className="px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-slate-800 hover:bg-slate-700 text-white transition-colors"
+              >
+                Fechar
+              </button>
+            </div>
           </div>
         </div>
       )}
