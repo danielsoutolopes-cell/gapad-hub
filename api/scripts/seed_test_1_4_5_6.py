@@ -11,9 +11,9 @@ def run_tests_1_4_to_1_6():
     print("GADAP HUB - BATERIA DE HOMOLOGAÇÃO AUTOMATIZADA: TESTES 1.4, 1.5 e 1.6")
     print("=" * 80)
 
-    service_key = settings.SUPABASE_SERVICE_ROLE_KEY
+    service_key = settings.SUPABASE_SERVICE_ROLE_KEY or ""
     supabase_url = settings.SUPABASE_URL.rstrip('/')
-    headers = {
+    headers: dict[str, str] = {
         "apikey": service_key,
         "Authorization": f"Bearer {service_key}",
         "Content-Type": "application/json",
