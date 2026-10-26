@@ -204,19 +204,40 @@ export function FornecedoresClient() {
         url.searchParams.set('category', selectedCategory);
       }
 
-      const response = await fetch(url.toString(), {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
+      // 1. Tenta API FastAPI
+      try {
+        const response = await fetch(url.toString(), {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
 
-      if (!response.ok) {
-        const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.detail || 'Falha ao buscar fornecedores da API.');
+        if (response.ok) {
+          return await response.json();
+        }
+      } catch (e) {
+        console.warn('Fallback para Supabase Client ao listar fornecedores...', e);
       }
 
-      return response.json();
+      // 2. Fallback resiliente via Supabase Client (RLS nativo)
+      let query = supabase
+        .from('suppliers')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (searchTerm.trim()) {
+        query = query.or(`name.ilike.%${searchTerm.trim()}%,document.ilike.%${searchTerm.trim()}%`);
+      }
+      if (selectedCategory && selectedCategory !== 'all') {
+        query = query.eq('category', selectedCategory);
+      }
+
+      const { data, error: supaErr } = await query;
+      if (supaErr) {
+        throw new Error(`Falha ao consultar fornecedores: ${supaErr.message}`);
+      }
+      return (data || []) as SupplierItem[];
     },
   });
 

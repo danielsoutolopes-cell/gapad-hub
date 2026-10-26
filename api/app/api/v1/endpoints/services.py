@@ -25,6 +25,7 @@ def _get_supabase_headers(token: str) -> Dict[str, str]:
     }
 
 
+@router.get("", include_in_schema=False)
 @router.get(
     "/",
     response_model=List[ServiceResponse],
@@ -84,6 +85,7 @@ async def list_services(
             ) from exc
 
 
+@router.post("", include_in_schema=False)
 @router.post(
     "/",
     response_model=ServiceResponse,

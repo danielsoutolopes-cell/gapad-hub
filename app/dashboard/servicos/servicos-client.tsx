@@ -158,19 +158,40 @@ export function ServicosClient() {
         url.searchParams.set('lc116_code', selectedLc116);
       }
 
-      const response = await fetch(url.toString(), {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
+      // 1. Tenta API FastAPI
+      try {
+        const response = await fetch(url.toString(), {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
 
-      if (!response.ok) {
-        const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.detail || 'Falha ao buscar catálogo de serviços.');
+        if (response.ok) {
+          return await response.json();
+        }
+      } catch (e) {
+        console.warn('Fallback para Supabase Client ao listar serviços...', e);
       }
 
-      return response.json();
+      // 2. Fallback resiliente via Supabase Client (RLS nativo)
+      let query = supabase
+        .from('services')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (searchTerm.trim()) {
+        query = query.or(`name.ilike.%${searchTerm.trim()}%,code.ilike.%${searchTerm.trim()}%`);
+      }
+      if (selectedLc116 && selectedLc116 !== 'all') {
+        query = query.eq('lc116_code', selectedLc116);
+      }
+
+      const { data, error: supaErr } = await query;
+      if (supaErr) {
+        throw new Error(`Falha ao consultar serviços: ${supaErr.message}`);
+      }
+      return (data || []) as ServiceItem[];
     },
   });
 
