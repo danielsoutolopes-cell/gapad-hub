@@ -19,6 +19,7 @@ import {
   Barcode,
   TrendingUp,
   Percent,
+  Sparkles,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 
@@ -77,7 +78,7 @@ interface ProductItem {
 
 const UNITS = ['UN', 'SC', 'M2', 'M3', 'KG', 'TON', 'L', 'ML', 'BARRA', 'ROLO', 'CX'];
 
-import { lookupNcm } from '@/lib/ncm-helper';
+import { lookupNcm, generateProductSku } from '@/lib/ncm-helper';
 
 const PRODUCT_CATEGORIES = [
   { value: 'aglomerantes', label: 'Cimentos & Aglomerantes' },
@@ -130,6 +131,13 @@ export function ProdutosClient() {
     },
   });
 
+  const handleGenerateSku = () => {
+    const cat = watch('category') || 'aglomerantes';
+    const ncm = watch('ncm') || '';
+    const newSku = generateProductSku(cat, ncm);
+    setValue('code', newSku);
+  };
+
   const handleNcmLookup = async (ncmValue: string) => {
     const cleanNcm = ncmValue.replace(/\D/g, '');
     if (cleanNcm.length < 4) {
@@ -141,6 +149,10 @@ export function ProdutosClient() {
     try {
       const info = await lookupNcm(cleanNcm);
       if (info) {
+        const targetCategory = info.suggestedCategory && info.suggestedCategory !== 'outros'
+          ? info.suggestedCategory
+          : watch('category') || 'aglomerantes';
+
         if (info.suggestedCategory && info.suggestedCategory !== 'outros') {
           setValue('category', info.suggestedCategory);
         }
@@ -151,6 +163,12 @@ export function ProdutosClient() {
         const currentName = watch('name');
         if (!currentName || currentName.trim() === '') {
           setValue('name', info.description);
+        }
+        // Se o SKU estiver vazio, gera um SKU padronizado automaticamente
+        const currentCode = watch('code');
+        if (!currentCode || currentCode.trim() === '') {
+          const autoSku = generateProductSku(targetCategory, cleanNcm);
+          setValue('code', autoSku);
         }
         setNcmFeedback(`✓ NCM Identificado: ${info.description}`);
       }
@@ -477,11 +495,21 @@ export function ProdutosClient() {
               {/* Código SKU e Descrição */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-xs font-medium text-slate-300 mb-1">Código SKU Interno</label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-medium text-slate-300">Código SKU Interno</label>
+                    <button
+                      type="button"
+                      onClick={handleGenerateSku}
+                      className="text-[11px] text-emerald-400 hover:text-emerald-300 flex items-center gap-1 font-medium transition-colors"
+                      title="Gerar código SKU automático padronizado"
+                    >
+                      <Sparkles className="w-3 h-3" /> Gerar
+                    </button>
+                  </div>
                   <input
                     {...register('code')}
-                    placeholder="Ex: MAT-CIM-002"
-                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs sm:text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                    placeholder="Ex: MAT-CIM-2523-102"
+                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs sm:text-sm text-white placeholder-slate-500 font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
                   />
                 </div>
                 <div className="sm:col-span-2">

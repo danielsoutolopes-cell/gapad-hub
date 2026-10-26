@@ -96,3 +96,34 @@ export async function lookupNcm(ncmInput: string): Promise<NcmInfo | null> {
     defaultUnit,
   };
 }
+
+/**
+ * Mapeamento de prefixos de SKU padronizados para construção civil
+ */
+const CATEGORY_SKU_PREFIX: Record<string, string> = {
+  aglomerantes: 'CIM',
+  agregados: 'AGR',
+  alvenaria: 'ALV',
+  aco_ferragens: 'ACO',
+  hidraulica: 'HID',
+  eletrica: 'ELE',
+  tintas_quimicos: 'TIN',
+  acabamento: 'ACB',
+  cobertura: 'COB',
+  loucas_metais: 'SAN',
+  madeira: 'MAD',
+  outros: 'MAT',
+};
+
+/**
+ * Gera um SKU inteligente e padronizado: MAT-[PREFIXO]-[NCM4]-[RANDOM3]
+ * Exemplo: MAT-CIM-2523-841
+ */
+export function generateProductSku(category: string, ncm?: string): string {
+  const catPrefix = CATEGORY_SKU_PREFIX[category] || 'MAT';
+  const cleanNcm = (ncm || '').replace(/\D/g, '');
+  const ncmPart = cleanNcm.length >= 4 ? cleanNcm.substring(0, 4) : Math.floor(1000 + Math.random() * 9000).toString();
+  const randomSuffix = Math.floor(100 + Math.random() * 900).toString();
+
+  return `MAT-${catPrefix}-${ncmPart}-${randomSuffix}`;
+}
