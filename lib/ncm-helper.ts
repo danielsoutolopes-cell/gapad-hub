@@ -44,10 +44,29 @@ export const NCM_CONSTRUCTION_MAP: Record<string, { category: string; label: str
   '3917': { category: 'hidraulica', label: 'Tubos e seus acessórios (juntas, cotovelos) de plásticos (PVC/PPR)', unit: 'BARRA' },
   '3925': { category: 'acabamento', label: 'Artefatos para apetrechamento de construções de plástico', unit: 'UN' },
 
-  // 32 - Tintas, vernizes e impermeabilizantes
+  // 32 - Tintas, vernizes, impermeabilizantes e resinas
   '3208': { category: 'tintas_quimicos', label: 'Tintas e vernizes à base de polímeros sintéticos', unit: 'GL' },
   '3209': { category: 'tintas_quimicos', label: 'Tintas e vernizes dispersos em meio aquoso (acrílica, látex)', unit: 'L' },
-  '3214': { category: 'tintas_quimicos', label: 'Massas de vedação, colas e impermeabilizantes', unit: 'KG' },
+  '3214': { category: 'impermeabilizacao', label: 'Massa de vedação, colas, mastiques e impermeabilizantes', unit: 'KG' },
+
+  // 39 - Plásticos, Resinas & Polímeros (Resina Epóxi, PU, Mantas PVC e Piscinas)
+  '3907': { category: 'resinas', label: 'Resinas epóxi, poliacetais e poliésteres (porcelanato líquido / piso resinado)', unit: 'KG' },
+  '3909': { category: 'resinas', label: 'Resinas de poliuretano (PU para impermeabilização e pisos)', unit: 'KG' },
+  '3919': { category: 'impermeabilizacao', label: 'Fitas adesivas de vedação e membranas auto-adesivas', unit: 'ROLO' },
+  '3920': { category: 'impermeabilizacao', label: 'Mantas plásticas impermeabilizantes (PVC / PEAD para tanques e piscinas)', unit: 'M2' },
+  '3921': { category: 'impermeabilizacao', label: 'Outras chapas, películas e mantas de plástico celular / impermeáveis', unit: 'M2' },
+  '3925': { category: 'piscinas', label: 'Piscinas de fibra de vidro/plástico e artefatos de construção', unit: 'UN' },
+
+  // 68 - Asfalto e Obras de Pedra / Asfalto (Manta Asfáltica)
+  '6807': { category: 'impermeabilizacao', label: 'Obras de asfalto ou de produtos similares (Manta Asfáltica estruturada)', unit: 'M2' },
+
+  // 84 - Bombas, Filtros e Equipamentos de Piscina
+  '8421': { category: 'piscinas', label: 'Filtros para tratamento e purificação de água de piscinas', unit: 'UN' },
+  '8413': { category: 'piscinas', label: 'Bombas e motobombas centrífugas para recirculação de piscinas', unit: 'UN' },
+  '9506': { category: 'piscinas', label: 'Piscinas desmontáveis, acessórios aquáticos e lazer', unit: 'UN' },
+
+  // 56 e 59 - Geotêxteis e Mantas
+  '5603': { category: 'impermeabilizacao', label: 'Falsos tecidos, geotêxteis (Manta Geotêxtil / Bidim para drenagem)', unit: 'M2' },
 
   // 85 - Materiais Elétricos
   '8544': { category: 'eletrica', label: 'Fios, cabos isolados para eletricidade e condutores', unit: 'M' },
@@ -108,6 +127,9 @@ const CATEGORY_SKU_PREFIX: Record<string, string> = {
   hidraulica: 'HID',
   eletrica: 'ELE',
   tintas_quimicos: 'TIN',
+  impermeabilizacao: 'IMP',
+  resinas: 'RES',
+  piscinas: 'PSC',
   acabamento: 'ACB',
   cobertura: 'COB',
   loucas_metais: 'SAN',
