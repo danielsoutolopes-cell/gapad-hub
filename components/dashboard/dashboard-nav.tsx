@@ -112,6 +112,11 @@ export function DashboardNav({ tenantName = 'Empresa Teste', isSuperAdmin = fals
       label: 'Academy',
       icon: GraduationCap,
     },
+    {
+      href: '/dashboard/configuracoes/equipe',
+      label: 'Equipe & RBAC',
+      icon: Users,
+    },
   ];
 
   return (
