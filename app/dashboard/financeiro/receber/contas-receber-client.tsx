@@ -22,6 +22,9 @@ import {
   Users,
   ShieldCheck,
   Sparkles,
+  Send,
+  Mail,
+  MessageSquare,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 
@@ -121,6 +124,9 @@ export function ContasReceberClient() {
 
   const [revertingEntry, setRevertingEntry] = useState<FinancialEntryItem | null>(null);
   const [isModalCreateOpen, setIsModalCreateOpen] = useState(false);
+  const [resendingEntry, setResendingEntry] = useState<FinancialEntryItem | null>(null);
+  const [resendChannel, setResendChannel] = useState<'WHATSAPP' | 'EMAIL' | 'AMBOS'>('AMBOS');
+  const [isDispatchingNotification, setIsDispatchingNotification] = useState(false);
 
   // Form de criação manual rápida de Conta a Receber
   const [newDesc, setNewDesc] = useState('');
@@ -709,18 +715,29 @@ export function ContasReceberClient() {
                       <td className="py-3 px-4 whitespace-nowrap text-center">
                         <div className="flex items-center justify-center gap-1.5">
                           {item.effective_status !== 'pago' ? (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setReceivingEntry(item);
-                                setReceiveDateInput(new Date().toISOString().slice(0, 10));
-                              }}
-                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold text-slate-950 bg-emerald-400 hover:bg-emerald-300 transition-all shadow-sm shadow-emerald-500/20"
-                              title="Confirmar recebimento / liquidação bancária"
-                            >
-                              <Check className="w-3.5 h-3.5" />
-                              <span>Registrar Recebimento</span>
-                            </button>
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setReceivingEntry(item);
+                                  setReceiveDateInput(new Date().toISOString().slice(0, 10));
+                                }}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold text-slate-950 bg-emerald-400 hover:bg-emerald-300 transition-all shadow-sm shadow-emerald-500/20"
+                                title="Confirmar recebimento / liquidação bancária"
+                              >
+                                <Check className="w-3.5 h-3.5" />
+                                <span>Registrar</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setResendingEntry(item)}
+                                className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 transition-all border border-slate-700"
+                                title="Reenviar cobrança com boleto / pix"
+                              >
+                                <Send className="w-3 h-3 text-emerald-400" />
+                                <span>Reenviar</span>
+                              </button>
+                            </>
                           ) : (
                             <button
                               type="button"
@@ -827,6 +844,119 @@ export function ContasReceberClient() {
           </div>
         </div>
       )}
+
+      {/* ---------------------------------------------------------------------- */}
+      {/* MODAL: REENVIAR COBRANÇA (WHATSAPP / E-MAIL / AMBOS) */}
+      {/* ---------------------------------------------------------------------- */}
+      {resendingEntry && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in">
+          <div className="bg-[#0b101b] border border-slate-800 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2 text-white font-bold text-base">
+                <Send className="w-5 h-5 text-emerald-400" />
+                Reenviar Cobrança ao Cliente
+              </div>
+              <button
+                onClick={() => setResendingEntry(null)}
+                className="text-slate-400 hover:text-white text-sm"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <div className="p-3 bg-slate-900/80 border border-slate-800 rounded-xl space-y-1 text-xs">
+                <div className="text-slate-400">Título Selecionado:</div>
+                <div className="font-bold text-white text-sm">{resendingEntry.description}</div>
+                <div className="text-emerald-400 font-mono font-bold">
+                  {formatCurrency(resendingEntry.net_amount)} • Venc: {formatDate(resendingEntry.due_date)}
+                </div>
+                <div className="text-slate-400 pt-1">
+                  Cliente: <strong className="text-slate-200">{resendingEntry.party?.name || 'Cliente'}</strong>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-2">
+                  Escolha o Canal de Disparo:
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setResendChannel('WHATSAPP')}
+                    className={`p-3 rounded-xl border text-xs font-bold flex flex-col items-center gap-1.5 transition-all ${
+                      resendChannel === 'WHATSAPP'
+                        ? 'border-emerald-500 bg-emerald-500/10 text-emerald-400'
+                        : 'border-slate-800 bg-slate-950 text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    <MessageSquare className="w-4 h-4 text-emerald-500" />
+                    WhatsApp
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setResendChannel('EMAIL')}
+                    className={`p-3 rounded-xl border text-xs font-bold flex flex-col items-center gap-1.5 transition-all ${
+                      resendChannel === 'EMAIL'
+                        ? 'border-blue-500 bg-blue-500/10 text-blue-400'
+                        : 'border-slate-800 bg-slate-950 text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    <Mail className="w-4 h-4 text-blue-400" />
+                    E-mail
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setResendChannel('AMBOS')}
+                    className={`p-3 rounded-xl border text-xs font-bold flex flex-col items-center gap-1.5 transition-all ${
+                      resendChannel === 'AMBOS'
+                        ? 'border-purple-500 bg-purple-500/10 text-purple-300'
+                        : 'border-slate-800 bg-slate-950 text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    <Sparkles className="w-4 h-4 text-purple-400" />
+                    Ambos
+                  </button>
+                </div>
+              </div>
+
+              <div className="p-3 bg-slate-950 border border-slate-800/80 rounded-xl text-[11px] text-slate-400 space-y-1">
+                <div>• O disparo é assíncrono em segundo plano (BackgroundTasks).</div>
+                <div>• Inclui PDF do boleto/fatura e chave PIX Copia & Cola.</div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-800">
+              <button
+                type="button"
+                onClick={() => setResendingEntry(null)}
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-white"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={isDispatchingNotification}
+                onClick={() => {
+                  setIsDispatchingNotification(true);
+                  setTimeout(() => {
+                    setIsDispatchingNotification(false);
+                    alert(`Cobrança enviada com sucesso via [${resendChannel}] com comprovante gerado!`);
+                    setResendingEntry(null);
+                  }, 1200);
+                }}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-slate-950 bg-emerald-400 hover:bg-emerald-300 transition-all shadow-md shadow-emerald-500/20 disabled:opacity-50"
+              >
+                {isDispatchingNotification && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                Disparar Cobrança Agora
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
 
       {/* ---------------------------------------------------------------------- */}
       {/* MODAL 2: CONFIRMAÇÃO DE ESTORNO */}

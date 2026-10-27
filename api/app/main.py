@@ -21,6 +21,11 @@ from app.api.v1.endpoints.subcontracts import router as subcontracts_router
 from app.api.v1.endpoints.finance import router as finance_router
 from app.api.v1.endpoints.inbound_invoices import router as inbound_invoices_router
 from app.api.v1.endpoints.billing import router as billing_router
+from app.api.v1.endpoints.procurement import router as procurement_router
+from app.api.v1.endpoints.hr import router as hr_router
+from app.api.v1.endpoints.crm import router as crm_router
+from app.api.v1.endpoints.reconciliation import router as reconciliation_router
+from app.api.v1.endpoints.governance import router as governance_router
 
 # Configuração de Logs
 logging.basicConfig(
@@ -129,6 +134,31 @@ app.include_router(
     billing_router,
     prefix=f"{settings.API_V1_STR}",
     tags=["Billing & Auto-Tenant RBAC (Fase 11)"],
+)
+app.include_router(
+    procurement_router,
+    prefix=f"{settings.API_V1_STR}",
+    tags=["Suprimentos & Procurement (Fase 15)"],
+)
+app.include_router(
+    hr_router,
+    prefix=f"{settings.API_V1_STR}",
+    tags=["RH & Ponto Geofencing (Fase 16)"],
+)
+app.include_router(
+    crm_router,
+    prefix=f"{settings.API_V1_STR}",
+    tags=["CRM & Pós-Obra (Fase 17)"],
+)
+app.include_router(
+    reconciliation_router,
+    prefix=f"{settings.API_V1_STR}",
+    tags=["Conciliação Bancária Híbrida (Fase 18)"],
+)
+app.include_router(
+    governance_router,
+    prefix=f"{settings.API_V1_STR}",
+    tags=["Governança, Auditoria & Assinatura Gov.br"],
 )
 
 # Registro de Handler RFC 7807 para Problemas Fiscais e Validações

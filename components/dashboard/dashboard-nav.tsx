@@ -27,6 +27,11 @@ import {
   FileCheck2,
   FileText,
   Plus,
+  ShoppingCart,
+  UserCheck,
+  Kanban,
+  Landmark,
+  History,
 } from 'lucide-react';
 import { logout } from '@/app/actions/auth';
 
@@ -78,6 +83,21 @@ export function DashboardNav({ tenantName = 'Empresa Teste', isSuperAdmin = fals
       icon: Calculator,
     },
     {
+      href: '/dashboard/suprimentos',
+      label: 'Suprimentos',
+      icon: ShoppingCart,
+    },
+    {
+      href: '/dashboard/rh',
+      label: 'RH & Canteiro',
+      icon: UserCheck,
+    },
+    {
+      href: '/dashboard/crm',
+      label: 'CRM & Pós-Obra',
+      icon: Kanban,
+    },
+    {
       href: '/dashboard/clientes',
       label: 'Clientes',
       icon: Users,
@@ -116,6 +136,11 @@ export function DashboardNav({ tenantName = 'Empresa Teste', isSuperAdmin = fals
       href: '/dashboard/configuracoes/equipe',
       label: 'Equipe & RBAC',
       icon: Users,
+    },
+    {
+      href: '/dashboard/configuracoes/auditoria',
+      label: 'Auditoria',
+      icon: History,
     },
   ];
 
@@ -217,6 +242,24 @@ export function DashboardNav({ tenantName = 'Empresa Teste', isSuperAdmin = fals
                     </Link>
 
                     <div className="border-t border-slate-800/80 my-1 pt-1">
+                      <Link
+                        href="/dashboard/financeiro/conciliacao"
+                        onClick={() => setFinanceMenuOpen(false)}
+                        className={`flex items-center justify-between px-2.5 py-2 rounded-lg text-xs font-medium transition-all ${
+                          pathname === '/dashboard/financeiro/conciliacao'
+                            ? 'bg-teal-500/15 text-teal-300 font-bold border border-teal-500/30'
+                            : 'text-slate-300 hover:text-white hover:bg-slate-800/80'
+                        }`}
+                      >
+                        <span className="flex items-center gap-2">
+                          <Landmark className="w-4 h-4 text-teal-400" />
+                          <span>Conciliação Bancária</span>
+                        </span>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-teal-500/20 text-teal-400 font-bold">
+                          D+0/OFX
+                        </span>
+                      </Link>
+
                       <Link
                         href="/dashboard/financeiro/notas-entrada"
                         onClick={() => setFinanceMenuOpen(false)}
