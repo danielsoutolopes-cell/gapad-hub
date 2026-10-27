@@ -18,6 +18,7 @@ from app.api.v1.endpoints.fiscal import router as fiscal_router
 from app.api.v1.endpoints.intelligence import router as intelligence_router
 from app.api.v1.endpoints.analytics import router as analytics_router
 from app.api.v1.endpoints.subcontracts import router as subcontracts_router
+from app.api.v1.endpoints.finance import router as finance_router
 
 # Configuração de Logs
 logging.basicConfig(
@@ -111,6 +112,11 @@ app.include_router(
     subcontracts_router,
     prefix=f"{settings.API_V1_STR}/subcontracts",
     tags=["Subcontratos & Compliance Trabalhista (Fase 13)"],
+)
+app.include_router(
+    finance_router,
+    prefix=f"{settings.API_V1_STR}/finance",
+    tags=["Central Financeira - Contas a Pagar e Receber"],
 )
 
 # Registro de Handler RFC 7807 para Problemas Fiscais e Validações

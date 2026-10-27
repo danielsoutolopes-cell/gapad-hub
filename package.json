@@ -9,7 +9,10 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "seed": "node scripts/seed.mjs"
+    "seed": "node scripts/seed.mjs",
+    "test:e2e": "playwright test",
+    "test:stress": ".\\.venv\\Scripts\\locust.exe -f tests/load/locustfile.py --headless -u 500 -r 50 --run-time 1m --host http://localhost:8000",
+    "test:chaos": ".\\.venv\\Scripts\\pytest.exe tests/integration/test_chaos_resilience.py -v"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",
@@ -28,6 +31,7 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@playwright/test": "^1.64.1",
     "@types/node": "^20.17.0",
     "@types/pg": "^8.23.1",
     "@types/react": "^18.3.11",

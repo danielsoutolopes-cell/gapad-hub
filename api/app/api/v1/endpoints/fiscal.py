@@ -15,7 +15,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from uuid import UUID, uuid4
 
 import httpx
-from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, status
+from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Query, Request, status
 
 from app.core.config import settings
 from app.core.deps import get_current_tenant_and_token
@@ -128,17 +128,17 @@ async def _fetch_measurement_data(measurement_id: UUID, tenant_id: UUID, auth_to
         return resp.json()[0]
 
 
-async def _upload_to_supabase_storage(
+async def _retry_storage_upload_background(
     bucket: str,
     path: str,
     file_bytes: bytes,
     content_type: str,
-) -> str:
-    """Faz upload de um arquivo para o Supabase Storage e retorna a URL pública."""
+    max_retries: int = 3,
+) -> None:
+    """Tenta novamente o upload para o Supabase Storage em background task sem travar a requisição."""
     service_key = settings.SUPABASE_SERVICE_ROLE_KEY
     if not service_key or not settings.SUPABASE_URL:
-        # Fallback para ambiente de desenvolvimento local
-        return f"{settings.SUPABASE_URL or 'http://localhost'}/storage/v1/object/public/{bucket}/{path}"
+        return
 
     url = f"{settings.SUPABASE_URL.rstrip('/')}/storage/v1/object/{bucket}/{path}"
     headers = {
@@ -148,18 +148,70 @@ async def _upload_to_supabase_storage(
         "x-upsert": "true",
     }
 
-    async with httpx.AsyncClient(timeout=30.0) as client:
+    import asyncio
+    for attempt in range(1, max_retries + 1):
+        try:
+            logger.info("Tentativa %s de upload em background para %s...", attempt, path)
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.post(url, headers=headers, content=file_bytes)
+                if resp.status_code in (200, 201):
+                    logger.info("Upload em background concluído com sucesso: %s", path)
+                    return
+        except Exception as exc:
+            logger.warning("Falha tentativa %s background upload: %s", attempt, exc)
+        await asyncio.sleep(1.0)
+
+
+async def _upload_to_supabase_storage(
+    bucket: str,
+    path: str,
+    file_bytes: bytes,
+    content_type: str,
+    background_tasks: Optional[BackgroundTasks] = None,
+) -> str:
+    """Faz upload de um arquivo para o Supabase Storage. Em caso de falha de rede/timeout, agenda retry em background."""
+    service_key = settings.SUPABASE_SERVICE_ROLE_KEY
+    fallback_url = f"{settings.SUPABASE_URL or 'http://localhost'}/storage/v1/object/public/{bucket}/{path}"
+
+    if not service_key or not settings.SUPABASE_URL:
+        return fallback_url
+
+    url = f"{settings.SUPABASE_URL.rstrip('/')}/storage/v1/object/{bucket}/{path}"
+    headers = {
+        "apikey": service_key,
+        "Authorization": f"Bearer {service_key}",
+        "Content-Type": content_type,
+        "x-upsert": "true",
+    }
+
+    async with httpx.AsyncClient(timeout=10.0) as client:
         try:
             resp = await client.post(url, headers=headers, content=file_bytes)
             if resp.status_code not in (200, 201):
                 logger.warning(
-                    "Falha ao fazer upload para Supabase Storage [%s]: %s - %s",
+                    "Falha imediata no upload para Supabase Storage [%s]: %s - %s. Agendando retry em background.",
                     url,
                     resp.status_code,
                     resp.text,
                 )
+                if background_tasks:
+                    background_tasks.add_task(
+                        _retry_storage_upload_background,
+                        bucket,
+                        path,
+                        file_bytes,
+                        content_type,
+                    )
         except Exception as exc:
-            logger.warning("Exceção de rede no upload do Storage: %s", exc)
+            logger.warning("Exceção de rede no upload do Storage: %s. Agendando retry em background.", exc)
+            if background_tasks:
+                background_tasks.add_task(
+                    _retry_storage_upload_background,
+                    bucket,
+                    path,
+                    file_bytes,
+                    content_type,
+                )
 
     return f"{settings.SUPABASE_URL.rstrip('/')}/storage/v1/object/public/{bucket}/{path}"
 
@@ -219,6 +271,7 @@ async def _update_measurement_status(measurement_id: UUID, auth_token: str) -> N
 )
 async def issue_nfse(
     payload: IssueNfseRequest,
+    background_tasks: BackgroundTasks,
     context: Tuple[UUID, str] = Depends(get_current_tenant_and_token),
 ) -> IssueNfseResponse:
     tenant_id, auth_token = context
@@ -404,6 +457,7 @@ async def issue_nfse(
         path=xml_filename,
         file_bytes=xml_content.encode("utf-8"),
         content_type="application/xml",
+        background_tasks=background_tasks,
     )
 
     pdf_url = await _upload_to_supabase_storage(
@@ -411,6 +465,7 @@ async def issue_nfse(
         path=pdf_filename,
         file_bytes=pdf_bytes,
         content_type="application/pdf",
+        background_tasks=background_tasks,
     )
 
     # --------------------------------------------------------------------------
@@ -571,6 +626,13 @@ async def issue_nfse(
 # ------------------------------------------------------------------------------
 # Endpoints de Reforma Tributária & IVA Dual (Fase 12)
 # ------------------------------------------------------------------------------
+@router.post(
+    "/invoices/simulate",
+    response_model=TaxDualSimulationResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Simulação Fiscal e Tributária de Faturamento / NFS-e",
+    include_in_schema=True,
+)
 @router.post(
     "/tax-calculator/simulate-dual",
     response_model=TaxDualSimulationResponse,

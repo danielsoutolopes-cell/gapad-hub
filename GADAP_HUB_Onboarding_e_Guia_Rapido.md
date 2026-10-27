@@ -210,9 +210,19 @@ $$\text{FAROL AMARELO (Atenção)}: Total\ Pago > Total\ Medido \quad \land \qua
 $$\text{FAROL VERMELHO (Risco Crítico)}: Total\ Pago > Total\ Medido \quad \land \quad Total\ Pago \ge 0.80 \times Contrato\ Global$$
 $$\text{Exposição\ Financeira\ a\ Descoberto} = \max(0, Total\ Pago - Total\ Medido)$$
 
+### 8. Central Financeira Consolidada (UX Contas a Pagar & Receber)
+- **Contas a Pagar:** Gestão centralizada de insumos, boletos de fornecedores, materiais e adiantamentos de subempreiteiros de todas as obras agrupadas em `/dashboard/financeiro/pagar`.
+- **Contas a Receber:** Gestão de faturamentos de clientes, medições aprovadas, emissões de NFS-e e retenções técnicas em `/dashboard/financeiro/receber`.
+- **Status Operacional:** Visualização dinâmica com Badges coloridos (Vermelho para Atrasado, Amarelo para Vence Hoje, Verde para Pago) e ações rápidas de 1 clique (*"Registrar Pagamento / Recebimento"* e *"Estornar"*).
+
+### 9. Blindagem de QA, Stress Testing & Engenharia do Caos
+- **Stress Testing Backend (Locust):** Simulação de 500 usuários simultâneos nos endpoints de alta concorrência `/api/v1/fiscal/invoices/simulate` e `/api/v1/finance/payables` avaliando pooling de conexões e tempo de resposta.
+- **Engenharia do Caos (Chaos Resilience):** Tratamento determinístico de timeout da SEFAZ (>10s) via RFC 7807 (Problem Details), degradação suave na queda do WhatsApp (Evolution API) e tolerância a falhas de rede no Supabase Storage via `BackgroundTasks`.
+- **Frontend E2E (Playwright):** Cobertura automatizada do fluxo crítico ponta a ponta: *Login -> Criar Obra -> Orçamento Markup -> Aprovar -> Lançar Medição*.
+
 ---
 
-# 🎯 MVP CONCLUÍDO & CORE SELADO
+# 🎯 MVP CONCLUÍDO, BLINDADO & CORE SELADO
 
-> ### 🎯 DECLARAÇÃO OFICIAL DE PRÓXIMO PASSO
-> **O core do negócio está selado para o futuro! Toda a esteira operacional, orçamentos BDI e Markup, medições físico-financeiras, governança multi-tenant, motor de IA, conformidade com o IVA Dual (2026-2032) e a Gestão de Subcontratos Desburocratizada (Zero Travas & Modelo Farol) estão 100% consolidadas (Fases 1 a 10, 12 e 13 [x] Concluídas). A próxima etapa é a FASE 11: BILLING E MONETIZAÇÃO SAAS!**
+> ### 📍 STATUS DO ROADMAP
+> **O core do negócio, a Central Financeira e a Suíte de QA/Engenharia do Caos estão 100% selados para o futuro! Toda a esteira operacional, orçamentos BDI e Markup, medições físico-financeiras, governança multi-tenant, motor fiscal de NFS-e e IA, conformidade com o IVA Dual (2026-2032), Gestão de Subcontratos Desburocratizada (Zero Travas & Modelo Farol), Central Financeira Consolidada e Blindagem de Stress & Resiliência ao Caos estão 100% consolidadas (Fases 1 a 10, 12, 13, Central Financeira e QA Blindado [x] Concluídas). A próxima etapa é a FASE 11: BILLING E MONETIZAÇÃO SAAS!**

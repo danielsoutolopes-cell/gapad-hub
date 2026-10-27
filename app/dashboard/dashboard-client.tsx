@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   TrendingUp,
@@ -21,6 +22,7 @@ import {
   Clock,
   Sparkles,
   Percent,
+  Receipt,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -421,6 +423,93 @@ export function ExecutiveDashboardClient({ tenantName }: { tenantName: string })
             </div>
           </div>
         </div>
+      </div>
+
+      {/* ---------------------------------------------------------------------- */}
+      {/* DESTAQUE UX: ACESSO RÁPIDO À CENTRAL FINANCEIRA (RECEBER & PAGAR) */}
+      {/* ---------------------------------------------------------------------- */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 print:hidden">
+        <Link
+          href="/dashboard/financeiro/receber"
+          className="group p-4 rounded-2xl bg-gradient-to-r from-emerald-950/40 to-slate-900/80 border border-emerald-500/30 hover:border-emerald-500/60 transition-all shadow-lg shadow-emerald-950/20 flex items-center justify-between"
+        >
+          <div className="flex items-center gap-3.5">
+            <div className="w-11 h-11 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400 group-hover:scale-105 transition-transform">
+              <ArrowUpRight className="w-6 h-6 stroke-[2.5]" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-bold text-white group-hover:text-emerald-300 transition-colors">
+                  Central de Contas a Receber
+                </h3>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold">
+                  Entradas
+                </span>
+              </div>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Recebimentos de medições, emissão de faturas e acompanhamento de liquidez de todas as obras.
+              </p>
+            </div>
+          </div>
+          <span className="text-xs font-bold text-emerald-400 flex items-center gap-1 group-hover:translate-x-1 transition-transform">
+            Acessar <ArrowUpRight className="w-3.5 h-3.5" />
+          </span>
+        </Link>
+
+        <Link
+          href="/dashboard/financeiro/pagar"
+          className="group p-4 rounded-2xl bg-gradient-to-r from-rose-950/40 to-slate-900/80 border border-rose-500/30 hover:border-rose-500/60 transition-all shadow-lg shadow-rose-950/20 flex items-center justify-between"
+        >
+          <div className="flex items-center gap-3.5">
+            <div className="w-11 h-11 rounded-xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-400 group-hover:scale-105 transition-transform">
+              <ArrowDownRight className="w-6 h-6 stroke-[2.5]" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-bold text-white group-hover:text-rose-300 transition-colors">
+                  Central de Contas a Pagar
+                </h3>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 font-bold">
+                  Saídas
+                </span>
+              </div>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Boletos de insumos, compras de fornecedores e adiantamentos de subempreiteiros sem travas.
+              </p>
+            </div>
+          </div>
+          <span className="text-xs font-bold text-rose-400 flex items-center gap-1 group-hover:translate-x-1 transition-transform">
+            Acessar <ArrowDownRight className="w-3.5 h-3.5" />
+          </span>
+        </Link>
+
+        {/* Card 3: Central Fiscal Hub */}
+        <Link
+          href="/dashboard/fiscal"
+          className="md:col-span-2 group p-4 rounded-2xl bg-gradient-to-r from-purple-950/40 via-indigo-950/30 to-slate-900/80 border border-purple-500/30 hover:border-purple-500/60 transition-all shadow-lg shadow-purple-950/20 flex items-center justify-between"
+        >
+          <div className="flex items-center gap-3.5">
+            <div className="w-11 h-11 rounded-xl bg-purple-500/15 border border-purple-500/30 flex items-center justify-center text-purple-400 group-hover:scale-105 transition-transform">
+              <Receipt className="w-6 h-6 stroke-[2.5]" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-bold text-white group-hover:text-purple-300 transition-colors">
+                  Central Fiscal & Faturamento Backoffice
+                </h3>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 font-bold">
+                  Hub Nacional
+                </span>
+              </div>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Painel unificado de NFS-e (Serviço) e NF-e (Material), retenções na fonte de todas as obras e créditos da Reforma Tributária.
+              </p>
+            </div>
+          </div>
+          <span className="text-xs font-bold text-purple-400 flex items-center gap-1 group-hover:translate-x-1 transition-transform">
+            Acessar Painel <ArrowUpRight className="w-3.5 h-3.5" />
+          </span>
+        </Link>
       </div>
 
       {/* ---------------------------------------------------------------------- */}
