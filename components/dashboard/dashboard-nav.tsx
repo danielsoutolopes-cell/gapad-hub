@@ -210,6 +210,26 @@ export function DashboardNav({ tenantName = 'Empresa Teste', isSuperAdmin = fals
                         Saídas
                       </span>
                     </Link>
+
+                    <div className="border-t border-slate-800/80 my-1 pt-1">
+                      <Link
+                        href="/dashboard/financeiro/notas-entrada"
+                        onClick={() => setFinanceMenuOpen(false)}
+                        className={`flex items-center justify-between px-2.5 py-2 rounded-lg text-xs font-medium transition-all ${
+                          pathname === '/dashboard/financeiro/notas-entrada'
+                            ? 'bg-sky-500/15 text-sky-300 font-bold border border-sky-500/30'
+                            : 'text-slate-300 hover:text-white hover:bg-slate-800/80'
+                        }`}
+                      >
+                        <span className="flex items-center gap-2">
+                          <FileText className="w-4 h-4 text-sky-400" />
+                          <span>Notas de Entrada</span>
+                        </span>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-400 font-bold">
+                          DFe
+                        </span>
+                      </Link>
+                    </div>
                   </div>
                 )}
               </div>
@@ -412,6 +432,17 @@ export function DashboardNav({ tenantName = 'Empresa Teste', isSuperAdmin = fals
           >
             <ArrowDownRight className="w-3.5 h-3.5" />
             Contas a Pagar
+          </Link>
+          <Link
+            href="/dashboard/financeiro/notas-entrada"
+            className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all flex-shrink-0 ${
+              pathname === '/dashboard/financeiro/notas-entrada'
+                ? 'bg-sky-500/20 text-sky-300 border border-sky-500/40'
+                : 'text-sky-400 bg-sky-500/10 border border-sky-500/20'
+            }`}
+          >
+            <FileText className="w-3.5 h-3.5" />
+            Notas de Entrada (DFe)
           </Link>
 
           {/* Submenus Fiscais destacados no mobile */}

@@ -19,6 +19,7 @@ from app.api.v1.endpoints.intelligence import router as intelligence_router
 from app.api.v1.endpoints.analytics import router as analytics_router
 from app.api.v1.endpoints.subcontracts import router as subcontracts_router
 from app.api.v1.endpoints.finance import router as finance_router
+from app.api.v1.endpoints.inbound_invoices import router as inbound_invoices_router
 
 # Configuração de Logs
 logging.basicConfig(
@@ -117,6 +118,11 @@ app.include_router(
     finance_router,
     prefix=f"{settings.API_V1_STR}/finance",
     tags=["Central Financeira - Contas a Pagar e Receber"],
+)
+app.include_router(
+    inbound_invoices_router,
+    prefix=f"{settings.API_V1_STR}/inbound-invoices",
+    tags=["Captura DFe & Manifestação SEFAZ (Fase 14)"],
 )
 
 # Registro de Handler RFC 7807 para Problemas Fiscais e Validações
