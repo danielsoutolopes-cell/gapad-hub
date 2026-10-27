@@ -21,7 +21,10 @@ router = APIRouter(prefix="/finance/reconciliation", tags=["Conciliação Bancá
 @router.post("/pluggy/webhook")
 async def pluggy_transactions_webhook(request: Request):
     """Recebe transações bancárias D+0 em tempo real via Open Finance Pluggy."""
-    payload = await request.json().catch(() => ({}))
+    try:
+        payload = await request.json()
+    except Exception:
+        payload = {}
     logger.info("Pluggy Webhook recebido: %s", payload.get("event"))
 
     return {

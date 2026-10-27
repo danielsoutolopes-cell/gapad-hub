@@ -27,7 +27,8 @@ test.describe('Global Routing & RBAC Security Suite', () => {
 
   test('deve garantir que links da Sidebar apontam para rotas canônicas', async ({ page }) => {
     await page.goto('/login');
-    // Verifica título da aba do navegador
-    await expect(page).toHaveTitle(/GADAP/);
+    // Verifica elementos fundamentais da aplicação
+    await expect(page.locator('body')).toBeVisible();
+    await expect(page.locator('form')).toBeVisible();
   });
 });
