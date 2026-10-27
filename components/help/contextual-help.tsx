@@ -22,6 +22,7 @@ interface ContextualHelpProps {
   topic?: HelpTopic;
   title?: string;
   triggerText?: string;
+  tooltip?: string;
   variant?: 'icon' | 'badge' | 'button';
   children?: React.ReactNode;
 }
@@ -30,10 +31,13 @@ export function ContextualHelp({
   topic = 'custom',
   title,
   triggerText,
+  tooltip,
   variant = 'badge',
   children,
 }: ContextualHelpProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [isTooltipVisible, setIsTooltipVisible] = useState(false);
+
 
   // Renderizador do Conteúdo pré-configurado por tópico
   const renderTopicContent = () => {
@@ -220,14 +224,17 @@ export function ContextualHelp({
   };
 
   return (
-    <>
+    <div className="relative inline-flex items-center">
       {/* Botão de Disparo */}
       {variant === 'icon' && (
         <button
           type="button"
-          onClick={() => setIsOpen(true)}
+          onClick={() => (tooltip ? setIsTooltipVisible(!isTooltipVisible) : setIsOpen(true))}
+          onMouseEnter={() => tooltip && setIsTooltipVisible(true)}
+          onMouseLeave={() => tooltip && setIsTooltipVisible(false)}
           className="text-slate-400 hover:text-emerald-400 p-1 rounded-lg hover:bg-slate-800/60 transition-colors"
-          title={getResolvedTitle()}
+          title={!tooltip ? getResolvedTitle() : undefined}
+          aria-label={getResolvedTitle()}
         >
           <HelpCircle className="w-4 h-4" />
         </button>
@@ -236,7 +243,9 @@ export function ContextualHelp({
       {variant === 'badge' && (
         <button
           type="button"
-          onClick={() => setIsOpen(true)}
+          onClick={() => (tooltip ? setIsTooltipVisible(!isTooltipVisible) : setIsOpen(true))}
+          onMouseEnter={() => tooltip && setIsTooltipVisible(true)}
+          onMouseLeave={() => tooltip && setIsTooltipVisible(false)}
           className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/25 transition-all hover:scale-[1.02]"
         >
           <HelpCircle className="w-3.5 h-3.5 text-emerald-400" />
@@ -247,13 +256,28 @@ export function ContextualHelp({
       {variant === 'button' && (
         <button
           type="button"
-          onClick={() => setIsOpen(true)}
+          onClick={() => (tooltip ? setIsTooltipVisible(!isTooltipVisible) : setIsOpen(true))}
+          onMouseEnter={() => tooltip && setIsTooltipVisible(true)}
+          onMouseLeave={() => tooltip && setIsTooltipVisible(false)}
           className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-300 hover:text-white bg-slate-900 hover:bg-slate-800 border border-slate-800 transition-all"
         >
           <HelpCircle className="w-3.5 h-3.5 text-emerald-400" />
           <span>{getResolvedTriggerText()}</span>
         </button>
       )}
+
+      {/* Tooltip / Balão Informativo Flutuante */}
+      {tooltip && isTooltipVisible && (
+        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 p-2.5 rounded-xl bg-slate-900/95 text-slate-200 border border-emerald-500/30 shadow-2xl backdrop-blur-md text-xs leading-relaxed z-50 pointer-events-none animate-in fade-in zoom-in-95 duration-150">
+          <div className="font-semibold text-emerald-400 flex items-center gap-1.5 mb-1">
+            <Info className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Dica Rápida</span>
+          </div>
+          <p className="text-slate-300">{tooltip}</p>
+          <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-slate-900" />
+        </div>
+      )}
+
 
       {/* Modal / Dialog de Ajuda Contextual */}
       {isOpen && (
@@ -300,6 +324,6 @@ export function ContextualHelp({
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 }

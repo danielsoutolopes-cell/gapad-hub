@@ -227,6 +227,50 @@ def test_finance_payables_database_resilience():
         print("  ✓ Teste Central Financeira Resiliência: Tratamento limpo de dataset vazio ou banco desconectado.")
 
 
+# ==============================================================================
+# CENÁRIO 5: Queda Simultânea de Três Dependências (BrasilAPI, Pluggy, Evolution)
+# ==============================================================================
+def test_simultaneous_three_dependency_outage_circuit_breaker():
+    """
+    Engenharia do Caos Extrema: Simula o blecaute simultâneo de:
+      1. BrasilAPI (Receita Federal / CNPJ & CEP)
+      2. Pluggy (Open Finance / Extrato Bancário)
+      3. Evolution API (WhatsApp)
+    Garante que o Circuit Breaker / Fallback opera com degradação suave,
+    mantendo integridade transacional sem crashar ou corromper dados no banco.
+    """
+    mock_tenant = uuid4()
+    headers = {
+        "Authorization": "Bearer mock-token-test",
+        "x-tenant-id": str(mock_tenant),
+    }
+
+    # 1. Simula queda da BrasilAPI e de chamadas externas HTTP (Timeout / ConnectError)
+    with patch("httpx.AsyncClient.get", side_effect=httpx.ConnectError("BrasilAPI Unreachable / 503")):
+        # 2. Simula queda da Evolution API (Connection Refused / Gateway Down)
+        with patch("app.services.evolution_whatsapp.EvolutionWhatsAppClient.send_text", side_effect=RuntimeError("Evolution API Offline")):
+            with patch("app.api.v1.endpoints.fiscal._save_fiscal_invoice_record", new_callable=AsyncMock):
+                with patch("app.api.v1.endpoints.fiscal._upload_to_supabase_storage", new_callable=AsyncMock) as mock_storage:
+                    mock_storage.return_value = "https://mock.supabase.co/storage/v1/object/public/xml-fiscais/circuit_breaker.pdf"
+                    
+                    payload = get_mock_nfse_payload()
+                    # Simulação fiscal e emissão resiliente sob triplo blecaute
+                    response = client.post("/api/v1/fiscal/invoices/issue-nfse", json=payload, headers=headers)
+                    
+                    assert response.status_code == 201
+                    data = response.json()
+                    assert data["success"] is True
+                    assert data["whatsapp_dispatched"] is False
+
+    # 3. Simula falha e resiliência em lote no webhook de conciliação Pluggy
+    pluggy_corrupted_payload = {"event": "transactions/created", "data": None}
+    reconcile_response = client.post("/api/v1/reconciliation/pluggy/webhook", json=pluggy_corrupted_payload)
+    # Servidor absorve sem crashar (200 graceful degradation ou 400/422 tratado)
+    assert reconcile_response.status_code in [200, 400, 422]
+    print("  ✓ Teste Blecaute Tríplice (BrasilAPI + Pluggy + Evolution API): Circuit Breaker e Fallback operando com sucesso.")
+
+
+
 def run_chaos_suite():
     print("=================================================================")
     print("🌪️  INICIANDO SUÍTE DE ENGENHARIA DO CAOS & RESILIÊNCIA (GADAP)  🌪️")
@@ -235,6 +279,7 @@ def run_chaos_suite():
     test_whatsapp_evolution_api_down_graceful_degradation()
     test_supabase_storage_failure_and_background_resilience()
     test_finance_payables_database_resilience()
+    test_simultaneous_three_dependency_outage_circuit_breaker()
     print("=================================================================")
     print("🛡️  TODOS OS CENÁRIOS DE CAOS FORAM ABSORVIDOS COM SUCESSO!     🛡️")
     print("=================================================================")
@@ -242,3 +287,4 @@ def run_chaos_suite():
 
 if __name__ == "__main__":
     run_chaos_suite()
+

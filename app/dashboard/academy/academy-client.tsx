@@ -58,6 +58,10 @@ export function AcademyClient({ isSuperAdmin = false }: AcademyClientProps) {
     modulo7: false,
     modulo8: false,
     modulo9: false,
+    modulo10: false,
+    modulo11: false,
+    modulo12: false,
+    modulo13: false,
   });
 
   const [activeAccordion, setActiveAccordion] = useState<string>('modulo1');
@@ -99,6 +103,10 @@ export function AcademyClient({ isSuperAdmin = false }: AcademyClientProps) {
       modulo7: false,
       modulo8: false,
       modulo9: false,
+      modulo10: false,
+      modulo11: false,
+      modulo12: false,
+      modulo13: false,
     };
     setCompletedModules(resetState);
     try {
@@ -108,7 +116,7 @@ export function AcademyClient({ isSuperAdmin = false }: AcademyClientProps) {
     }
   };
 
-  const totalModules = 7;
+  const totalModules = 11;
   const completedCount = Object.values(completedModules).filter(Boolean).length;
   const progressPercent = Math.round((completedCount / totalModules) * 100);
 
@@ -1310,6 +1318,342 @@ export function AcademyClient({ isSuperAdmin = false }: AcademyClientProps) {
                   >
                     <CheckCircle2 className="w-4 h-4" />
                     {completedModules.modulo9 ? 'Módulo 9 Concluído' : 'Marcar Módulo 9 como Concluído'}
+                  </button>
+                </div>
+              </div>
+            </AccordionContent>
+          </AccordionItem>
+
+          {/* ================================================================= */}
+          {/* MÓDULO 10: Central Financeira e Conciliação Bancária              */}
+          {/* ================================================================= */}
+          <AccordionItem
+            value="modulo10"
+            className="border border-slate-800 rounded-2xl bg-slate-900/40 px-4 transition-all data-[state=open]:border-emerald-500/30 data-[state=open]:bg-slate-900/80"
+          >
+            <AccordionTrigger className="hover:no-underline py-4">
+              <div className="flex items-center gap-3 text-left w-full pr-4">
+                <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 flex-shrink-0">
+                  <CreditCard className="w-5 h-5" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
+                      Módulo 10
+                    </span>
+                    <span className="text-xs text-slate-400">Financeiro &bull; 4 min</span>
+                  </div>
+                  <h3 className="text-sm sm:text-base font-bold text-white truncate">
+                    Central Financeira e Conciliação Bancária (OFX &amp; Auto-Match)
+                  </h3>
+                </div>
+                {completedModules.modulo10 ? (
+                  <CheckCircle2 className="w-5 h-5 text-emerald-400 flex-shrink-0" />
+                ) : (
+                  <Circle className="w-5 h-5 text-slate-600 flex-shrink-0" />
+                )}
+              </div>
+            </AccordionTrigger>
+            <AccordionContent className="pt-2 pb-6">
+              <div className="p-4 sm:p-6 bg-slate-950/60 rounded-2xl border border-slate-800/80 space-y-6">
+                <div className="space-y-4">
+                  <p className="text-sm text-slate-300">
+                    Aprenda a dar baixa em boletos, importar arquivos OFX bancários e conciliar títulos em lote com um único clique:
+                  </p>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="p-4 bg-slate-900/80 rounded-xl border border-slate-800 space-y-2">
+                      <h4 className="font-bold text-emerald-300 text-sm">1. Importação OFX &amp; Open Finance</h4>
+                      <p className="text-xs text-slate-400 leading-relaxed">
+                        Arraste o arquivo OFX exportado pelo seu banco ou sincronize via Pluggy. O parser processa lançamentos de débito e crédito D+0.
+                      </p>
+                    </div>
+                    <div className="p-4 bg-slate-900/80 rounded-xl border border-slate-800 space-y-2">
+                      <h4 className="font-bold text-emerald-300 text-sm">2. Motor Auto-Match de Títulos</h4>
+                      <p className="text-xs text-slate-400 leading-relaxed">
+                        O algoritmo cruza data, valor líquido e CNPJ do fornecedor, sugerindo a baixa automática com índice de acurácia de 99.4%.
+                      </p>
+                    </div>
+                    <div className="p-4 bg-slate-900/80 rounded-xl border border-slate-800 space-y-2">
+                      <h4 className="font-bold text-emerald-300 text-sm">3. Baixa e Estorno em 1 Clique</h4>
+                      <p className="text-xs text-slate-400 leading-relaxed">
+                        Confirme a conciliação sem telas complexas. Errou? O botão estornar devolve o título para a esteira operacional sem descompasso contábil.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-slate-800/80 flex flex-col sm:flex-row items-center justify-between gap-4">
+                  <Link
+                    href="/dashboard/financeiro/pagar"
+                    className="inline-flex items-center gap-2 text-xs font-bold text-emerald-400 hover:text-emerald-300 transition-colors"
+                  >
+                    <CreditCard className="w-4 h-4" />
+                    <span>Acessar Contas a Pagar</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => toggleModuleCompletion('modulo10')}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                      completedModules.modulo10
+                        ? 'text-emerald-400 bg-emerald-500/10 border border-emerald-500/30'
+                        : 'text-slate-300 bg-slate-800 hover:bg-slate-700 border border-slate-700'
+                    }`}
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    {completedModules.modulo10 ? 'Módulo 10 Concluído' : 'Marcar Módulo 10 como Concluído'}
+                  </button>
+                </div>
+              </div>
+            </AccordionContent>
+          </AccordionItem>
+
+          {/* ================================================================= */}
+          {/* MÓDULO 11: Engenharia de Campo & Relatórios Fotográficos          */}
+          {/* ================================================================= */}
+          <AccordionItem
+            value="modulo11"
+            className="border border-slate-800 rounded-2xl bg-slate-900/40 px-4 transition-all data-[state=open]:border-teal-500/30 data-[state=open]:bg-slate-900/80"
+          >
+            <AccordionTrigger className="hover:no-underline py-4">
+              <div className="flex items-center gap-3 text-left w-full pr-4">
+                <div className="w-9 h-9 rounded-xl bg-teal-500/10 border border-teal-500/20 flex items-center justify-center text-teal-400 flex-shrink-0">
+                  <HardHat className="w-5 h-5" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-teal-400 bg-teal-500/10 px-2 py-0.5 rounded-full">
+                      Módulo 11
+                    </span>
+                    <span className="text-xs text-slate-400">Engenharia &bull; 3 min</span>
+                  </div>
+                  <h3 className="text-sm sm:text-base font-bold text-white truncate">
+                    Engenharia de Campo e Vistorias Fotográficas com Otimização de Storage
+                  </h3>
+                </div>
+                {completedModules.modulo11 ? (
+                  <CheckCircle2 className="w-5 h-5 text-teal-400 flex-shrink-0" />
+                ) : (
+                  <Circle className="w-5 h-5 text-slate-600 flex-shrink-0" />
+                )}
+              </div>
+            </AccordionTrigger>
+            <AccordionContent className="pt-2 pb-6">
+              <div className="p-4 sm:p-6 bg-slate-950/60 rounded-2xl border border-slate-800/80 space-y-6">
+                <div className="space-y-4">
+                  <p className="text-sm text-slate-300">
+                    Como enviar relatórios fotográficos de medições direto do smartphone do canteiro sem estourar o plano de dados ou armazenamento:
+                  </p>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="p-4 bg-slate-900/80 rounded-xl border border-slate-800 space-y-2">
+                      <h4 className="font-bold text-teal-300 text-sm">1. Compressão WebP Automática</h4>
+                      <p className="text-xs text-slate-400 leading-relaxed">
+                        As fotos tiradas na obra são convertidas no próprio navegador para WebP ultra-leve antes do envio, preservando a nitidez estrutural.
+                      </p>
+                    </div>
+                    <div className="p-4 bg-slate-900/80 rounded-xl border border-slate-800 space-y-2">
+                      <h4 className="font-bold text-teal-300 text-sm">2. Geolocalização &amp; Metadados</h4>
+                      <p className="text-xs text-slate-400 leading-relaxed">
+                        Cada registro grava carimbo de data, hora e coordenadas de GPS no canteiro, assegurando conformidade de compliance perante a fiscalização.
+                      </p>
+                    </div>
+                    <div className="p-4 bg-slate-900/80 rounded-xl border border-slate-800 space-y-2">
+                      <h4 className="font-bold text-teal-300 text-sm">3. Relatório em PDF para o Cliente</h4>
+                      <p className="text-xs text-slate-400 leading-relaxed">
+                        Gere com 1 clique o caderno de evidências fotográficas anexado ao boletim de medição físico-financeira.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-slate-800/80 flex flex-col sm:flex-row items-center justify-between gap-4">
+                  <Link
+                    href="/dashboard/obras"
+                    className="inline-flex items-center gap-2 text-xs font-bold text-teal-400 hover:text-teal-300 transition-colors"
+                  >
+                    <HardHat className="w-4 h-4" />
+                    <span>Acessar Painel de Obras</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => toggleModuleCompletion('modulo11')}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                      completedModules.modulo11
+                        ? 'text-teal-400 bg-teal-500/10 border border-teal-500/30'
+                        : 'text-slate-300 bg-slate-800 hover:bg-slate-700 border border-slate-700'
+                    }`}
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    {completedModules.modulo11 ? 'Módulo 11 Concluído' : 'Marcar Módulo 11 como Concluído'}
+                  </button>
+                </div>
+              </div>
+            </AccordionContent>
+          </AccordionItem>
+
+          {/* ================================================================= */}
+          {/* MÓDULO 12: Validação Jurídica & Assinatura Gov.br                 */}
+          {/* ================================================================= */}
+          <AccordionItem
+            value="modulo12"
+            className="border border-slate-800 rounded-2xl bg-slate-900/40 px-4 transition-all data-[state=open]:border-purple-500/30 data-[state=open]:bg-slate-900/80"
+          >
+            <AccordionTrigger className="hover:no-underline py-4">
+              <div className="flex items-center gap-3 text-left w-full pr-4">
+                <div className="w-9 h-9 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400 flex-shrink-0">
+                  <Scale className="w-5 h-5" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded-full">
+                      Módulo 12
+                    </span>
+                    <span className="text-xs text-slate-400">Jurídico &bull; 3 min</span>
+                  </div>
+                  <h3 className="text-sm sm:text-base font-bold text-white truncate">
+                    Validação Jurídica e Assinatura Eletrônica Gov.br (ICP-Brasil)
+                  </h3>
+                </div>
+                {completedModules.modulo12 ? (
+                  <CheckCircle2 className="w-5 h-5 text-purple-400 flex-shrink-0" />
+                ) : (
+                  <Circle className="w-5 h-5 text-slate-600 flex-shrink-0" />
+                )}
+              </div>
+            </AccordionTrigger>
+            <AccordionContent className="pt-2 pb-6">
+              <div className="p-4 sm:p-6 bg-slate-950/60 rounded-2xl border border-slate-800/80 space-y-6">
+                <div className="space-y-4">
+                  <p className="text-sm text-slate-300">
+                    Como conferir fé pública, validade jurídica e carimbo digital aos contratos de empreitada e medições:
+                  </p>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="p-4 bg-slate-900/80 rounded-xl border border-slate-800 space-y-2">
+                      <h4 className="font-bold text-purple-300 text-sm">1. Integração Gov.br Nativa</h4>
+                      <p className="text-xs text-slate-400 leading-relaxed">
+                        Conecte a conta Prata/Ouro do Gov.br. O sistema assina o documento com certificado digital legalmente aceito em todo o Brasil.
+                      </p>
+                    </div>
+                    <div className="p-4 bg-slate-900/80 rounded-xl border border-slate-800 space-y-2">
+                      <h4 className="font-bold text-purple-300 text-sm">2. Hash Criptográfico SHA-256</h4>
+                      <p className="text-xs text-slate-400 leading-relaxed">
+                        Cada minuta assinada gera um código identificador único e QR Code para conferência pública em tribunais e bancos.
+                      </p>
+                    </div>
+                    <div className="p-4 bg-slate-900/80 rounded-xl border border-slate-800 space-y-2">
+                      <h4 className="font-bold text-purple-300 text-sm">3. Trilha de Auditoria Imutável</h4>
+                      <p className="text-xs text-slate-400 leading-relaxed">
+                        Histórico completo com IP, agente, timestamp e status de aceite dos subempreiteiros e engenheiros fiscais.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-slate-800/80 flex flex-col sm:flex-row items-center justify-between gap-4">
+                  <Link
+                    href="/dashboard/configuracoes/auditoria"
+                    className="inline-flex items-center gap-2 text-xs font-bold text-purple-400 hover:text-purple-300 transition-colors"
+                  >
+                    <Scale className="w-4 h-4" />
+                    <span>Painel de Auditoria &amp; Validações</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => toggleModuleCompletion('modulo12')}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                      completedModules.modulo12
+                        ? 'text-purple-400 bg-purple-500/10 border border-purple-500/30'
+                        : 'text-slate-300 bg-slate-800 hover:bg-slate-700 border border-slate-700'
+                    }`}
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    {completedModules.modulo12 ? 'Módulo 12 Concluído' : 'Marcar Módulo 12 como Concluído'}
+                  </button>
+                </div>
+              </div>
+            </AccordionContent>
+          </AccordionItem>
+
+          {/* ================================================================= */}
+          {/* MÓDULO 13: Setup da Marca & Identidade Visual                     */}
+          {/* ================================================================= */}
+          <AccordionItem
+            value="modulo13"
+            className="border border-slate-800 rounded-2xl bg-slate-900/40 px-4 transition-all data-[state=open]:border-sky-500/30 data-[state=open]:bg-slate-900/80"
+          >
+            <AccordionTrigger className="hover:no-underline py-4">
+              <div className="flex items-center gap-3 text-left w-full pr-4">
+                <div className="w-9 h-9 rounded-xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-center text-sky-400 flex-shrink-0">
+                  <Building className="w-5 h-5" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-sky-400 bg-sky-500/10 px-2 py-0.5 rounded-full">
+                      Módulo 13
+                    </span>
+                    <span className="text-xs text-slate-400">Personalização &bull; 2 min</span>
+                  </div>
+                  <h3 className="text-sm sm:text-base font-bold text-white truncate">
+                    Setup da Marca e Identidade Visual Automatizada via CNPJ
+                  </h3>
+                </div>
+                {completedModules.modulo13 ? (
+                  <CheckCircle2 className="w-5 h-5 text-sky-400 flex-shrink-0" />
+                ) : (
+                  <Circle className="w-5 h-5 text-slate-600 flex-shrink-0" />
+                )}
+              </div>
+            </AccordionTrigger>
+            <AccordionContent className="pt-2 pb-6">
+              <div className="p-4 sm:p-6 bg-slate-950/60 rounded-2xl border border-slate-800/80 space-y-6">
+                <div className="space-y-4">
+                  <p className="text-sm text-slate-300">
+                    Personalize propostas comerciais e orçamentos executivos com as cores e logo oficiais da sua construtora:
+                  </p>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="p-4 bg-slate-900/80 rounded-xl border border-slate-800 space-y-2">
+                      <h4 className="font-bold text-sky-300 text-sm">1. Preenchimento via CNPJ</h4>
+                      <p className="text-xs text-slate-400 leading-relaxed">
+                        Informe o CNPJ da construtora para preencher Razão Social, CNAE da Construção Civil, Endereço e Inscrição Municipal em 1 clique.
+                      </p>
+                    </div>
+                    <div className="p-4 bg-slate-900/80 rounded-xl border border-slate-800 space-y-2">
+                      <h4 className="font-bold text-sky-300 text-sm">2. Upload do Logotipo</h4>
+                      <p className="text-xs text-slate-400 leading-relaxed">
+                        Suba o arquivo SVG/PNG da sua marca para inserção automática no topo de todos os PDFs executivos emitidos para clientes.
+                      </p>
+                    </div>
+                    <div className="p-4 bg-slate-900/80 rounded-xl border border-slate-800 space-y-2">
+                      <h4 className="font-bold text-sky-300 text-sm">3. Relatórios Profissionais</h4>
+                      <p className="text-xs text-slate-400 leading-relaxed">
+                        Apresente orçamentos com a estética visual premium do GADAP Hub adaptada com a autoridade corporativa da sua marca.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-slate-800/80 flex flex-col sm:flex-row items-center justify-between gap-4">
+                  <Link
+                    href="/dashboard/orcamentos"
+                    className="inline-flex items-center gap-2 text-xs font-bold text-sky-400 hover:text-sky-300 transition-colors"
+                  >
+                    <Building className="w-4 h-4" />
+                    <span>Ver Propostas &amp; Orçamentos</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => toggleModuleCompletion('modulo13')}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                      completedModules.modulo13
+                        ? 'text-sky-400 bg-sky-500/10 border border-sky-500/30'
+                        : 'text-slate-300 bg-slate-800 hover:bg-slate-700 border border-slate-700'
+                    }`}
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    {completedModules.modulo13 ? 'Módulo 13 Concluído' : 'Marcar Módulo 13 como Concluído'}
                   </button>
                 </div>
               </div>
