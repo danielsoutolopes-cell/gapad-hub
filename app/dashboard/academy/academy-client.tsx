@@ -57,6 +57,7 @@ export function AcademyClient({ isSuperAdmin = false }: AcademyClientProps) {
     modulo6: false,
     modulo7: false,
     modulo8: false,
+    modulo9: false,
   });
 
   const [activeAccordion, setActiveAccordion] = useState<string>('modulo1');
@@ -97,6 +98,7 @@ export function AcademyClient({ isSuperAdmin = false }: AcademyClientProps) {
       modulo6: false,
       modulo7: false,
       modulo8: false,
+      modulo9: false,
     };
     setCompletedModules(resetState);
     try {
@@ -106,7 +108,7 @@ export function AcademyClient({ isSuperAdmin = false }: AcademyClientProps) {
     }
   };
 
-  const totalModules = 6;
+  const totalModules = 7;
   const completedCount = Object.values(completedModules).filter(Boolean).length;
   const progressPercent = Math.round((completedCount / totalModules) * 100);
 
@@ -1194,6 +1196,120 @@ export function AcademyClient({ isSuperAdmin = false }: AcademyClientProps) {
                   >
                     <CheckCircle2 className="w-4 h-4" />
                     {completedModules.modulo8 ? 'Módulo 8 Concluído' : 'Marcar Módulo 8 como Concluído'}
+                  </button>
+                </div>
+              </div>
+            </AccordionContent>
+          </AccordionItem>
+
+          {/* MÓDULO 9: DELEGANDO PERFIS COM SEGURANÇA (RBAC & GOVERNANÇA) */}
+          <AccordionItem value="modulo9">
+            <AccordionTrigger className="hover:bg-slate-900/60 transition-colors">
+              <div className="flex items-start sm:items-center gap-3.5">
+                <div
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleModuleCompletion('modulo9');
+                  }}
+                  title={completedModules.modulo9 ? 'Concluído' : 'Marcar como concluído'}
+                  className={`mt-0.5 sm:mt-0 w-8 h-8 rounded-xl flex items-center justify-center transition-all cursor-pointer flex-shrink-0 ${
+                    completedModules.modulo9
+                      ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/40 shadow-sm shadow-indigo-500/20'
+                      : 'bg-slate-800/80 text-slate-400 border border-slate-700 hover:border-slate-500'
+                  }`}
+                >
+                  {completedModules.modulo9 ? (
+                    <CheckCircle2 className="w-5 h-5 text-indigo-400" />
+                  ) : (
+                    <Circle className="w-5 h-5" />
+                  )}
+                </div>
+
+                <div className="text-left space-y-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-400 bg-indigo-500/10 border border-indigo-500/20 px-2 py-0.5 rounded-full">
+                      Módulo 9 • Governança &amp; RBAC
+                    </span>
+                    {completedModules.modulo9 && (
+                      <span className="text-[10px] font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.2 rounded-full">
+                        ✓ Concluído
+                      </span>
+                    )}
+                  </div>
+                  <h3 className="text-base sm:text-lg font-bold text-white group-hover:text-indigo-300 transition-colors">
+                    Módulo 9: Delegando Perfis com Segurança (RBAC)
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    Como Tenant_Admin, configure restrições por papel para engenheiros, equipe financeira e diretoria.
+                  </p>
+                </div>
+              </div>
+            </AccordionTrigger>
+
+            <AccordionContent>
+              <div className="p-4 sm:p-6 bg-slate-950/60 rounded-2xl border border-slate-800/80 space-y-6">
+                <div className="space-y-4">
+                  <p className="text-sm text-slate-300">
+                    Como <code className="text-indigo-300 font-mono bg-indigo-500/10 px-1.5 py-0.5 rounded border border-indigo-500/20">Tenant_Admin</code>, você pode configurar restrições para seus colaboradores:
+                  </p>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {/* Perfil 1: Engenheiro de Campo */}
+                    <div className="p-4 bg-slate-900/80 rounded-xl border border-slate-800 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <span className="w-2.5 h-2.5 rounded-full bg-amber-400" />
+                        <h4 className="font-bold text-amber-300 text-sm">Engenheiro de Campo</h4>
+                      </div>
+                      <p className="text-xs text-slate-400 leading-relaxed">
+                        Acessa apenas Diário de Obra, Medições e Lançamento de Subcontratos. Não visualiza o DRE Financeiro nem faturamento global.
+                      </p>
+                    </div>
+
+                    {/* Perfil 2: Financeiro */}
+                    <div className="p-4 bg-slate-900/80 rounded-xl border border-slate-800 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <span className="w-2.5 h-2.5 rounded-full bg-emerald-400" />
+                        <h4 className="font-bold text-emerald-300 text-sm">Financeiro</h4>
+                      </div>
+                      <p className="text-xs text-slate-400 leading-relaxed">
+                        Acessa Contas a Pagar/Receber, DFe (SEFAZ) e Emissão de Notas Fiscais com controle de retenções tributárias.
+                      </p>
+                    </div>
+
+                    {/* Perfil 3: Diretor */}
+                    <div className="p-4 bg-slate-900/80 rounded-xl border border-slate-800 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <span className="w-2.5 h-2.5 rounded-full bg-purple-400" />
+                        <h4 className="font-bold text-purple-300 text-sm">Diretor</h4>
+                      </div>
+                      <p className="text-xs text-slate-400 leading-relaxed">
+                        Acesso irrestrito ao Dashboard Executivo, Relatórios Consolidados, DRE por Obra e Governança da Equipe.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-slate-800/80 flex flex-col sm:flex-row items-center justify-between gap-4">
+                  <Link
+                    href="/dashboard/configuracoes/equipe"
+                    className="inline-flex items-center gap-2 text-xs font-bold text-indigo-400 hover:text-indigo-300 transition-colors"
+                  >
+                    <Users className="w-4 h-4" />
+                    <span>Abrir Painel de Gestão da Equipe &amp; RBAC</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </Link>
+
+                  <button
+                    type="button"
+                    onClick={() => toggleModuleCompletion('modulo9')}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                      completedModules.modulo9
+                        ? 'text-indigo-400 bg-indigo-500/10 border border-indigo-500/30'
+                        : 'text-slate-300 bg-slate-800 hover:bg-slate-700 border border-slate-700'
+                    }`}
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    {completedModules.modulo9 ? 'Módulo 9 Concluído' : 'Marcar Módulo 9 como Concluído'}
                   </button>
                 </div>
               </div>
