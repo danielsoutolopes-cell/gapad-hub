@@ -134,17 +134,26 @@ export function FornecedoresClient() {
   const supabase = createClient();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingSupplierId, setEditingSupplierId] = useState<string | null>(null);
   const [selectedSupplier, setSelectedSupplier] = useState<SupplierItem | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [loadingCep, setLoadingCep] = useState<boolean>(false);
+  const [loadingCnpj, setLoadingCnpj] = useState<boolean>(false);
+  const [lastFetchedCnpj, setLastFetchedCnpj] = useState<string>('');
+  const [receitaStatus, setReceitaStatus] = useState<{
+    situacao: string;
+    cnae: string;
+    razao_social: string;
+  } | null>(null);
 
   const {
     register,
     handleSubmit,
     setValue,
+    getValues,
     watch,
     reset,
     formState: { errors },
@@ -171,6 +180,220 @@ export function FornecedoresClient() {
       is_active: true,
     },
   });
+
+  const handleCnpjLookup = async (rawValue: string, force = false) => {
+    const cleanCnpj = rawValue.replace(/\D/g, '');
+    if (cleanCnpj.length !== 14) return;
+    if (!force && cleanCnpj === lastFetchedCnpj) return;
+
+    setLoadingCnpj(true);
+    setErrorMessage(null);
+    setLastFetchedCnpj(cleanCnpj);
+
+    try {
+      let data: any = null;
+
+      // 1. Tenta via Route Handler interno (/api/v1/utils/cnpj?cnpj=...)
+      try {
+        const res = await fetch(`/api/v1/utils/cnpj?cnpj=${cleanCnpj}`);
+        if (res.ok) {
+          data = await res.json();
+        }
+      } catch {
+        // Ignora erro local e aciona fallback direto
+      }
+
+      // 2. Fallback direto no navegador via BrasilAPI (CORS habilitado)
+      if (!data || !data.razao_social) {
+        const brasilResp = await fetch(
+          `https://brasilapi.com.br/api/cnpj/v1/${cleanCnpj}`
+        );
+        if (brasilResp.ok) {
+          const raw = await brasilResp.json();
+          const firstPartner =
+            Array.isArray(raw.qsa) && raw.qsa.length > 0
+              ? raw.qsa[0].nome_socio || ''
+              : '';
+          const digits = (
+            raw.ddd_telefone_1 ||
+            raw.ddd_telefone_2 ||
+            ''
+          ).replace(/\D/g, '');
+          const formattedPhone =
+            digits.length === 11
+              ? `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`
+              : digits.length === 10
+                ? `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`
+                : digits;
+          const logradouroCompleto = [
+            raw.descricao_tipo_de_logradouro,
+            raw.logradouro,
+          ]
+            .filter(Boolean)
+            .join(' ')
+            .trim();
+
+          data = {
+            cnpj: cleanCnpj,
+            razao_social: raw.razao_social || '',
+            nome_fantasia: raw.nome_fantasia || raw.razao_social || '',
+            situacao_cadastral: raw.descricao_situacao_cadastral || 'ATIVA',
+            cnae_principal: raw.cnae_fiscal_descricao || '',
+            email: (raw.email || '').toLowerCase(),
+            telefone: formattedPhone,
+            responsavel_qsa: firstPartner,
+            cep: (raw.cep || '').replace(/\D/g, ''),
+            logradouro: logradouroCompleto || raw.logradouro || '',
+            numero: raw.numero || '',
+            complemento: raw.complemento || '',
+            bairro: raw.bairro || '',
+            municipio: raw.municipio || '',
+            uf: raw.uf || '',
+          };
+        }
+      }
+
+      // 3. Fallback adicional via CNPJ.ws Pública
+      if (!data || !data.razao_social) {
+        const wsResp = await fetch(
+          `https://publica.cnpj.ws/cnpj/${cleanCnpj}`
+        );
+        if (wsResp.ok) {
+          const raw = await wsResp.json();
+          const estab = raw.estabelecimento || {};
+          const socios = Array.isArray(raw.socios) ? raw.socios : [];
+          const digits = `${estab.ddd1 || ''}${estab.telefone1 || ''}`.replace(
+            /\D/g,
+            ''
+          );
+          const formattedPhone =
+            digits.length === 11
+              ? `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`
+              : digits.length === 10
+                ? `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`
+                : digits;
+
+          data = {
+            cnpj: cleanCnpj,
+            razao_social: raw.razao_social || '',
+            nome_fantasia: estab.nome_fantasia || raw.razao_social || '',
+            situacao_cadastral: estab.situacao_cadastral || 'Ativa',
+            cnae_principal: estab.atividade_principal?.descricao || '',
+            email: (estab.email || '').toLowerCase(),
+            telefone: formattedPhone,
+            responsavel_qsa: socios[0]?.nome || '',
+            cep: (estab.cep || '').replace(/\D/g, ''),
+            logradouro: [estab.tipo_logradouro, estab.logradouro]
+              .filter(Boolean)
+              .join(' ')
+              .trim(),
+            numero: estab.numero || '',
+            complemento: estab.complemento || '',
+            bairro: estab.bairro || '',
+            municipio: estab.cidade?.nome || '',
+            uf: estab.estado?.sigla || '',
+          };
+        }
+      }
+
+      if (!data || !data.razao_social) {
+        throw new Error(
+          'CNPJ não encontrado na base da Receita Federal. Verifique os dígitos informados.'
+        );
+      }
+
+      if (data.razao_social) {
+        setValue('name', data.razao_social, { shouldValidate: true });
+      }
+      if (data.nome_fantasia) {
+        setValue('trade_name', data.nome_fantasia);
+      }
+      if (data.email && !getValues('email')) {
+        setValue('email', data.email);
+      }
+      if (data.telefone && !getValues('phone')) {
+        setValue('phone', data.telefone);
+      }
+      if (data.responsavel_qsa && !getValues('contact_name')) {
+        setValue('contact_name', data.responsavel_qsa);
+      }
+      if (data.cep) {
+        const formattedCep =
+          data.cep.length === 8
+            ? `${data.cep.slice(0, 5)}-${data.cep.slice(5)}`
+            : data.cep;
+        setValue('address_zip_code', formattedCep);
+      }
+      if (data.logradouro) {
+        setValue('address_street', data.logradouro);
+      }
+      if (data.numero) {
+        setValue('address_number', data.numero);
+      }
+      if (data.complemento) {
+        setValue('address_complement', data.complemento);
+      }
+      if (data.bairro) {
+        setValue('address_neighborhood', data.bairro);
+      }
+      if (data.municipio) {
+        setValue('address_city', data.municipio);
+      }
+      if (data.uf) {
+        setValue('address_state', data.uf);
+      }
+
+      // Sugestão inteligente de categoria baseada no CNAE principal
+      const cnaeLower = (data.cnae_principal || '').toLowerCase();
+      if (
+        cnaeLower.includes('construção') ||
+        cnaeLower.includes('instalac') ||
+        cnaeLower.includes('instalaç') ||
+        cnaeLower.includes('obras') ||
+        cnaeLower.includes('alvenaria') ||
+        cnaeLower.includes('pintura') ||
+        cnaeLower.includes('elétric')
+      ) {
+        setValue('category', 'subempreiteira');
+        setValue('is_subcontractor', true);
+      } else if (
+        cnaeLower.includes('locação') ||
+        cnaeLower.includes('aluguel') ||
+        cnaeLower.includes('andaime') ||
+        cnaeLower.includes('máquinas')
+      ) {
+        setValue('category', 'locacao_equipamentos');
+      } else if (
+        cnaeLower.includes('engenharia') ||
+        cnaeLower.includes('arquitetura') ||
+        cnaeLower.includes('projetos') ||
+        cnaeLower.includes('laudo')
+      ) {
+        setValue('category', 'servicos_especializados');
+      } else if (
+        cnaeLower.includes('comércio') ||
+        cnaeLower.includes('materiais') ||
+        cnaeLower.includes('ferragens') ||
+        cnaeLower.includes('cimento')
+      ) {
+        setValue('category', 'materiais_construcao');
+      }
+
+      setReceitaStatus({
+        situacao: data.situacao_cadastral || 'ATIVA',
+        cnae: data.cnae_principal || 'Atividade Comercial Geral',
+        razao_social: data.razao_social || '',
+      });
+    } catch (err: any) {
+      console.warn('Aviso na consulta automática de CNPJ:', err);
+      setErrorMessage(
+        err.message ||
+          'Não foi possível buscar os dados automaticamente na Receita Federal. Preencha manualmente.'
+      );
+    } finally {
+      setLoadingCnpj(false);
+    }
+  };
 
   const handleCepLookup = async (cepValue: string) => {
     const cleanCep = cepValue.replace(/\D/g, '');
@@ -315,13 +538,18 @@ export function FornecedoresClient() {
   });
 
   // ---------------------------------------------------------------------------
-  // Mutação: Cadastro de Fornecedor
+  // Mutação: Cadastro / Edição de Fornecedor
   // ---------------------------------------------------------------------------
   const createMutation = useMutation({
     mutationFn: async (formData: SupplierFormData) => {
       const token = await getAuthToken();
-      const response = await fetch('/api/v1/suppliers', {
-        method: 'POST',
+      const url = editingSupplierId
+        ? `/api/v1/suppliers/${editingSupplierId}`
+        : '/api/v1/suppliers';
+      const method = editingSupplierId ? 'PUT' : 'POST';
+
+      const response = await fetch(url, {
+        method,
         headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -331,7 +559,12 @@ export function FornecedoresClient() {
 
       if (!response.ok) {
         const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.detail || 'Falha ao cadastrar fornecedor.');
+        throw new Error(
+          errData.detail ||
+            (editingSupplierId
+              ? 'Falha ao atualizar fornecedor.'
+              : 'Falha ao cadastrar fornecedor.')
+        );
       }
 
       return response.json();
@@ -339,13 +572,46 @@ export function FornecedoresClient() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['suppliers'] });
       reset();
+      setEditingSupplierId(null);
+      setReceitaStatus(null);
+      setLastFetchedCnpj('');
       setIsModalOpen(false);
       setErrorMessage(null);
     },
     onError: (err: any) => {
-      setErrorMessage(err.message || 'Erro inesperado ao cadastrar fornecedor.');
+      setErrorMessage(err.message || 'Erro inesperado ao salvar fornecedor.');
     },
   });
+
+  const handleOpenEdit = (sup: SupplierItem) => {
+    setSelectedSupplier(null);
+    setEditingSupplierId(sup.id);
+    setErrorMessage(null);
+    setReceitaStatus(null);
+    setLastFetchedCnpj(sup.document.replace(/\D/g, ''));
+    reset({
+      person_type: sup.person_type,
+      document: sup.document,
+      name: sup.name,
+      trade_name: sup.trade_name || '',
+      category: sup.category || 'materiais_construcao',
+      email: sup.email || '',
+      phone: sup.phone || '',
+      contact_name: sup.contact_name || '',
+      state_registration: sup.state_registration || '',
+      municipal_registration: sup.municipal_registration || '',
+      address_zip_code: sup.address_zip_code || '',
+      address_street: sup.address_street || '',
+      address_number: sup.address_number || '',
+      address_complement: sup.address_complement || '',
+      address_neighborhood: sup.address_neighborhood || '',
+      address_city: sup.address_city || '',
+      address_state: sup.address_state || '',
+      is_subcontractor: Boolean(sup.is_subcontractor),
+      is_active: sup.is_active,
+    });
+    setIsModalOpen(true);
+  };
 
   const onSubmit = (data: SupplierFormData) => {
     setErrorMessage(null);
@@ -397,6 +663,9 @@ export function FornecedoresClient() {
           type="button"
           onClick={() => {
             setErrorMessage(null);
+            setEditingSupplierId(null);
+            setReceitaStatus(null);
+            setLastFetchedCnpj('');
             reset();
             setIsModalOpen(true);
           }}
@@ -607,8 +876,14 @@ export function FornecedoresClient() {
                   <Truck className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-white">Cadastrar Novo Fornecedor</h3>
-                  <p className="text-xs text-slate-400">Preencha os dados do parceiro comercial.</p>
+                  <h3 className="text-base font-bold text-white">
+                    {editingSupplierId ? 'Editar Fornecedor' : 'Cadastrar Novo Fornecedor'}
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    {selectedPersonType === 'PJ'
+                      ? 'Digite o CNPJ para buscar os dados automaticamente na Receita Federal e revise-os antes de salvar.'
+                      : 'Preencha os dados do parceiro comercial.'}
+                  </p>
                 </div>
               </div>
               <button
@@ -634,7 +909,10 @@ export function FornecedoresClient() {
                 <div className="grid grid-cols-2 gap-3">
                   <button
                     type="button"
-                    onClick={() => setValue('person_type', 'PJ')}
+                    onClick={() => {
+                      setValue('person_type', 'PJ');
+                      setReceitaStatus(null);
+                    }}
                     className={`py-2 px-3 rounded-xl border text-xs font-semibold flex items-center justify-center gap-2 transition-all ${
                       selectedPersonType === 'PJ'
                         ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300'
@@ -646,7 +924,10 @@ export function FornecedoresClient() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => setValue('person_type', 'PF')}
+                    onClick={() => {
+                      setValue('person_type', 'PF');
+                      setReceitaStatus(null);
+                    }}
                     className={`py-2 px-3 rounded-xl border text-xs font-semibold flex items-center justify-center gap-2 transition-all ${
                       selectedPersonType === 'PF'
                         ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300'
@@ -658,6 +939,92 @@ export function FornecedoresClient() {
                   </button>
                 </div>
               </div>
+
+              {/* Documento (CNPJ com busca automática na Receita Federal) e Categoria */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-medium text-slate-300">
+                      {selectedPersonType === 'PJ' ? 'CNPJ (14 dígitos) *' : 'CPF (11 dígitos) *'}
+                    </label>
+                    {selectedPersonType === 'PJ' && (
+                      <button
+                        type="button"
+                        disabled={loadingCnpj}
+                        onClick={() => handleCnpjLookup(getValues('document') || '', true)}
+                        className="text-[11px] font-semibold text-emerald-400 hover:text-emerald-300 flex items-center gap-1 disabled:opacity-50"
+                        title="Consultar dados cadastrais na Receita Federal"
+                      >
+                        {loadingCnpj ? (
+                          <>
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                            Consultando Receita...
+                          </>
+                        ) : (
+                          <>
+                            <Search className="w-3 h-3" />
+                            Buscar na Receita
+                          </>
+                        )}
+                      </button>
+                    )}
+                  </div>
+                  <div className="relative">
+                    <input
+                      {...register('document', {
+                        onChange: (e) => {
+                          if (selectedPersonType === 'PJ') {
+                            const digits = e.target.value.replace(/\D/g, '');
+                            if (digits.length === 14) {
+                              handleCnpjLookup(digits);
+                            }
+                          }
+                        },
+                        onBlur: (e) => {
+                          if (selectedPersonType === 'PJ') {
+                            handleCnpjLookup(e.target.value);
+                          }
+                        },
+                      })}
+                      placeholder={selectedPersonType === 'PJ' ? 'Digite o CNPJ (ex: 12.345.678/0001-90)' : '123.456.789-00'}
+                      className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs sm:text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                    />
+                    {loadingCnpj && (
+                      <Loader2 className="w-4 h-4 animate-spin text-emerald-400 absolute right-3 top-1/2 -translate-y-1/2" />
+                    )}
+                  </div>
+                  {errors.document && <p className="text-red-400 text-[11px] mt-1">{errors.document.message}</p>}
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-slate-300 mb-1">Categoria de Fornecimento</label>
+                  <select
+                    {...register('category')}
+                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs sm:text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                  >
+                    {CATEGORIES.map((cat) => (
+                      <option key={cat.value} value={cat.value}>
+                        {cat.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Banner de Confirmação dos Dados da Receita Federal */}
+              {receitaStatus && selectedPersonType === 'PJ' && (
+                <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-xs flex items-start justify-between gap-3 animate-fade-in">
+                  <div className="space-y-0.5">
+                    <div className="flex items-center gap-1.5 font-bold text-emerald-300">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                      <span>Dados carregados da Receita Federal ({receitaStatus.situacao})</span>
+                    </div>
+                    <p className="text-[11px] text-slate-300">
+                      CNAE Principal: <strong className="text-white">{receitaStatus.cnae}</strong>. Você pode revisar ou editar qualquer campo abaixo antes de confirmar.
+                    </p>
+                  </div>
+                </div>
+              )}
 
               {/* Razão Social e Fantasia */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -680,35 +1047,6 @@ export function FornecedoresClient() {
                     placeholder="Ex: Comercial Silva"
                     className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs sm:text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
                   />
-                </div>
-              </div>
-
-              {/* Documento e Categoria */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-medium text-slate-300 mb-1">
-                    {selectedPersonType === 'PJ' ? 'CNPJ (14 dígitos) *' : 'CPF (11 dígitos) *'}
-                  </label>
-                  <input
-                    {...register('document')}
-                    placeholder={selectedPersonType === 'PJ' ? '12.345.678/0001-90' : '123.456.789-00'}
-                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs sm:text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
-                  />
-                  {errors.document && <p className="text-red-400 text-[11px] mt-1">{errors.document.message}</p>}
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-slate-300 mb-1">Categoria de Fornecimento</label>
-                  <select
-                    {...register('category')}
-                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs sm:text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
-                  >
-                    {CATEGORIES.map((cat) => (
-                      <option key={cat.value} value={cat.value}>
-                        {cat.label}
-                      </option>
-                    ))}
-                  </select>
                 </div>
               </div>
 
@@ -1056,7 +1394,14 @@ export function FornecedoresClient() {
               </div>
             </div>
 
-            <div className="p-4 border-t border-slate-800 flex justify-end">
+            <div className="p-4 border-t border-slate-800 flex items-center justify-between gap-3">
+              <button
+                type="button"
+                onClick={() => handleOpenEdit(selectedSupplier)}
+                className="px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 transition-colors"
+              >
+                Editar Cadastro
+              </button>
               <button
                 type="button"
                 onClick={() => setSelectedSupplier(null)}

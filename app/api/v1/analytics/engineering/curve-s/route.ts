@@ -1,95 +1,206 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { createClient as createSupabaseJsClient } from '@supabase/supabase-js';
 import { createClient as createServerClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
 
+function decodeJwtPayload(token: string): Record<string, any> | null {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+    const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    return JSON.parse(Buffer.from(base64, 'base64').toString('utf-8'));
+  } catch {
+    return null;
+  }
+}
+
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createServerClient();
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
+    const serverSupabase = createServerClient();
 
-    const authToken = session?.access_token || request.headers.get('authorization')?.replace('Bearer ', '');
-    const tenantId = request.headers.get('x-tenant-id') || session?.user?.user_metadata?.tenant_id || session?.user?.app_metadata?.tenant_id;
+    const headerAuth = request.headers.get('authorization');
+    let authToken =
+      headerAuth && headerAuth.startsWith('Bearer ')
+        ? headerAuth.slice(7).trim()
+        : null;
+
+    if (!authToken) {
+      const {
+        data: { session },
+      } = await serverSupabase.auth.getSession();
+      authToken = session?.access_token || null;
+    }
+
+    if (!authToken) {
+      return NextResponse.json({ detail: 'Não autorizado.' }, { status: 401 });
+    }
+
+    const jwtPayload = decodeJwtPayload(authToken);
+    let tenantId =
+      jwtPayload?.app_metadata?.tenant_id ||
+      jwtPayload?.user_metadata?.tenant_id ||
+      jwtPayload?.tenant_id;
+
+    if (!tenantId) {
+      const {
+        data: { user },
+      } = await serverSupabase.auth.getUser(authToken);
+      tenantId =
+        user?.app_metadata?.tenant_id || user?.user_metadata?.tenant_id;
+    }
+
+    if (!tenantId) {
+      return NextResponse.json({ detail: 'Tenant não vinculado.' }, { status: 403 });
+    }
 
     const fastApiBaseUrl = process.env.FASTAPI_URL || 'http://127.0.0.1:8000';
-    const targetUrl = `${fastApiBaseUrl.replace(/\/$/, '')}/api/v1/analytics/engineering/curve-s`;
+    try {
+      const targetUrl = `${fastApiBaseUrl.replace(/\/$/, '')}/api/v1/analytics/engineering/curve-s`;
+      const response = await fetch(targetUrl, {
+        method: 'GET',
+        headers: {
+          Accept: 'application/json',
+          Authorization: `Bearer ${authToken}`,
+        },
+        cache: 'no-store',
+        signal: AbortSignal.timeout(3000),
+      });
 
-    const forwardHeaders: Record<string, string> = {
-      Accept: 'application/json',
-    };
-
-    if (authToken) {
-      forwardHeaders['Authorization'] = `Bearer ${authToken}`;
+      if (response.ok) {
+        const data = await response.json();
+        return NextResponse.json(data);
+      }
+    } catch {
+      // Executa direto no Supabase com RLS caso o processo FastAPI não esteja ativo
     }
-    if (tenantId) {
-      forwardHeaders['x-tenant-id'] = tenantId;
+
+    const supabase = createSupabaseJsClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        global: { headers: { Authorization: `Bearer ${authToken}` } },
+        auth: { persistSession: false },
+      }
+    );
+
+    const { data: projects } = await supabase
+      .from('projects')
+      .select('id, name, code, contract_value, status')
+      .eq('tenant_id', tenantId);
+
+    const { data: medicoes } = await supabase
+      .from('medicoes')
+      .select('project_id, valor_medido, valor_liquido, status, periodo_fim')
+      .eq('tenant_id', tenantId);
+
+    const medicoesPorObra: Record<string, { medido: number; faturado: number }> = {};
+    for (const m of medicoes || []) {
+      const pid = String(m.project_id);
+      const statusM = String(m.status || '').toLowerCase();
+      const vMed = Number(m.valor_medido || 0);
+      const vLiq = Number(m.valor_liquido || 0);
+
+      if (!medicoesPorObra[pid]) {
+        medicoesPorObra[pid] = { medido: 0, faturado: 0 };
+      }
+      if (statusM === 'aprovada' || statusM === 'faturada') {
+        medicoesPorObra[pid].medido += vMed;
+      }
+      if (statusM === 'faturada') {
+        medicoesPorObra[pid].faturado += vLiq;
+      }
     }
 
-    const response = await fetch(targetUrl, {
-      method: 'GET',
-      headers: forwardHeaders,
-      cache: 'no-store',
+    let totalContratos = 0;
+    let totalMedidoGlobal = 0;
+    let totalFaturadoGlobal = 0;
+    let obrasEmAndamento = 0;
+
+    const obras = (projects || []).map((p: any) => {
+      const pid = String(p.id);
+      const contrato = Number(p.contract_value || 0);
+      const st = String(p.status || 'planejamento');
+      if (st === 'EM_ANDAMENTO' || st === 'em_andamento') {
+        obrasEmAndamento += 1;
+      }
+
+      const acum = medicoesPorObra[pid] || { medido: 0, faturado: 0 };
+      totalContratos += contrato;
+      totalMedidoGlobal += acum.medido;
+      totalFaturadoGlobal += acum.faturado;
+
+      const percFis = contrato > 0 ? Math.min(100, Number(((acum.medido / contrato) * 100).toFixed(2))) : 0;
+      const percFin = contrato > 0 ? Math.min(100, Number(((acum.faturado / contrato) * 100).toFixed(2))) : 0;
+      const saldo = Math.max(0, Number((contrato - acum.faturado).toFixed(2)));
+
+      return {
+        id: pid,
+        nome: p.name || 'Empreendimento',
+        codigo: p.code || undefined,
+        valor_contrato: contrato,
+        total_medido: Number(acum.medido.toFixed(2)),
+        total_faturado: Number(acum.faturado.toFixed(2)),
+        percentual_fisico: percFis,
+        percentual_financeiro: percFin,
+        saldo_contratual: saldo,
+        status: st,
+      };
     });
 
-    if (response.ok) {
-      const data = await response.json();
-      return NextResponse.json(data);
+    const avancoFisMedio =
+      totalContratos > 0 ? Number(((totalMedidoGlobal / totalContratos) * 100).toFixed(2)) : 0;
+    const avancoFinMedio =
+      totalContratos > 0 ? Number(((totalFaturadoGlobal / totalContratos) * 100).toFixed(2)) : 0;
+
+    const curvaSAcumulada: any[] = [];
+    if ((medicoes || []).length > 0 && totalContratos > 0) {
+      const porPeriodo: Record<string, { medido: number; faturado: number }> = {};
+      for (const m of medicoes || []) {
+        const st = String(m.status || '').toLowerCase();
+        if (st !== 'aprovada' && st !== 'faturada') continue;
+        const pfim = String(m.periodo_fim || '');
+        const ym = pfim.length >= 7 ? pfim.slice(0, 7) : 'Atual';
+        if (!porPeriodo[ym]) porPeriodo[ym] = { medido: 0, faturado: 0 };
+        porPeriodo[ym].medido += Number(m.valor_medido || 0);
+        if (st === 'faturada') {
+          porPeriodo[ym].faturado += Number(m.valor_liquido || 0);
+        }
+      }
+      let acumMed = 0;
+      let acumFat = 0;
+      const sortedPeriods = Object.keys(porPeriodo).sort();
+      const totalSteps = Math.max(1, sortedPeriods.length);
+      sortedPeriods.forEach((ym, idx) => {
+        acumMed += porPeriodo[ym].medido;
+        acumFat += porPeriodo[ym].faturado;
+        const fisPct = Math.min(100, Number(((acumMed / totalContratos) * 100).toFixed(1)));
+        const finPct = Math.min(100, Number(((acumFat / totalContratos) * 100).toFixed(1)));
+        const planPct = Math.min(100, Number((((idx + 1) / totalSteps) * fisPct).toFixed(1)));
+        curvaSAcumulada.push({
+          periodo: ym,
+          planejado_acumulado: planPct,
+          fisico_acumulado: fisPct,
+          financeiro_acumulado: finPct,
+        });
+      });
     }
 
-    const errorBody = await response.text();
-    return new NextResponse(errorBody, {
-      status: response.status,
-      headers: { 'Content-Type': 'application/json' },
+    return NextResponse.json({
+      tenant_id: tenantId,
+      obras_ativas: obrasEmAndamento,
+      valor_total_contratos: Number(totalContratos.toFixed(2)),
+      total_medido_global: Number(totalMedidoGlobal.toFixed(2)),
+      total_faturado_global: Number(totalFaturadoGlobal.toFixed(2)),
+      avanco_fisico_medio_perc: avancoFisMedio,
+      avanco_financeiro_medio_perc: avancoFinMedio,
+      obras,
+      curva_s_acumulada: curvaSAcumulada,
     });
   } catch (error: any) {
     return NextResponse.json(
-      {
-        tenant_id: 'default',
-        obras_ativas: 2,
-        valor_total_contratos: 530000.0,
-        total_medido_global: 375000.0,
-        total_faturado_global: 247000.0,
-        avanco_fisico_medio_perc: 70.8,
-        avanco_financeiro_medio_perc: 46.6,
-        obras: [
-          {
-            id: '56cdc263-3793-4853-a86b-89e106f38282',
-            nome: 'Reforma Residencial Alpha',
-            codigo: 'OBRA-2026-001',
-            valor_contrato: 350000.0,
-            total_medido: 255000.0,
-            total_faturado: 180500.0,
-            percentual_fisico: 72.8,
-            percentual_financeiro: 51.6,
-            saldo_contratual: 169500.0,
-            status: 'em_andamento',
-          },
-          {
-            id: '7041d1fc-b25e-44ba-bc2d-e648889e6b14',
-            nome: 'Instalação Piscina Beta',
-            codigo: 'OBRA-2026-002',
-            valor_contrato: 180000.0,
-            total_medido: 120000.0,
-            total_faturado: 66500.0,
-            percentual_fisico: 66.7,
-            percentual_financeiro: 36.9,
-            saldo_contratual: 113500.0,
-            status: 'em_andamento',
-          },
-        ],
-        curva_s_acumulada: [
-          { periodo: 'Mês 1', planejado_acumulado: 15.0, fisico_acumulado: 15.0, financeiro_acumulado: 12.0 },
-          { periodo: 'Mês 2', planejado_acumulado: 32.0, fisico_acumulado: 35.0, financeiro_acumulado: 28.0 },
-          { periodo: 'Mês 3', planejado_acumulado: 55.0, fisico_acumulado: 58.0, financeiro_acumulado: 42.0 },
-          { periodo: 'Mês 4 (Atual)', planejado_acumulado: 72.0, fisico_acumulado: 70.8, financeiro_acumulado: 46.6 },
-          { periodo: 'Mês 5 (Proj.)', planejado_acumulado: 88.0, fisico_acumulado: 88.0, financeiro_acumulado: 75.0 },
-          { periodo: 'Mês 6 (Entrega)', planejado_acumulado: 100.0, fisico_acumulado: 100.0, financeiro_acumulado: 100.0 },
-        ],
-        _fallback: true,
-      },
-      { status: 200 }
+      { detail: error?.message || 'Erro ao carregar dados de engenharia.' },
+      { status: 500 }
     );
   }
 }

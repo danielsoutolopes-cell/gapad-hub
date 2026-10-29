@@ -6,7 +6,6 @@ Arquivo: api/app/schemas/analytics.py
 """
 
 from typing import List, Optional
-from uuid import UUID
 from pydantic import BaseModel, Field
 
 
@@ -14,19 +13,67 @@ from pydantic import BaseModel, Field
 # Schemas para /executive
 # ------------------------------------------------------------------------------
 class ExecutiveSummaryResponse(BaseModel):
-    tenant_id: str = Field(..., description="Identificador do Tenant")
-    faturamento_total_mes: float = Field(..., description="Faturamento total consolidado no mês atual")
-    ticket_medio: float = Field(..., description="Ticket médio de faturamento por medição/contrato")
-    total_retencoes_fiscais: float = Field(..., description="Soma total de retenções fiscais e técnicas do período")
-    lucro_bruto_projetado: float = Field(..., description="Lucro bruto apurado (Receitas - Despesas diretas)")
-    margem_lucro_perc: float = Field(..., description="Margem de lucro bruto em percentual")
-    obras_ativas: int = Field(..., description="Número total de obras em andamento ou ativas")
-    receitas_mes: float = Field(..., description="Total de receitas faturadas/a receber do mês")
-    despesas_mes: float = Field(..., description="Total de despesas pagas/a pagar do mês")
-    comparativo_mes_anterior_perc: float = Field(
-        0.0, description="Variação percentual do faturamento em relação ao mês anterior"
+    tenant_id: str = Field(..., description="Identificador do Tenant extraído do JWT")
+    gross_revenue: float = Field(
+        ...,
+        description="Faturamento bruto real (SOMA de total_invoice_amount da tabela invoices onde status é autorizado)",
     )
-    mes_referencia: str = Field(..., description="Mês de referência (ex: 'Outubro/2026')")
+    active_projects: int = Field(
+        ...,
+        description="Quantidade real de obras ativas (COUNT da tabela projects onde status é EM_ANDAMENTO)",
+    )
+    net_profit: float = Field(
+        ...,
+        description="Lucro líquido/operacional real apurado no banco de dados",
+    )
+    total_retentions: float = Field(
+        ...,
+        description="Total real de retenções fiscais e técnicas apuradas",
+    )
+    total_expenses: float = Field(
+        0.0,
+        description="Total real de despesas operacionais apuradas",
+    )
+    faturamento_total_mes: float = Field(
+        ...,
+        description="Faturamento total consolidado (espelho de gross_revenue para compatibilidade)",
+    )
+    ticket_medio: float = Field(
+        ...,
+        description="Ticket médio real por fatura autorizada",
+    )
+    total_retencoes_fiscais: float = Field(
+        ...,
+        description="Soma real de retenções fiscais e técnicas do período",
+    )
+    lucro_bruto_projetado: float = Field(
+        ...,
+        description="Lucro apurado real",
+    )
+    margem_lucro_perc: float = Field(
+        ...,
+        description="Margem de lucro real em percentual",
+    )
+    obras_ativas: int = Field(
+        ...,
+        description="Número total de obras em andamento (EM_ANDAMENTO)",
+    )
+    receitas_mes: float = Field(
+        ...,
+        description="Total de receitas faturadas no período",
+    )
+    despesas_mes: float = Field(
+        ...,
+        description="Total de despesas registradas no período",
+    )
+    comparativo_mes_anterior_perc: float = Field(
+        0.0,
+        description="Variação percentual real do faturamento em relação ao mês anterior",
+    )
+    mes_referencia: str = Field(
+        ...,
+        description="Mês/Período de referência da apuração",
+    )
 
 
 # ------------------------------------------------------------------------------
@@ -89,7 +136,7 @@ class CurveSPoint(BaseModel):
 
 class EngineeringCurveSResponse(BaseModel):
     tenant_id: str = Field(..., description="Identificador do Tenant")
-    obras_ativas: int = Field(..., description="Total de obras com medições ativas")
+    obras_ativas: int = Field(..., description="Total de obras em andamento")
     valor_total_contratos: float = Field(..., description="Soma do valor contratado de todas as obras")
     total_medido_global: float = Field(..., description="Soma de medições físicas executadas")
     total_faturado_global: float = Field(..., description="Soma de faturamento emitido")

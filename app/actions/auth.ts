@@ -23,7 +23,7 @@ export async function login(formData: FormData): Promise<AuthResponse | void> {
     };
   }
 
-  const supabase = createClient();
+  const supabase = createClient({ ignoreExistingCookies: true });
 
   const { error } = await supabase.auth.signInWithPassword({
     email,

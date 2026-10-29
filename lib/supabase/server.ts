@@ -5,7 +5,7 @@ import { cookies } from 'next/headers';
  * Cliente Supabase para execução em Server Components, Server Actions e Route Handlers.
  * Mantém sessão e autenticação através de cookies HTTP-only de forma segura.
  */
-export function createClient() {
+export function createClient(options?: { ignoreExistingCookies?: boolean }) {
   const cookieStore = cookies();
 
   return createServerClient(
@@ -14,6 +14,9 @@ export function createClient() {
     {
       cookies: {
         get(name: string) {
+          if (options?.ignoreExistingCookies) {
+            return undefined;
+          }
           return cookieStore.get(name)?.value;
         },
         set(name: string, value: string, options: CookieOptions) {

@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
+import { createClient } from '@/lib/supabase/client';
 import {
   TrendingUp,
   DollarSign,
@@ -15,10 +16,7 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   Building,
-  Calendar,
-  Layers,
   Activity,
-  CheckCircle2,
   Clock,
   Sparkles,
   Percent,
@@ -41,8 +39,13 @@ import {
   Line,
 } from 'recharts';
 
-interface ExecutiveData {
+export interface ExecutiveData {
   tenant_id: string;
+  gross_revenue: number;
+  active_projects: number;
+  net_profit: number;
+  total_retentions: number;
+  total_expenses?: number;
   faturamento_total_mes: number;
   ticket_medio: number;
   total_retencoes_fiscais: number;
@@ -55,7 +58,7 @@ interface ExecutiveData {
   mes_referencia: string;
 }
 
-interface CostCenterItem {
+export interface CostCenterItem {
   categoria: string;
   nome_exibicao: string;
   total: number;
@@ -63,7 +66,7 @@ interface CostCenterItem {
   cor: string;
 }
 
-interface MonthlyEvolutionItem {
+export interface MonthlyEvolutionItem {
   mes: string;
   mes_completo: string;
   receitas: number;
@@ -72,7 +75,7 @@ interface MonthlyEvolutionItem {
   margem_perc: number;
 }
 
-interface DreData {
+export interface DreData {
   tenant_id: string;
   periodo: string;
   receitas_total: number;
@@ -83,7 +86,7 @@ interface DreData {
   evolucao_mensal: MonthlyEvolutionItem[];
 }
 
-interface CurveSProject {
+export interface CurveSProject {
   id: string;
   nome: string;
   codigo?: string;
@@ -96,14 +99,14 @@ interface CurveSProject {
   status: string;
 }
 
-interface CurveSPoint {
+export interface CurveSPoint {
   periodo: string;
   planejado_acumulado: number;
   fisico_acumulado: number;
   financeiro_acumulado: number;
 }
 
-interface CurveSData {
+export interface CurveSData {
   tenant_id: string;
   obras_ativas: number;
   valor_total_contratos: number;
@@ -128,25 +131,59 @@ const formatCompactK = (val: number = 0) => {
   return `R$ ${val.toFixed(0)}`;
 };
 
-export function ExecutiveDashboardClient({ tenantName }: { tenantName: string }) {
-  const queryClient = useQueryClient();
+export function ExecutiveDashboardClient({
+  tenantName,
+  initialToken,
+}: {
+  tenantName: string;
+  initialToken?: string;
+}) {
+  const supabase = createClient();
   const [isExporting, setIsExporting] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [authToken, setAuthToken] = useState<string | null>(initialToken || null);
 
   useEffect(() => {
     setMounted(true);
-  }, []);
+    if (!initialToken) {
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session?.access_token) {
+          setAuthToken(session.access_token);
+        }
+      });
+    }
+  }, [initialToken, supabase]);
 
-  // 1. Query: Resumo Executivo
+  const getAuthHeaders = async (): Promise<Record<string, string>> => {
+    let token = authToken;
+    if (!token) {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      token = session?.access_token || null;
+      if (token) setAuthToken(token);
+    }
+    return token
+      ? {
+          Authorization: `Bearer ${token}`,
+          Accept: 'application/json',
+        }
+      : {
+          Accept: 'application/json',
+        };
+  };
+
+  // 1. Query: Resumo Executivo (Conectado ao Supabase com RLS via JWT)
   const {
     data: executive,
     isLoading: loadingExec,
     isFetching: fetchingExec,
     refetch: refetchExec,
   } = useQuery<ExecutiveData>({
-    queryKey: ['analytics-executive'],
+    queryKey: ['analytics-executive', authToken],
     queryFn: async () => {
-      const resp = await fetch('/api/v1/analytics/executive');
+      const headers = await getAuthHeaders();
+      const resp = await fetch('/api/v1/analytics/executive', { headers });
       if (!resp.ok) throw new Error('Falha ao carregar Resumo Executivo');
       return resp.json();
     },
@@ -159,9 +196,10 @@ export function ExecutiveDashboardClient({ tenantName }: { tenantName: string })
     isFetching: fetchingDre,
     refetch: refetchDre,
   } = useQuery<DreData>({
-    queryKey: ['analytics-dre'],
+    queryKey: ['analytics-dre', authToken],
     queryFn: async () => {
-      const resp = await fetch('/api/v1/analytics/financial/dre');
+      const headers = await getAuthHeaders();
+      const resp = await fetch('/api/v1/analytics/financial/dre', { headers });
       if (!resp.ok) throw new Error('Falha ao carregar DRE Gerencial');
       return resp.json();
     },
@@ -174,15 +212,15 @@ export function ExecutiveDashboardClient({ tenantName }: { tenantName: string })
     isFetching: fetchingCurve,
     refetch: refetchCurve,
   } = useQuery<CurveSData>({
-    queryKey: ['analytics-curve-s'],
+    queryKey: ['analytics-curve-s', authToken],
     queryFn: async () => {
-      const resp = await fetch('/api/v1/analytics/engineering/curve-s');
+      const headers = await getAuthHeaders();
+      const resp = await fetch('/api/v1/analytics/engineering/curve-s', { headers });
       if (!resp.ok) throw new Error('Falha ao carregar dados de Engenharia');
       return resp.json();
     },
   });
 
-  const isAnyLoading = loadingExec || loadingDre || loadingCurve;
   const isAnyFetching = fetchingExec || fetchingDre || fetchingCurve;
 
   const handleRefreshAll = () => {
@@ -194,7 +232,8 @@ export function ExecutiveDashboardClient({ tenantName }: { tenantName: string })
   const handleExportExcel = async () => {
     try {
       setIsExporting(true);
-      const resp = await fetch('/api/v1/analytics/export');
+      const headers = await getAuthHeaders();
+      const resp = await fetch('/api/v1/analytics/export', { headers });
       if (!resp.ok) throw new Error('Falha na geração do arquivo Excel');
       const blob = await resp.blob();
       const downloadUrl = window.URL.createObjectURL(blob);
@@ -217,7 +256,13 @@ export function ExecutiveDashboardClient({ tenantName }: { tenantName: string })
     window.print();
   };
 
-  // Custom Dark Tooltip para BarChart
+  const grossRevenue = executive?.gross_revenue ?? executive?.faturamento_total_mes ?? 0;
+  const netProfit = executive?.net_profit ?? executive?.lucro_bruto_projetado ?? 0;
+  const totalRetentions = executive?.total_retentions ?? executive?.total_retencoes_fiscais ?? 0;
+  const activeProjects = executive?.active_projects ?? executive?.obras_ativas ?? 0;
+  const profitMargin = executive?.margem_lucro_perc ?? 0;
+  const momChange = executive?.comparativo_mes_anterior_perc ?? 0;
+
   const CustomBarTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       return (
@@ -244,7 +289,6 @@ export function ExecutiveDashboardClient({ tenantName }: { tenantName: string })
     return null;
   };
 
-  // Custom Tooltip para PieChart
   const CustomPieTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload as CostCenterItem;
@@ -262,7 +306,6 @@ export function ExecutiveDashboardClient({ tenantName }: { tenantName: string })
     return null;
   };
 
-  // Custom Tooltip para Curva S
   const CustomCurveTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       return (
@@ -285,9 +328,7 @@ export function ExecutiveDashboardClient({ tenantName }: { tenantName: string })
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-      {/* ---------------------------------------------------------------------- */}
       {/* CABEÇALHO DO DASHBOARD EXECUTIVO */}
-      {/* ---------------------------------------------------------------------- */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-6 print:border-b-2 print:border-slate-300 print:pb-4">
         <div>
           <div className="flex items-center gap-2.5">
@@ -295,7 +336,7 @@ export function ExecutiveDashboardClient({ tenantName }: { tenantName: string })
               Dashboard Executivo & Analytics
             </h1>
             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 print:bg-emerald-100 print:text-emerald-800">
-              <Sparkles className="w-3 h-3" /> V0 Estável
+              <Sparkles className="w-3 h-3" /> Tempo Real (RLS)
             </span>
           </div>
           <p className="text-sm text-slate-400 mt-1 print:text-slate-600">
@@ -304,7 +345,6 @@ export function ExecutiveDashboardClient({ tenantName }: { tenantName: string })
           </p>
         </div>
 
-        {/* Barra de Ações (Oculta na Impressão) */}
         <div className="flex items-center gap-2.5 print:hidden">
           <button
             onClick={handleRefreshAll}
@@ -335,53 +375,101 @@ export function ExecutiveDashboardClient({ tenantName }: { tenantName: string })
         </div>
       </div>
 
-      {/* ---------------------------------------------------------------------- */}
-      {/* CARDS EXECUTIVOS SUPERIORES */}
-      {/* ---------------------------------------------------------------------- */}
+      {/* CARDS EXECUTIVOS SUPERIORES (DADOS REAIS DO SUPABASE) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 print:grid-cols-4">
-        {/* Card 1: Faturamento do Mês */}
+        {/* Card 1: Faturamento */}
         <div className="bg-slate-900/60 backdrop-blur-sm border border-slate-800/80 rounded-xl p-5 shadow-sm hover:border-slate-700 transition-all print:border-slate-300 print:bg-slate-50">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold uppercase tracking-wider text-slate-400 print:text-slate-700">
-              Faturamento do Mês
+              Faturamento
             </span>
             <div className="w-9 h-9 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-400 border border-emerald-500/20 print:bg-emerald-100 print:text-emerald-800">
               <DollarSign className="w-5 h-5" />
             </div>
           </div>
           <div className="mt-3">
-            <div className="text-2xl font-black text-white tracking-tight print:text-slate-900">
-              {formatCurrency(executive?.faturamento_total_mes || 180000)}
-            </div>
-            <div className="mt-2 flex items-center gap-1.5 text-xs text-emerald-400 font-semibold print:text-emerald-700">
-              <ArrowUpRight className="w-3.5 h-3.5" />
-              <span>+{executive?.comparativo_mes_anterior_perc || 125}% vs mês anterior</span>
-            </div>
+            {loadingExec ? (
+              <div className="space-y-2 animate-pulse">
+                <div className="h-8 w-36 bg-slate-800 rounded" />
+                <span className="text-xs text-slate-500 block">A carregar...</span>
+              </div>
+            ) : (
+              <>
+                <div className="text-2xl font-black text-white tracking-tight print:text-slate-900">
+                  {formatCurrency(grossRevenue)}
+                </div>
+                <div className="mt-2 flex items-center gap-1.5 text-xs text-emerald-400 font-semibold print:text-emerald-700">
+                  <ArrowUpRight className="w-3.5 h-3.5" />
+                  <span>
+                    {momChange >= 0 ? `+${momChange}%` : `${momChange}%`} vs mês anterior
+                  </span>
+                </div>
+              </>
+            )}
           </div>
         </div>
 
-        {/* Card 2: Lucro Líquido Projetado */}
+        {/* Card 2: Lucro */}
         <div className="bg-slate-900/60 backdrop-blur-sm border border-slate-800/80 rounded-xl p-5 shadow-sm hover:border-slate-700 transition-all print:border-slate-300 print:bg-slate-50">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold uppercase tracking-wider text-slate-400 print:text-slate-700">
-              Lucro Bruto Projetado
+              Lucro
             </span>
             <div className="w-9 h-9 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-400 border border-blue-500/20 print:bg-blue-100 print:text-blue-800">
               <TrendingUp className="w-5 h-5" />
             </div>
           </div>
           <div className="mt-3">
-            <div className="text-2xl font-black text-white tracking-tight print:text-slate-900">
-              {formatCurrency(executive?.lucro_bruto_projetado || 323890)}
-            </div>
-            <div className="mt-2 flex items-center gap-1.5 text-xs text-blue-400 font-semibold print:text-blue-700">
-              <Percent className="w-3.5 h-3.5" />
-              <span>Margem Bruta: {executive?.margem_lucro_perc || 86.4}%</span>
-            </div>
+            {loadingExec ? (
+              <div className="space-y-2 animate-pulse">
+                <div className="h-8 w-36 bg-slate-800 rounded" />
+                <span className="text-xs text-slate-500 block">A carregar...</span>
+              </div>
+            ) : (
+              <>
+                <div className="text-2xl font-black text-white tracking-tight print:text-slate-900">
+                  {formatCurrency(netProfit)}
+                </div>
+                <div className="mt-2 flex items-center gap-1.5 text-xs text-blue-400 font-semibold print:text-blue-700">
+                  <Percent className="w-3.5 h-3.5" />
+                  <span>Margem: {profitMargin}%</span>
+                </div>
+              </>
+            )}
           </div>
         </div>
 
-        {/* Card 3: Obras Ativas */}
+        {/* Card 3: Retenções */}
+        <div className="bg-slate-900/60 backdrop-blur-sm border border-slate-800/80 rounded-xl p-5 shadow-sm hover:border-slate-700 transition-all print:border-slate-300 print:bg-slate-50">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-400 print:text-slate-700">
+              Retenções
+            </span>
+            <div className="w-9 h-9 rounded-lg bg-purple-500/10 flex items-center justify-center text-purple-400 border border-purple-500/20 print:bg-purple-100 print:text-purple-800">
+              <ShieldCheck className="w-5 h-5" />
+            </div>
+          </div>
+          <div className="mt-3">
+            {loadingExec ? (
+              <div className="space-y-2 animate-pulse">
+                <div className="h-8 w-32 bg-slate-800 rounded" />
+                <span className="text-xs text-slate-500 block">A carregar...</span>
+              </div>
+            ) : (
+              <>
+                <div className="text-2xl font-black text-white tracking-tight print:text-slate-900">
+                  {formatCurrency(totalRetentions)}
+                </div>
+                <div className="mt-2 flex items-center gap-1.5 text-xs text-purple-400 font-semibold print:text-purple-700">
+                  <Clock className="w-3.5 h-3.5" />
+                  <span>ISS + INSS + Ret. Técnica</span>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Card 4: Obras Ativas */}
         <div className="bg-slate-900/60 backdrop-blur-sm border border-slate-800/80 rounded-xl p-5 shadow-sm hover:border-slate-700 transition-all print:border-slate-300 print:bg-slate-50">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold uppercase tracking-wider text-slate-400 print:text-slate-700">
@@ -392,42 +480,30 @@ export function ExecutiveDashboardClient({ tenantName }: { tenantName: string })
             </div>
           </div>
           <div className="mt-3">
-            <div className="text-2xl font-black text-white tracking-tight print:text-slate-900">
-              {executive?.obras_ativas || 2}{' '}
-              <span className="text-sm font-semibold text-slate-400 print:text-slate-600">canteiros</span>
-            </div>
-            <div className="mt-2 flex items-center gap-1.5 text-xs text-amber-400 font-semibold print:text-amber-700">
-              <Activity className="w-3.5 h-3.5" />
-              <span>Avanço físico médio: {curveS?.avanco_fisico_medio_perc || 70.8}%</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Card 4: Retenções Fiscais e Técnicas */}
-        <div className="bg-slate-900/60 backdrop-blur-sm border border-slate-800/80 rounded-xl p-5 shadow-sm hover:border-slate-700 transition-all print:border-slate-300 print:bg-slate-50">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-400 print:text-slate-700">
-              Retenções Tributárias
-            </span>
-            <div className="w-9 h-9 rounded-lg bg-purple-500/10 flex items-center justify-center text-purple-400 border border-purple-500/20 print:bg-purple-100 print:text-purple-800">
-              <ShieldCheck className="w-5 h-5" />
-            </div>
-          </div>
-          <div className="mt-3">
-            <div className="text-2xl font-black text-white tracking-tight print:text-slate-900">
-              {formatCurrency(executive?.total_retencoes_fiscais || 23750)}
-            </div>
-            <div className="mt-2 flex items-center gap-1.5 text-xs text-purple-400 font-semibold print:text-purple-700">
-              <Clock className="w-3.5 h-3.5" />
-              <span>ISS + INSS + Ret. Técnica</span>
-            </div>
+            {loadingExec ? (
+              <div className="space-y-2 animate-pulse">
+                <div className="h-8 w-24 bg-slate-800 rounded" />
+                <span className="text-xs text-slate-500 block">A carregar...</span>
+              </div>
+            ) : (
+              <>
+                <div className="text-2xl font-black text-white tracking-tight print:text-slate-900">
+                  {activeProjects}{' '}
+                  <span className="text-sm font-semibold text-slate-400 print:text-slate-600">
+                    canteiros
+                  </span>
+                </div>
+                <div className="mt-2 flex items-center gap-1.5 text-xs text-amber-400 font-semibold print:text-amber-700">
+                  <Activity className="w-3.5 h-3.5" />
+                  <span>Avanço físico médio: {curveS?.avanco_fisico_medio_perc ?? 0}%</span>
+                </div>
+              </>
+            )}
           </div>
         </div>
       </div>
 
-      {/* ---------------------------------------------------------------------- */}
-      {/* DESTAQUE UX: ACESSO RÁPIDO À CENTRAL FINANCEIRA (RECEBER & PAGAR) */}
-      {/* ---------------------------------------------------------------------- */}
+      {/* ACESSO RÁPIDO À CENTRAL FINANCEIRA */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 print:hidden">
         <Link
           href="/dashboard/financeiro/receber"
@@ -483,7 +559,6 @@ export function ExecutiveDashboardClient({ tenantName }: { tenantName: string })
           </span>
         </Link>
 
-        {/* Card 3: Central Fiscal Hub */}
         <Link
           href="/dashboard/fiscal"
           className="md:col-span-2 group p-4 rounded-2xl bg-gradient-to-r from-purple-950/40 via-indigo-950/30 to-slate-900/80 border border-purple-500/30 hover:border-purple-500/60 transition-all shadow-lg shadow-purple-950/20 flex items-center justify-between"
@@ -512,11 +587,8 @@ export function ExecutiveDashboardClient({ tenantName }: { tenantName: string })
         </Link>
       </div>
 
-      {/* ---------------------------------------------------------------------- */}
       {/* SEÇÃO PRINCIPAL DE GRÁFICOS (RECHARTS) */}
-      {/* ---------------------------------------------------------------------- */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Gráfico 1: Barras (Receitas vs Despesas - 6 Meses) */}
         <div className="lg:col-span-2 bg-slate-900/60 backdrop-blur-sm border border-slate-800/80 rounded-xl p-6 shadow-sm print:border-slate-300 print:bg-white">
           <div className="flex items-center justify-between mb-4">
             <div>
@@ -534,7 +606,7 @@ export function ExecutiveDashboardClient({ tenantName }: { tenantName: string })
           </div>
 
           <div className="h-72 w-full pt-2">
-            {mounted && dre?.evolucao_mensal ? (
+            {mounted && !loadingDre && dre?.evolucao_mensal ? (
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={dre.evolucao_mensal} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
@@ -577,13 +649,12 @@ export function ExecutiveDashboardClient({ tenantName }: { tenantName: string })
               </ResponsiveContainer>
             ) : (
               <div className="h-full flex items-center justify-center text-xs text-slate-500">
-                Carregando dados analíticos...
+                A carregar...
               </div>
             )}
           </div>
         </div>
 
-        {/* Gráfico 2: Rosca / Donut (Distribuição por Centro de Custo) */}
         <div className="bg-slate-900/60 backdrop-blur-sm border border-slate-800/80 rounded-xl p-6 shadow-sm print:border-slate-300 print:bg-white flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between mb-2">
@@ -598,7 +669,7 @@ export function ExecutiveDashboardClient({ tenantName }: { tenantName: string })
           </div>
 
           <div className="h-56 w-full relative flex items-center justify-center">
-            {mounted && dre?.por_centro_custo ? (
+            {mounted && !loadingDre && dre?.por_centro_custo ? (
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Tooltip content={<CustomPieTooltip />} />
@@ -619,19 +690,18 @@ export function ExecutiveDashboardClient({ tenantName }: { tenantName: string })
                 </PieChart>
               </ResponsiveContainer>
             ) : (
-              <div className="text-xs text-slate-500">Carregando centro de custos...</div>
+              <div className="text-xs text-slate-500">A carregar...</div>
             )}
             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
               <span className="text-[10px] uppercase font-bold text-slate-400">Total</span>
               <span className="text-sm font-extrabold text-white print:text-slate-900">
-                {formatCompactK(dre?.despesas_total || 51110)}
+                {formatCompactK(dre?.despesas_total ?? 0)}
               </span>
             </div>
           </div>
 
-          {/* Legenda Customizada em Lista */}
           <div className="mt-2 space-y-1.5 border-t border-slate-800 pt-3 print:border-slate-300">
-            {dre?.por_centro_custo.slice(0, 4).map((item, idx) => (
+            {(dre?.por_centro_custo || []).slice(0, 4).map((item, idx) => (
               <div key={`leg-${idx}`} className="flex items-center justify-between text-xs">
                 <div className="flex items-center gap-2 truncate">
                   <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: item.cor }} />
@@ -647,9 +717,7 @@ export function ExecutiveDashboardClient({ tenantName }: { tenantName: string })
         </div>
       </div>
 
-      {/* ---------------------------------------------------------------------- */}
-      {/* GRÁFICO 3: CURVA S DE ENGENHARIA (AVANÇO FÍSICO VS FINANCEIRO) */}
-      {/* ---------------------------------------------------------------------- */}
+      {/* CURVA S DE ENGENHARIA */}
       <div className="bg-slate-900/60 backdrop-blur-sm border border-slate-800/80 rounded-xl p-6 shadow-sm print:border-slate-300 print:bg-white">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
           <div>
@@ -661,21 +729,10 @@ export function ExecutiveDashboardClient({ tenantName }: { tenantName: string })
               Controle determinístico de progresso acumulado em relação ao cronograma planejado.
             </p>
           </div>
-          <div className="flex items-center gap-3 text-xs font-semibold">
-            <span className="flex items-center gap-1.5 text-slate-400">
-              <span className="w-3 h-0.5 bg-slate-500 inline-block border-b border-dashed" /> Planejado
-            </span>
-            <span className="flex items-center gap-1.5 text-emerald-400">
-              <span className="w-3 h-1 bg-emerald-500 inline-block rounded" /> Físico Real
-            </span>
-            <span className="flex items-center gap-1.5 text-blue-400">
-              <span className="w-3 h-1 bg-blue-500 inline-block rounded" /> Financeiro
-            </span>
-          </div>
         </div>
 
         <div className="h-64 w-full pt-2">
-          {mounted && curveS?.curva_s_acumulada ? (
+          {mounted && !loadingCurve && curveS?.curva_s_acumulada ? (
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={curveS.curva_s_acumulada} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <defs>
@@ -736,30 +793,27 @@ export function ExecutiveDashboardClient({ tenantName }: { tenantName: string })
             </ResponsiveContainer>
           ) : (
             <div className="h-full flex items-center justify-center text-xs text-slate-500">
-              Carregando curva de engenharia...
+              A carregar...
             </div>
           )}
         </div>
       </div>
 
-      {/* ---------------------------------------------------------------------- */}
       {/* TABELA ANALÍTICA DE OBRAS & DRE SINTÉTICO */}
-      {/* ---------------------------------------------------------------------- */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Tabela de Obras em Andamento */}
         <div className="lg:col-span-2 bg-slate-900/60 backdrop-blur-sm border border-slate-800/80 rounded-xl p-6 shadow-sm print:border-slate-300 print:bg-white">
           <div className="flex items-center justify-between mb-4">
             <div>
               <h2 className="text-base font-bold text-white tracking-tight flex items-center gap-2 print:text-slate-950">
                 <Building className="w-4 h-4 text-emerald-400 print:text-emerald-700" />
-                Painel Físico-Financeiro das Obras Ativas
+                Painel Físico-Financeiro das Obras
               </h2>
               <p className="text-xs text-slate-400 mt-0.5 print:text-slate-600">
                 Acompanhamento individual de contratos, medições aprovadas e saldos.
               </p>
             </div>
             <span className="text-xs font-semibold text-slate-400 print:text-slate-600">
-              {curveS?.obras.length || 2} Obras
+              {curveS?.obras?.length ?? 0} Obras
             </span>
           </div>
 
@@ -775,11 +829,11 @@ export function ExecutiveDashboardClient({ tenantName }: { tenantName: string })
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/60 print:divide-slate-200">
-                {curveS?.obras.map((obra) => (
+                {(curveS?.obras || []).map((obra) => (
                   <tr key={obra.id} className="hover:bg-slate-800/30 transition-colors">
                     <td className="py-3 pr-2">
                       <div className="font-bold text-slate-100 print:text-slate-900">{obra.nome}</div>
-                      <span className="text-[10px] text-slate-500 font-mono">{obra.codigo || 'OBRA-2026'}</span>
+                      <span className="text-[10px] text-slate-500 font-mono">{obra.codigo || '-'}</span>
                     </td>
                     <td className="py-3 px-2 text-right font-medium text-slate-300 print:text-slate-800">
                       {formatCurrency(obra.valor_contrato)}
@@ -832,48 +886,52 @@ export function ExecutiveDashboardClient({ tenantName }: { tenantName: string })
               Demonstração contábil-gerencial do exercício.
             </p>
 
-            <div className="space-y-3 text-xs">
-              <div className="flex items-center justify-between py-1.5 border-b border-slate-800 print:border-slate-200">
-                <span className="font-bold text-slate-200 print:text-slate-900">(=) Receita Bruta</span>
-                <span className="font-extrabold text-white print:text-slate-950">
-                  {formatCurrency(dre?.receitas_total || 375000)}
-                </span>
+            {loadingDre || loadingExec ? (
+              <div className="py-8 text-center text-xs text-slate-500 animate-pulse">
+                A carregar...
               </div>
+            ) : (
+              <div className="space-y-3 text-xs">
+                <div className="flex items-center justify-between py-1.5 border-b border-slate-800 print:border-slate-200">
+                  <span className="font-bold text-slate-200 print:text-slate-900">(=) Receita Bruta</span>
+                  <span className="font-extrabold text-white print:text-slate-950">
+                    {formatCurrency(dre?.receitas_total ?? grossRevenue)}
+                  </span>
+                </div>
 
-              <div className="flex items-center justify-between py-1.5 border-b border-slate-800 print:border-slate-200 text-slate-400 print:text-slate-700">
-                <span>(-) Retenções Técnicas & Tributos</span>
-                <span className="font-medium text-rose-400">
-                  -{formatCurrency(executive?.total_retencoes_fiscais || 23750)}
-                </span>
-              </div>
+                <div className="flex items-center justify-between py-1.5 border-b border-slate-800 print:border-slate-200 text-slate-400 print:text-slate-700">
+                  <span>(-) Retenções Técnicas & Tributos</span>
+                  <span className="font-medium text-rose-400">
+                    -{formatCurrency(totalRetentions)}
+                  </span>
+                </div>
 
-              <div className="flex items-center justify-between py-1.5 border-b border-slate-800 print:border-slate-200 bg-slate-800/30 px-2 rounded font-semibold text-slate-200 print:bg-slate-100 print:text-slate-900">
-                <span>(=) Receita Líquida</span>
-                <span>
-                  {formatCurrency(
-                    (dre?.receitas_total || 375000) - (executive?.total_retencoes_fiscais || 23750)
-                  )}
-                </span>
-              </div>
+                <div className="flex items-center justify-between py-1.5 border-b border-slate-800 print:border-slate-200 bg-slate-800/30 px-2 rounded font-semibold text-slate-200 print:bg-slate-100 print:text-slate-900">
+                  <span>(=) Receita Líquida</span>
+                  <span>
+                    {formatCurrency((dre?.receitas_total ?? grossRevenue) - totalRetentions)}
+                  </span>
+                </div>
 
-              <div className="flex items-center justify-between py-1.5 border-b border-slate-800 print:border-slate-200 text-slate-400 print:text-slate-700">
-                <span>(-) Custos Operacionais Diretos</span>
-                <span className="font-medium text-rose-400">
-                  -{formatCurrency(dre?.despesas_total || 51110)}
-                </span>
-              </div>
+                <div className="flex items-center justify-between py-1.5 border-b border-slate-800 print:border-slate-200 text-slate-400 print:text-slate-700">
+                  <span>(-) Custos Operacionais Diretos</span>
+                  <span className="font-medium text-rose-400">
+                    -{formatCurrency(dre?.despesas_total ?? 0)}
+                  </span>
+                </div>
 
-              <div className="flex items-center justify-between py-2 px-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 print:bg-emerald-50 print:border-emerald-300 print:text-emerald-900 font-extrabold text-sm">
-                <span>(=) Lucro Líquido</span>
-                <span>{formatCurrency(dre?.resultado_liquido || 323890)}</span>
+                <div className="flex items-center justify-between py-2 px-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 print:bg-emerald-50 print:border-emerald-300 print:text-emerald-900 font-extrabold text-sm">
+                  <span>(=) Lucro Líquido</span>
+                  <span>{formatCurrency(dre?.resultado_liquido ?? netProfit)}</span>
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
           <div className="mt-4 pt-3 border-t border-slate-800 text-[11px] text-slate-500 flex items-center justify-between print:border-slate-300">
             <span>Margem Líquida Geral</span>
             <span className="font-bold text-emerald-400 print:text-emerald-700">
-              {dre?.margem_liquida_perc || 86.4}%
+              {dre?.margem_liquida_perc ?? profitMargin}%
             </span>
           </div>
         </div>
