@@ -65,7 +65,7 @@ export default function LoginPage() {
             </div>
             <div>
               <h1 className="text-lg font-bold text-white tracking-tight flex items-center gap-1.5">
-                GADAP <span className="text-emerald-400 font-semibold">Hub</span>
+                <span>GADAP Hub</span>
               </h1>
               <span className="text-[10px] text-slate-400 block -mt-1 tracking-wider uppercase font-medium">
                 Autenticação Corporativa
