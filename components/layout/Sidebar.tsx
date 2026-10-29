@@ -118,6 +118,7 @@ export function Sidebar({
       label: 'Configurações',
       icon: Building,
       items: [
+        { label: 'Faturamento & Planos', href: '/dashboard/configuracoes/faturamento', icon: CreditCard },
         { label: 'Equipe & RBAC', href: '/dashboard/configuracoes/equipe', icon: Users },
         { label: 'Auditoria & Logs', href: '/dashboard/configuracoes/auditoria', icon: History },
         { label: 'GADAP Academy', href: '/dashboard/academy', icon: GraduationCap },

@@ -26,6 +26,7 @@ from app.api.v1.endpoints.hr import router as hr_router
 from app.api.v1.endpoints.crm import router as crm_router
 from app.api.v1.endpoints.reconciliation import router as reconciliation_router
 from app.api.v1.endpoints.governance import router as governance_router
+from app.api.v1.endpoints.transfers import router as transfers_router
 
 # Configuração de Logs
 logging.basicConfig(
@@ -159,6 +160,11 @@ app.include_router(
     governance_router,
     prefix=f"{settings.API_V1_STR}",
     tags=["Governança, Auditoria & Assinatura Gov.br"],
+)
+app.include_router(
+    transfers_router,
+    prefix=f"{settings.API_V1_STR}",
+    tags=["Logística de Canteiro & Portaria Digital (Fase 19)"],
 )
 
 # Registro de Handler RFC 7807 para Problemas Fiscais e Validações

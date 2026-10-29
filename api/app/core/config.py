@@ -23,6 +23,11 @@ class Settings(BaseSettings):
     # Inteligência Artificial (Google Gemini)
     GEMINI_API_KEY: Optional[str] = None
 
+    # Gateway de Pagamento PF (Asaas / Mercado Pago)
+    ASAAS_API_KEY: Optional[str] = None
+    ASAAS_API_URL: str = "https://sandbox.asaas.com/api/v3"  # ou https://api.asaas.com/v3 em produção
+    ASAAS_WEBHOOK_TOKEN: Optional[str] = None
+
     # Supabase (Banco Relacional & Storage)
     SUPABASE_URL: str = "https://dkjcgrwztyhcsyxlajia.supabase.co"
     NEXT_PUBLIC_SUPABASE_URL: Optional[str] = None

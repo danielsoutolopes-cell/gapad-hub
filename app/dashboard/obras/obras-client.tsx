@@ -26,6 +26,7 @@ import {
   ExternalLink,
   Layers,
   Users,
+  Truck,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 
@@ -652,6 +653,14 @@ export function ObrasClient() {
 
                       <td className="px-5 py-3.5 text-right">
                         <div className="flex items-center justify-end gap-1.5">
+                          <Link
+                            href={`/dashboard/obras/${project.id}/suprimentos/transferencias`}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium text-teal-400 hover:text-white bg-teal-500/10 hover:bg-teal-500/20 border border-teal-500/20 transition-colors"
+                            title="Portaria Digital: Termos de Retirada e Recebimento com GPS e Assinatura"
+                          >
+                            <Truck className="w-3.5 h-3.5" />
+                            Portaria
+                          </Link>
                           <Link
                             href={`/dashboard/obras/${project.id}/subcontratos`}
                             className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium text-amber-400 hover:text-white bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 transition-colors"
