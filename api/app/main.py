@@ -153,7 +153,12 @@ app.include_router(
 )
 app.include_router(
     reconciliation_router,
-    prefix=f"{settings.API_V1_STR}",
+    prefix=f"{settings.API_V1_STR}/finance/reconciliation",
+    tags=["Conciliação Bancária Híbrida (Fase 18)"],
+)
+app.include_router(
+    reconciliation_router,
+    prefix=f"{settings.API_V1_STR}/reconciliation",
     tags=["Conciliação Bancária Híbrida (Fase 18)"],
 )
 app.include_router(

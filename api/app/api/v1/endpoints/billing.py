@@ -263,8 +263,32 @@ async def billing_webhook(
     event_type = payload_raw.get("event") or payload_raw.get("event_type") or "UNKNOWN"
     logger.info("Billing Webhook recebido: Evento '%s'", event_type)
 
+    supported_events = (
+        "PAYMENT_CONFIRMED",
+        "PAYMENT_RECEIVED",
+        "payment.succeeded",
+        "PAYMENT_OVERDUE",
+        "PAYMENT_REFUNDED",
+        "payment.failed",
+    )
+    if event_type not in supported_events:
+        return BillingWebhookResponse(
+            status="IGNORED",
+            message=f"Evento '{event_type}' ignorado pelo orquestrador de provisionamento.",
+            details={"event": event_type},
+        )
+
     payment_info = payload_raw.get("payment") or payload_raw.get("data") or {}
     customer_id = payment_info.get("customer") or payload_raw.get("customer_id")
+    customer_name = (
+        payment_info.get("customer_name")
+        or payment_info.get("trade_name")
+        or "Empresa Tenant"
+    )
+    customer_cnpj = _clean_doc(payment_info.get("customer_cnpj") or "")
+    customer_email = payment_info.get("customer_email") or "admin@empresa.com.br"
+    plan_tier = payment_info.get("plan_tier") or "pro"
+    tax_regime = payment_info.get("tax_regime") or "simples_nacional"
 
     # Mapeamento de status
     new_plan_status = "ACTIVE"
@@ -275,10 +299,13 @@ async def billing_webhook(
     base_url = settings.SUPABASE_URL.rstrip("/")
 
     tenant_id: Optional[UUID] = None
-    company_name = "Empresa Tenant"
+    admin_user_id: Optional[UUID] = None
+    company_name = customer_name
+    response_status = "PROCESSED"
+    assigned_role: Optional[str] = None
 
     async with httpx.AsyncClient(timeout=15.0) as client:
-        # 1. Localizar Tenant pelo gateway_customer_id
+        # 1. Localizar Tenant pelo gateway_customer_id ou pelo CNPJ
         if customer_id:
             resp_company = await client.get(
                 f"{base_url}/rest/v1/companies?gateway_customer_id=eq.{customer_id}&select=id,trade_name,legal_name",
@@ -287,10 +314,61 @@ async def billing_webhook(
             if resp_company.status_code == 200 and resp_company.json():
                 co = resp_company.json()[0]
                 tenant_id = UUID(co["id"])
-                company_name = co.get("trade_name") or co.get("legal_name")
+                company_name = co.get("trade_name") or co.get("legal_name") or company_name
+        elif customer_cnpj:
+            resp_company = await client.get(
+                f"{base_url}/rest/v1/companies?cnpj=eq.{customer_cnpj}&select=id,trade_name,legal_name",
+                headers=headers,
+            )
+            if resp_company.status_code == 200 and resp_company.json():
+                co = resp_company.json()[0]
+                tenant_id = UUID(co["id"])
+                company_name = co.get("trade_name") or co.get("legal_name") or company_name
 
-        # 2. Se o pagamento foi confirmado, ativa a empresa e prorroga vigência
-        if tenant_id and event_type in (
+        # 2. Auto-provisionamento de novo Tenant + Admin se ainda não existir no pagamento aprovado
+        if not tenant_id and event_type in (
+            "PAYMENT_CONFIRMED",
+            "PAYMENT_RECEIVED",
+            "payment.succeeded",
+        ):
+            create_co_payload = {
+                "legal_name": customer_name,
+                "trade_name": customer_name,
+                "cnpj": customer_cnpj or "00000000000100",
+                "tax_regime": tax_regime,
+                "plan_tier": plan_tier,
+                "plan_status": "ACTIVE",
+                "is_active": True,
+            }
+            co_post = await client.post(
+                f"{base_url}/rest/v1/companies",
+                headers=headers,
+                json=create_co_payload,
+            )
+            if co_post.status_code in (200, 201) and co_post.json():
+                tenant_id = UUID(co_post.json()[0]["id"])
+            else:
+                tenant_id = uuid4()
+
+            user_post = await client.post(
+                f"{base_url}/rest/v1/users",
+                headers=headers,
+                json={
+                    "tenant_id": str(tenant_id),
+                    "full_name": f"Admin - {customer_name}",
+                    "email": customer_email,
+                    "role": "admin",
+                    "is_active": True,
+                },
+            )
+            if user_post.status_code in (200, 201) and user_post.json():
+                admin_user_id = UUID(user_post.json()[0]["id"])
+
+            response_status = "TENANT_PROVISIONED"
+            assigned_role = "admin"
+
+        # 3. Se o tenant já existia e o pagamento foi confirmado, ativa a empresa e prorroga vigência
+        elif tenant_id and event_type in (
             "PAYMENT_CONFIRMED",
             "PAYMENT_RECEIVED",
             "payment.succeeded",
@@ -312,9 +390,11 @@ async def billing_webhook(
             logger.info("Tenant %s atualizado para status %s", tenant_id, new_plan_status)
 
     return BillingWebhookResponse(
-        status="PROCESSED",
+        status=response_status,
         company=company_name,
         tenant_id=tenant_id,
+        admin_user_id=admin_user_id,
+        role=assigned_role,
         message=f"Evento '{event_type}' processado. Status do plano: {new_plan_status}.",
         details={
             "event": event_type,

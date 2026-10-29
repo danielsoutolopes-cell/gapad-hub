@@ -15,7 +15,7 @@ from fastapi import APIRouter, File, Header, HTTPException, Request, UploadFile,
 from pydantic import BaseModel, Field
 
 logger = logging.getLogger("gadap.reconciliation")
-router = APIRouter(prefix="/finance/reconciliation", tags=["Conciliação Bancária Híbrida"])
+router = APIRouter(tags=["Conciliação Bancária Híbrida"])
 
 
 @router.post("/pluggy/webhook")
