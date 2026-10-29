@@ -702,11 +702,11 @@ async def export_excel_report(
                 c.alignment = Alignment(horizontal="left", vertical="center")
         row_cash += 1
 
-    for col in ws_cash.columns:
+    for col_idx, col in enumerate(ws_cash.columns, start=1):
         max_len = 0
-        col_letter = get_column_letter(col[0].column)
+        col_letter = get_column_letter(col_idx)
         for cell in col:
-            if cell.row <= 2:
+            if cell.row is None or cell.row <= 2:
                 continue
             val_str = str(cell.value or "")
             if val_str.startswith("="):
