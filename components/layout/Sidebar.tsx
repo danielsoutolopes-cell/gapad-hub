@@ -167,19 +167,19 @@ export function Sidebar({
 
       {/* Container Principal da Sidebar */}
       <aside
-        className={`fixed md:static inset-y-0 left-0 z-50 w-64 bg-[#070b13] border-r border-slate-800/80 flex flex-col transition-transform duration-300 ease-in-out md:translate-x-0 ${
+        className={`fixed md:static inset-y-0 left-0 z-50 w-64 bg-slate-900 border-r border-slate-800 flex flex-col transition-all duration-200 ease-in-out md:translate-x-0 ${
           mobileOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
         {/* Header da Sidebar (Logo & Empresa) */}
-        <div className="h-16 px-4 border-b border-slate-800/80 flex items-center justify-between flex-shrink-0 bg-slate-950/40">
-          <Link href="/dashboard" className="flex items-center gap-2.5 group">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-400 flex items-center justify-center shadow-lg shadow-emerald-500/20 group-hover:scale-105 transition-transform">
-              <Building2 className="w-4 h-4 text-slate-950 stroke-[2.5]" />
+        <div className="h-16 px-4 border-b border-slate-800 flex items-center justify-between flex-shrink-0 bg-slate-900">
+          <Link href="/dashboard" className="flex items-center gap-2.5 group transition-all duration-200 ease-in-out">
+            <div className="w-8 h-8 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center group-hover:border-slate-600 transition-all duration-200 ease-in-out">
+              <Building2 className="w-4 h-4 text-emerald-400 stroke-[2.2]" />
             </div>
             <div className="min-w-0">
               <span className="text-sm font-bold text-white tracking-tight flex items-center gap-1">
-                GADAP <span className="text-emerald-400 font-semibold">Hub</span>
+                GADAP <span className="text-slate-400 font-semibold">Hub</span>
               </span>
               <span className="text-[10px] text-slate-400 block -mt-0.5 font-medium truncate max-w-[140px]">
                 {tenantName}

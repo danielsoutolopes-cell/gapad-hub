@@ -414,12 +414,12 @@ export default function ObraAditivosPage() {
 
       {/* KPIs de Impacto Orçamentário */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="rounded-2xl bg-slate-900/70 border border-slate-800 p-5">
+        <div className="rounded-xl bg-slate-900 border border-slate-800 p-5">
           <div className="flex items-center justify-between text-xs text-slate-400 font-semibold">
             <span>ORÇAMENTO CONSOLIDADO DA OBRA</span>
-            <HardHat className="w-4 h-4 text-emerald-400" />
+            <HardHat className="w-4 h-4 text-slate-400" />
           </div>
-          <div className="text-2xl font-bold text-white font-mono mt-2">
+          <div className="text-2xl font-bold text-white tabular-nums font-medium mt-2">
             {formatBRL(project?.budget_total ?? project?.contract_value ?? 0)}
           </div>
           <p className="text-[11px] text-slate-400 mt-1">
@@ -427,25 +427,25 @@ export default function ObraAditivosPage() {
           </p>
         </div>
 
-        <div className="rounded-2xl bg-emerald-950/20 border border-emerald-500/30 p-5">
-          <div className="flex items-center justify-between text-xs text-emerald-300 font-semibold">
+        <div className="rounded-xl bg-slate-900 border border-slate-800 p-5">
+          <div className="flex items-center justify-between text-xs text-slate-400 font-semibold">
             <span>ADITIVOS APROVADOS (CLIENTE / RECEITA)</span>
             <TrendingUp className="w-4 h-4 text-emerald-400" />
           </div>
-          <div className="text-2xl font-bold text-emerald-400 font-mono mt-2">
+          <div className="text-2xl font-bold text-emerald-400 tabular-nums font-medium mt-2">
             + {formatBRL(clientApprovedTotal)}
           </div>
           <p className="text-[11px] text-slate-400 mt-1">
-            Injetados no <code className="text-emerald-300">budget_total</code> e Contas a Receber
+            Injetados no <code className="text-slate-300">budget_total</code> e Contas a Receber
           </p>
         </div>
 
-        <div className="rounded-2xl bg-amber-950/20 border border-amber-500/30 p-5">
-          <div className="flex items-center justify-between text-xs text-amber-300 font-semibold">
+        <div className="rounded-xl bg-slate-900 border border-slate-800 p-5">
+          <div className="flex items-center justify-between text-xs text-slate-400 font-semibold">
             <span>ADITIVOS DE SUBCONTRATADOS (DESPESA)</span>
             <TrendingDown className="w-4 h-4 text-amber-400" />
           </div>
-          <div className="text-2xl font-bold text-amber-400 font-mono mt-2">
+          <div className="text-2xl font-bold text-amber-400 tabular-nums font-medium mt-2">
             + {formatBRL(subcontractorApprovedTotal)}
           </div>
           <p className="text-[11px] text-slate-400 mt-1">
@@ -659,11 +659,11 @@ export default function ObraAditivosPage() {
             return (
               <div
                 key={item.id}
-                className="rounded-2xl bg-slate-900/70 border border-slate-800 hover:border-slate-700 p-5 transition-all flex flex-col lg:flex-row lg:items-center justify-between gap-4"
+                className="rounded-xl bg-slate-900 border border-slate-800 hover:bg-slate-800/50 p-5 transition-all duration-200 ease-in-out flex flex-col lg:flex-row lg:items-center justify-between gap-4"
               >
                 <div className="space-y-1.5 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-[11px] font-mono font-bold text-slate-400 bg-slate-950 px-2 py-0.5 rounded border border-slate-800">
+                    <span className="text-[11px] tabular-nums font-mono font-bold text-slate-400 bg-slate-950 px-2 py-0.5 rounded border border-slate-800">
                       #{item.id.slice(0, 8).toUpperCase()}
                     </span>
 
@@ -680,7 +680,7 @@ export default function ObraAditivosPage() {
                     )}
 
                     {item.govbr_transaction_id && (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-sky-500/15 text-sky-300 border border-sky-500/30">
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold tabular-nums bg-slate-800 text-slate-300 border border-slate-700">
                         <ShieldCheck className="w-3 h-3" />
                         Gov.br: {item.govbr_transaction_id}
                       </span>
@@ -689,7 +689,7 @@ export default function ObraAditivosPage() {
 
                   <p className="text-sm font-semibold text-white">{item.description}</p>
 
-                  <div className="flex flex-wrap items-center gap-4 text-xs text-slate-400">
+                  <div className="flex flex-wrap items-center gap-4 text-xs text-slate-400 tabular-nums font-medium">
                     <span>
                       Data:{' '}
                       {new Date(item.created_at).toLocaleDateString('pt-BR', {
@@ -714,7 +714,7 @@ export default function ObraAditivosPage() {
                       Valor Adicional
                     </span>
                     <span
-                      className={`text-lg font-bold font-mono ${
+                      className={`text-lg font-bold tabular-nums font-medium ${
                         item.type === 'CLIENT_EXTRA' ? 'text-emerald-400' : 'text-amber-400'
                       }`}
                     >

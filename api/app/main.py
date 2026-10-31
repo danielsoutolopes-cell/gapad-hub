@@ -189,13 +189,13 @@ class NotifyRequest(BaseModel):
     phone: str = Field(
         ...,
         description="Número de telefone do destinatário com DDD (ex: '(11) 98765-4321' ou '11987654321')",
-        example="11987654321",
+        examples=["11987654321"],
     )
     message: str = Field(
         ...,
         min_length=1,
         description="Mensagem de texto corporativa a ser enviada ao operador ou cliente",
-        example="Olá! Sua medição de obra no GADAP Hub foi aprovada com sucesso.",
+        examples=["Olá! Sua medição de obra no GADAP Hub foi aprovada com sucesso."],
     )
 
 

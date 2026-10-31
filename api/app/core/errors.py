@@ -51,12 +51,24 @@ class ProblemException(Exception):
         return result
 
 
-async def problem_exception_handler(request: Request, exc: ProblemException) -> JSONResponse:
+async def problem_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     """Handler registrado no FastAPI para serializar ProblemException em application/problem+json."""
-    if not exc.instance:
-        exc.instance = request.url.path
+    if isinstance(exc, ProblemException):
+        if not exc.instance:
+            exc.instance = request.url.path
+        return JSONResponse(
+            status_code=exc.status_code,
+            content=exc.to_dict(),
+            media_type="application/problem+json",
+        )
     return JSONResponse(
-        status_code=exc.status_code,
-        content=exc.to_dict(),
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content={
+            "type": "https://gadap.com.br/errors/internal-error",
+            "title": "Erro Interno",
+            "status": status.HTTP_500_INTERNAL_SERVER_ERROR,
+            "detail": str(exc),
+            "instance": request.url.path,
+        },
         media_type="application/problem+json",
     )

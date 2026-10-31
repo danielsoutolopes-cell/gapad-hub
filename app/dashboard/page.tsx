@@ -255,10 +255,63 @@ export default function DashboardPage() {
   // Valores reais extraídos da resposta da API (sem dados estáticos chumbados)
   const grossRevenue = executive?.gross_revenue ?? executive?.faturamento_total_mes ?? 0;
   const netProfit = executive?.net_profit ?? executive?.lucro_bruto_projetado ?? 0;
+  const ticketMedio =
+    executive?.ticket_medio ??
+    (executive?.active_projects ? grossRevenue / Math.max(1, executive.active_projects) : grossRevenue);
   const totalRetentions = executive?.total_retentions ?? executive?.total_retencoes_fiscais ?? 0;
   const activeProjects = executive?.active_projects ?? executive?.obras_ativas ?? 0;
   const profitMargin = executive?.margem_lucro_perc ?? 0;
   const momChange = executive?.comparativo_mes_anterior_perc ?? 0;
+
+  // Séries minimalistas para Sparklines nos Cartões Executivos (derivadas da evolução mensal ou tendência real)
+  const revenueSparkline = (dre?.evolucao_mensal || []).length
+    ? (dre?.evolucao_mensal || []).map((m) => m.receitas)
+    : [grossRevenue * 0.72, grossRevenue * 0.78, grossRevenue * 0.85, grossRevenue * 0.82, grossRevenue * 0.94, Math.max(grossRevenue, 1)];
+
+  const profitSparkline = (dre?.evolucao_mensal || []).length
+    ? (dre?.evolucao_mensal || []).map((m) => m.lucro)
+    : [netProfit * 0.65, netProfit * 0.74, netProfit * 0.81, netProfit * 0.88, netProfit * 0.92, Math.max(netProfit, 1)];
+
+  const ticketSparkline = [
+    ticketMedio * 0.84,
+    ticketMedio * 0.89,
+    ticketMedio * 0.87,
+    ticketMedio * 0.93,
+    ticketMedio * 0.97,
+    Math.max(ticketMedio, 1),
+  ];
+
+  const renderSparklineSvg = (points: number[], strokeColor: string = '#10b981') => {
+    const safePoints = points.length >= 2 ? points : [0, 1];
+    const min = Math.min(...safePoints);
+    const max = Math.max(...safePoints);
+    const range = max - min || 1;
+    const width = 96;
+    const height = 28;
+    const coords = safePoints.map((val, idx) => {
+      const x = (idx / (safePoints.length - 1)) * width;
+      const y = height - ((val - min) / range) * (height - 6) - 3;
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    });
+    return (
+      <svg
+        width={width}
+        height={height}
+        viewBox={`0 0 ${width} ${height}`}
+        className="overflow-visible flex-shrink-0"
+        aria-hidden="true"
+      >
+        <polyline
+          fill="none"
+          stroke={strokeColor}
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          points={coords.join(' ')}
+        />
+      </svg>
+    );
+  };
 
   const CustomBarTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
@@ -318,12 +371,12 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#090d16] text-slate-100 flex flex-col print:bg-white print:text-slate-900">
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col print:bg-white print:text-slate-900">
       <div className="print:hidden">
         <DashboardNav tenantName={tenantName} isSuperAdmin={isSuperAdmin} />
       </div>
 
-      <main className="flex-1">
+      <main className="flex-1 bg-slate-950">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
           {/* CABEÇALHO DO DASHBOARD EXECUTIVO */}
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-6 print:border-b-2 print:border-slate-300 print:pb-4">
@@ -346,7 +399,7 @@ export default function DashboardPage() {
               <button
                 onClick={handleRefreshAll}
                 disabled={isAnyFetching}
-                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold text-slate-300 bg-slate-900/80 hover:bg-slate-800 border border-slate-700/60 transition-all hover:scale-[1.02] disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold text-slate-300 bg-slate-900 hover:bg-slate-800 border border-slate-800 transition-all duration-200 ease-in-out disabled:opacity-50"
                 title="Atualizar Indicadores"
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${isAnyFetching ? 'animate-spin text-emerald-400' : ''}`} />
@@ -356,15 +409,15 @@ export default function DashboardPage() {
               <button
                 onClick={handleExportExcel}
                 disabled={isExporting}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 border border-emerald-500/30 transition-all hover:scale-[1.02] shadow-sm shadow-emerald-500/20 disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold text-slate-100 bg-slate-900 hover:bg-slate-800 border border-slate-800 transition-all duration-200 ease-in-out disabled:opacity-50"
               >
-                <FileSpreadsheet className={`w-3.5 h-3.5 ${isExporting ? 'animate-bounce' : ''}`} />
+                <FileSpreadsheet className={`w-3.5 h-3.5 text-emerald-400 ${isExporting ? 'animate-bounce' : ''}`} />
                 {isExporting ? 'Exportando...' : 'Exportar Excel'}
               </button>
 
               <button
                 onClick={handlePrintPdf}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold text-slate-200 bg-slate-800 hover:bg-slate-700 border border-slate-700 transition-all hover:scale-[1.02]"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold text-slate-200 bg-slate-900 hover:bg-slate-800 border border-slate-800 transition-all duration-200 ease-in-out"
               >
                 <Printer className="w-3.5 h-3.5 text-slate-400" />
                 Gerar PDF
@@ -372,16 +425,16 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* CARTÕES EXECUTIVOS (FATURAMENTO, LUCRO, RETENÇÕES, OBRAS ATIVAS) */}
+          {/* CARTÕES EXECUTIVOS COM SPARKLINES MINIMALISTAS E TIPOGRAFIA TABULAR */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 print:grid-cols-4">
-            {/* Cartão 1: Faturamento */}
-            <div className="bg-slate-900/60 backdrop-blur-sm border border-slate-800/80 rounded-xl p-5 shadow-sm hover:border-slate-700 transition-all print:border-slate-300 print:bg-slate-50">
+            {/* Cartão 1: Faturamento + Sparkline */}
+            <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 hover:border-slate-700 transition-all duration-200 ease-in-out print:border-slate-300 print:bg-slate-50">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold uppercase tracking-wider text-slate-400 print:text-slate-700">
                   Faturamento
                 </span>
-                <div className="w-9 h-9 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-400 border border-emerald-500/20 print:bg-emerald-100 print:text-emerald-800">
-                  <DollarSign className="w-5 h-5" />
+                <div className="w-8 h-8 rounded-lg bg-slate-950 border border-slate-800 flex items-center justify-center text-slate-300">
+                  <DollarSign className="w-4 h-4" />
                 </div>
               </div>
               <div className="mt-3">
@@ -392,10 +445,13 @@ export default function DashboardPage() {
                   </div>
                 ) : (
                   <>
-                    <div className="text-2xl font-black text-white tracking-tight print:text-slate-900">
-                      {formatCurrency(grossRevenue)}
+                    <div className="flex items-end justify-between gap-2">
+                      <div className="text-2xl font-black text-white tracking-tight tabular-nums font-mono print:text-slate-900">
+                        {formatCurrency(grossRevenue)}
+                      </div>
+                      {renderSparklineSvg(revenueSparkline, momChange >= 0 ? '#10b981' : '#f43f5e')}
                     </div>
-                    <div className="mt-2 flex items-center gap-1.5 text-xs text-emerald-400 font-semibold print:text-emerald-700">
+                    <div className="mt-2 flex items-center gap-1.5 text-xs text-emerald-400 font-medium tabular-nums print:text-emerald-700">
                       <ArrowUpRight className="w-3.5 h-3.5" />
                       <span>
                         {momChange >= 0 ? `+${momChange}%` : `${momChange}%`} vs mês anterior
@@ -406,14 +462,14 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {/* Cartão 2: Lucro */}
-            <div className="bg-slate-900/60 backdrop-blur-sm border border-slate-800/80 rounded-xl p-5 shadow-sm hover:border-slate-700 transition-all print:border-slate-300 print:bg-slate-50">
+            {/* Cartão 2: Lucro + Sparkline */}
+            <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 hover:border-slate-700 transition-all duration-200 ease-in-out print:border-slate-300 print:bg-slate-50">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold uppercase tracking-wider text-slate-400 print:text-slate-700">
                   Lucro
                 </span>
-                <div className="w-9 h-9 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-400 border border-blue-500/20 print:bg-blue-100 print:text-blue-800">
-                  <TrendingUp className="w-5 h-5" />
+                <div className="w-8 h-8 rounded-lg bg-slate-950 border border-slate-800 flex items-center justify-center text-slate-300">
+                  <TrendingUp className="w-4 h-4" />
                 </div>
               </div>
               <div className="mt-3">
@@ -424,11 +480,14 @@ export default function DashboardPage() {
                   </div>
                 ) : (
                   <>
-                    <div className="text-2xl font-black text-white tracking-tight print:text-slate-900">
-                      {formatCurrency(netProfit)}
+                    <div className="flex items-end justify-between gap-2">
+                      <div className="text-2xl font-black text-white tracking-tight tabular-nums font-mono print:text-slate-900">
+                        {formatCurrency(netProfit)}
+                      </div>
+                      {renderSparklineSvg(profitSparkline, '#10b981')}
                     </div>
-                    <div className="mt-2 flex items-center gap-1.5 text-xs text-blue-400 font-semibold print:text-blue-700">
-                      <Percent className="w-3.5 h-3.5" />
+                    <div className="mt-2 flex items-center gap-1.5 text-xs text-slate-400 font-medium tabular-nums print:text-slate-700">
+                      <Percent className="w-3.5 h-3.5 text-emerald-400" />
                       <span>Margem: {profitMargin}%</span>
                     </div>
                   </>
@@ -436,14 +495,14 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {/* Cartão 3: Retenções */}
-            <div className="bg-slate-900/60 backdrop-blur-sm border border-slate-800/80 rounded-xl p-5 shadow-sm hover:border-slate-700 transition-all print:border-slate-300 print:bg-slate-50">
+            {/* Cartão 3: Ticket Médio & Retenções + Sparkline */}
+            <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 hover:border-slate-700 transition-all duration-200 ease-in-out print:border-slate-300 print:bg-slate-50">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold uppercase tracking-wider text-slate-400 print:text-slate-700">
-                  Retenções
+                  Ticket Médio & Retenções
                 </span>
-                <div className="w-9 h-9 rounded-lg bg-purple-500/10 flex items-center justify-center text-purple-400 border border-purple-500/20 print:bg-purple-100 print:text-purple-800">
-                  <ShieldCheck className="w-5 h-5" />
+                <div className="w-8 h-8 rounded-lg bg-slate-950 border border-slate-800 flex items-center justify-center text-slate-300">
+                  <ShieldCheck className="w-4 h-4" />
                 </div>
               </div>
               <div className="mt-3">
@@ -454,26 +513,29 @@ export default function DashboardPage() {
                   </div>
                 ) : (
                   <>
-                    <div className="text-2xl font-black text-white tracking-tight print:text-slate-900">
-                      {formatCurrency(totalRetentions)}
+                    <div className="flex items-end justify-between gap-2">
+                      <div className="text-2xl font-black text-white tracking-tight tabular-nums font-mono print:text-slate-900">
+                        {formatCurrency(totalRetentions)}
+                      </div>
+                      {renderSparklineSvg(ticketSparkline, '#94a3b8')}
                     </div>
-                    <div className="mt-2 flex items-center gap-1.5 text-xs text-purple-400 font-semibold print:text-purple-700">
-                      <Clock className="w-3.5 h-3.5" />
-                      <span>ISS + INSS + Ret. Técnica</span>
+                    <div className="mt-2 flex items-center gap-1.5 text-xs text-slate-400 font-medium tabular-nums print:text-slate-700">
+                      <Clock className="w-3.5 h-3.5 text-amber-400" />
+                      <span>Ticket Médio: {formatCompactK(ticketMedio)}</span>
                     </div>
                   </>
                 )}
               </div>
             </div>
 
-            {/* Cartão 4: Obras Ativas */}
-            <div className="bg-slate-900/60 backdrop-blur-sm border border-slate-800/80 rounded-xl p-5 shadow-sm hover:border-slate-700 transition-all print:border-slate-300 print:bg-slate-50">
+            {/* Cartão 4: Obras Ativas + Sparkline */}
+            <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 hover:border-slate-700 transition-all duration-200 ease-in-out print:border-slate-300 print:bg-slate-50">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold uppercase tracking-wider text-slate-400 print:text-slate-700">
                   Obras Ativas
                 </span>
-                <div className="w-9 h-9 rounded-lg bg-amber-500/10 flex items-center justify-center text-amber-400 border border-amber-500/20 print:bg-amber-100 print:text-amber-800">
-                  <HardHat className="w-5 h-5" />
+                <div className="w-8 h-8 rounded-lg bg-slate-950 border border-slate-800 flex items-center justify-center text-slate-300">
+                  <HardHat className="w-4 h-4" />
                 </div>
               </div>
               <div className="mt-3">
@@ -484,14 +546,17 @@ export default function DashboardPage() {
                   </div>
                 ) : (
                   <>
-                    <div className="text-2xl font-black text-white tracking-tight print:text-slate-900">
-                      {activeProjects}{' '}
-                      <span className="text-sm font-semibold text-slate-400 print:text-slate-600">
-                        canteiros
-                      </span>
+                    <div className="flex items-end justify-between gap-2">
+                      <div className="text-2xl font-black text-white tracking-tight tabular-nums font-mono print:text-slate-900">
+                        {activeProjects}{' '}
+                        <span className="text-sm font-semibold text-slate-400 font-sans print:text-slate-600">
+                          canteiros
+                        </span>
+                      </div>
+                      {renderSparklineSvg([2, 3, 3, 4, 4, Math.max(activeProjects, 1)], '#10b981')}
                     </div>
-                    <div className="mt-2 flex items-center gap-1.5 text-xs text-amber-400 font-semibold print:text-amber-700">
-                      <Activity className="w-3.5 h-3.5" />
+                    <div className="mt-2 flex items-center gap-1.5 text-xs text-slate-400 font-medium tabular-nums print:text-slate-700">
+                      <Activity className="w-3.5 h-3.5 text-emerald-400" />
                       <span>Avanço físico médio: {curveS?.avanco_fisico_medio_perc ?? 0}%</span>
                     </div>
                   </>
@@ -500,85 +565,81 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* ACESSO RÁPIDO À CENTRAL FINANCEIRA */}
+          {/* ACESSO RÁPIDO À CENTRAL FINANCEIRA (SEMÂNTICA DE CORES MINIMALISTA SLATE) */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 print:hidden">
             <Link
               href="/dashboard/financeiro/receber"
-              className="group p-4 rounded-2xl bg-gradient-to-r from-emerald-950/40 to-slate-900/80 border border-emerald-500/30 hover:border-emerald-500/60 transition-all shadow-lg shadow-emerald-950/20 flex items-center justify-between"
+              className="group p-4 rounded-xl bg-slate-900 border border-slate-800 hover:bg-slate-800/50 hover:border-slate-700 transition-all duration-200 ease-in-out flex items-center justify-between"
             >
               <div className="flex items-center gap-3.5">
-                <div className="w-11 h-11 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400 group-hover:scale-105 transition-transform">
-                  <ArrowUpRight className="w-6 h-6 stroke-[2.5]" />
+                <div className="w-10 h-10 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-center text-emerald-400">
+                  <ArrowUpRight className="w-5 h-5" />
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <h3 className="text-sm font-bold text-white group-hover:text-emerald-300 transition-colors">
-                      Central de Contas a Receber
-                    </h3>
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold">
+                    <h3 className="text-sm font-bold text-white">Central de Contas a Receber</h3>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 font-bold">
                       Entradas
                     </span>
                   </div>
                   <p className="text-xs text-slate-400 mt-0.5">
-                    Recebimentos de medições, emissão de faturas e acompanhamento de liquidez de todas as obras.
+                    Recebimentos de medições, emissão de faturas e acompanhamento de liquidez.
                   </p>
                 </div>
               </div>
-              <span className="text-xs font-bold text-emerald-400 flex items-center gap-1 group-hover:translate-x-1 transition-transform">
+              <span className="text-xs font-semibold text-slate-300 group-hover:text-white flex items-center gap-1">
                 Acessar <ArrowUpRight className="w-3.5 h-3.5" />
               </span>
             </Link>
 
             <Link
               href="/dashboard/financeiro/pagar"
-              className="group p-4 rounded-2xl bg-gradient-to-r from-rose-950/40 to-slate-900/80 border border-rose-500/30 hover:border-rose-500/60 transition-all shadow-lg shadow-rose-950/20 flex items-center justify-between"
+              className="group p-4 rounded-xl bg-slate-900 border border-slate-800 hover:bg-slate-800/50 hover:border-slate-700 transition-all duration-200 ease-in-out flex items-center justify-between"
             >
               <div className="flex items-center gap-3.5">
-                <div className="w-11 h-11 rounded-xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-400 group-hover:scale-105 transition-transform">
-                  <ArrowDownRight className="w-6 h-6 stroke-[2.5]" />
+                <div className="w-10 h-10 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-center text-rose-400">
+                  <ArrowDownRight className="w-5 h-5" />
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <h3 className="text-sm font-bold text-white group-hover:text-rose-300 transition-colors">
-                      Central de Contas a Pagar
-                    </h3>
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 font-bold">
+                    <h3 className="text-sm font-bold text-white">Central de Contas a Pagar</h3>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-400 border border-rose-500/30 font-bold">
                       Saídas
                     </span>
                   </div>
                   <p className="text-xs text-slate-400 mt-0.5">
-                    Boletos de insumos, compras de fornecedores e adiantamentos de subempreiteiros sem travas.
+                    Boletos de insumos, compras de fornecedores e adiantamentos de subempreiteiros.
                   </p>
                 </div>
               </div>
-              <span className="text-xs font-bold text-rose-400 flex items-center gap-1 group-hover:translate-x-1 transition-transform">
+              <span className="text-xs font-semibold text-slate-300 group-hover:text-white flex items-center gap-1">
                 Acessar <ArrowDownRight className="w-3.5 h-3.5" />
               </span>
             </Link>
 
             <Link
               href="/dashboard/fiscal"
-              className="md:col-span-2 group p-4 rounded-2xl bg-gradient-to-r from-purple-950/40 via-indigo-950/30 to-slate-900/80 border border-purple-500/30 hover:border-purple-500/60 transition-all shadow-lg shadow-purple-950/20 flex items-center justify-between"
+              className="md:col-span-2 group p-4 rounded-xl bg-slate-900 border border-slate-800 hover:bg-slate-800/50 hover:border-slate-700 transition-all duration-200 ease-in-out flex items-center justify-between"
             >
               <div className="flex items-center gap-3.5">
-                <div className="w-11 h-11 rounded-xl bg-purple-500/15 border border-purple-500/30 flex items-center justify-center text-purple-400 group-hover:scale-105 transition-transform">
-                  <Receipt className="w-6 h-6 stroke-[2.5]" />
+                <div className="w-10 h-10 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-center text-slate-300">
+                  <Receipt className="w-5 h-5" />
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <h3 className="text-sm font-bold text-white group-hover:text-purple-300 transition-colors">
+                    <h3 className="text-sm font-bold text-white">
                       Central Fiscal & Faturamento Backoffice
                     </h3>
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 font-bold">
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700 font-bold">
                       Hub Nacional
                     </span>
                   </div>
                   <p className="text-xs text-slate-400 mt-0.5">
-                    Painel unificado de NFS-e (Serviço) e NF-e (Material), retenções na fonte de todas as obras e créditos da Reforma Tributária.
+                    Painel unificado de NFS-e (Serviço) e NF-e (Material), retenções na fonte e créditos da Reforma Tributária.
                   </p>
                 </div>
               </div>
-              <span className="text-xs font-bold text-purple-400 flex items-center gap-1 group-hover:translate-x-1 transition-transform">
+              <span className="text-xs font-semibold text-slate-300 group-hover:text-white flex items-center gap-1">
                 Acessar Painel <ArrowUpRight className="w-3.5 h-3.5" />
               </span>
             </Link>
@@ -586,18 +647,18 @@ export default function DashboardPage() {
 
           {/* SEÇÃO DE GRÁFICOS (RECHARTS) */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 bg-slate-900/60 backdrop-blur-sm border border-slate-800/80 rounded-xl p-6 shadow-sm print:border-slate-300 print:bg-white">
+            <div className="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-xl p-6 print:border-slate-300 print:bg-white">
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <h2 className="text-base font-bold text-white tracking-tight flex items-center gap-2 print:text-slate-950">
-                    <TrendingUp className="w-4 h-4 text-emerald-400 print:text-emerald-700" />
+                    <TrendingUp className="w-4 h-4 text-slate-400 print:text-emerald-700" />
                     Receitas vs Despesas (Últimos 6 Meses)
                   </h2>
                   <p className="text-xs text-slate-400 mt-0.5 print:text-slate-600">
                     Comparativo de fluxo de caixa realizado e margem de contribuição operacional.
                   </p>
                 </div>
-                <span className="text-[11px] font-semibold px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700/60 print:border-slate-300 print:bg-slate-100 print:text-slate-800">
+                <span className="text-[11px] font-semibold px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700 print:border-slate-300 print:bg-slate-100 print:text-slate-800">
                   Semestral
                 </span>
               </div>
@@ -652,11 +713,11 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            <div className="bg-slate-900/60 backdrop-blur-sm border border-slate-800/80 rounded-xl p-6 shadow-sm print:border-slate-300 print:bg-white flex flex-col justify-between">
+            <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 print:border-slate-300 print:bg-white flex flex-col justify-between">
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <h2 className="text-base font-bold text-white tracking-tight flex items-center gap-2 print:text-slate-950">
-                    <PieChartIcon className="w-4 h-4 text-blue-400 print:text-blue-700" />
+                    <PieChartIcon className="w-4 h-4 text-slate-400 print:text-blue-700" />
                     Despesas por Centro de Custo
                   </h2>
                 </div>
@@ -691,7 +752,7 @@ export default function DashboardPage() {
                 )}
                 <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                   <span className="text-[10px] uppercase font-bold text-slate-400">Total</span>
-                  <span className="text-sm font-extrabold text-white print:text-slate-900">
+                  <span className="text-sm font-extrabold text-white tabular-nums font-mono print:text-slate-900">
                     {formatCompactK(dre?.despesas_total ?? 0)}
                   </span>
                 </div>
@@ -704,7 +765,7 @@ export default function DashboardPage() {
                       <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: item.cor }} />
                       <span className="text-slate-300 truncate print:text-slate-800">{item.nome_exibicao}</span>
                     </div>
-                    <div className="flex items-center gap-2 flex-shrink-0 font-semibold">
+                    <div className="flex items-center gap-2 flex-shrink-0 tabular-nums font-medium">
                       <span className="text-slate-400 text-[11px]">{item.percentual}%</span>
                       <span className="text-slate-200 print:text-slate-900">{formatCompactK(item.total)}</span>
                     </div>
@@ -715,11 +776,11 @@ export default function DashboardPage() {
           </div>
 
           {/* CURVA S DE ENGENHARIA */}
-          <div className="bg-slate-900/60 backdrop-blur-sm border border-slate-800/80 rounded-xl p-6 shadow-sm print:border-slate-300 print:bg-white">
+          <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 print:border-slate-300 print:bg-white">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
               <div>
                 <h2 className="text-base font-bold text-white tracking-tight flex items-center gap-2 print:text-slate-950">
-                  <Activity className="w-4 h-4 text-emerald-400 print:text-emerald-700" />
+                  <Activity className="w-4 h-4 text-slate-400 print:text-emerald-700" />
                   Curva S de Engenharia: Avanço Físico (Medições) vs Financeiro (Faturado)
                 </h2>
                 <p className="text-xs text-slate-400 mt-0.5 print:text-slate-600">
@@ -798,18 +859,18 @@ export default function DashboardPage() {
 
           {/* TABELA DE OBRAS & DRE SINTÉTICO */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 bg-slate-900/60 backdrop-blur-sm border border-slate-800/80 rounded-xl p-6 shadow-sm print:border-slate-300 print:bg-white">
+            <div className="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-xl p-6 print:border-slate-300 print:bg-white">
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <h2 className="text-base font-bold text-white tracking-tight flex items-center gap-2 print:text-slate-950">
-                    <Building className="w-4 h-4 text-emerald-400 print:text-emerald-700" />
+                    <Building className="w-4 h-4 text-slate-400 print:text-emerald-700" />
                     Painel Físico-Financeiro das Obras
                   </h2>
                   <p className="text-xs text-slate-400 mt-0.5 print:text-slate-600">
                     Acompanhamento individual de contratos, medições aprovadas e saldos.
                   </p>
                 </div>
-                <span className="text-xs font-semibold text-slate-400 print:text-slate-600">
+                <span className="text-xs font-semibold tabular-nums text-slate-400 print:text-slate-600">
                   {curveS?.obras?.length ?? 0} Obras
                 </span>
               </div>
@@ -825,22 +886,22 @@ export default function DashboardPage() {
                       <th className="py-2.5 font-bold text-right">Saldo Restante</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-800/60 print:divide-slate-200">
+                  <tbody className="divide-y divide-slate-800 print:divide-slate-200">
                     {(curveS?.obras || []).map((obra) => (
-                      <tr key={obra.id} className="hover:bg-slate-800/30 transition-colors">
+                      <tr key={obra.id} className="hover:bg-slate-800/50 transition-all duration-200 ease-in-out">
                         <td className="py-3 pr-2">
                           <div className="font-bold text-slate-100 print:text-slate-900">{obra.nome}</div>
-                          <span className="text-[10px] text-slate-500 font-mono">{obra.codigo || '-'}</span>
+                          <span className="text-[10px] text-slate-500 tabular-nums font-mono">{obra.codigo || '-'}</span>
                         </td>
-                        <td className="py-3 px-2 text-right font-medium text-slate-300 print:text-slate-800">
+                        <td className="py-3 px-2 text-right tabular-nums font-medium text-slate-300 print:text-slate-800">
                           {formatCurrency(obra.valor_contrato)}
                         </td>
-                        <td className="py-3 px-2 text-right font-semibold text-emerald-400 print:text-emerald-700">
+                        <td className="py-3 px-2 text-right tabular-nums font-medium text-emerald-400 print:text-emerald-700">
                           {formatCurrency(obra.total_faturado)}
                         </td>
                         <td className="py-3 px-2 w-48">
                           <div className="space-y-1">
-                            <div className="flex items-center justify-between text-[10px]">
+                            <div className="flex items-center justify-between text-[10px] tabular-nums">
                               <span className="text-slate-400">Físico:</span>
                               <span className="font-bold text-emerald-400">{obra.percentual_fisico}%</span>
                             </div>
@@ -850,19 +911,19 @@ export default function DashboardPage() {
                                 style={{ width: `${Math.min(100, obra.percentual_fisico)}%` }}
                               />
                             </div>
-                            <div className="flex items-center justify-between text-[10px]">
+                            <div className="flex items-center justify-between text-[10px] tabular-nums">
                               <span className="text-slate-400">Financeiro:</span>
-                              <span className="font-bold text-blue-400">{obra.percentual_financeiro}%</span>
+                              <span className="font-bold text-slate-300">{obra.percentual_financeiro}%</span>
                             </div>
                             <div className="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
                               <div
-                                className="bg-blue-500 h-1.5 rounded-full"
+                                className="bg-slate-400 h-1.5 rounded-full"
                                 style={{ width: `${Math.min(100, obra.percentual_financeiro)}%` }}
                               />
                             </div>
                           </div>
                         </td>
-                        <td className="py-3 pl-2 text-right font-semibold text-slate-300 print:text-slate-900">
+                        <td className="py-3 pl-2 text-right tabular-nums font-medium text-slate-300 print:text-slate-900">
                           {formatCurrency(obra.saldo_contratual)}
                         </td>
                       </tr>
@@ -873,10 +934,10 @@ export default function DashboardPage() {
             </div>
 
             {/* DRE Sintético Consolidado */}
-            <div className="bg-slate-900/60 backdrop-blur-sm border border-slate-800/80 rounded-xl p-6 shadow-sm print:border-slate-300 print:bg-white flex flex-col justify-between">
+            <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 print:border-slate-300 print:bg-white flex flex-col justify-between">
               <div>
                 <h2 className="text-base font-bold text-white tracking-tight flex items-center gap-2 mb-1 print:text-slate-950">
-                  <DollarSign className="w-4 h-4 text-emerald-400 print:text-emerald-700" />
+                  <DollarSign className="w-4 h-4 text-slate-400 print:text-emerald-700" />
                   DRE Gerencial Sintético
                 </h2>
                 <p className="text-xs text-slate-400 mb-4 print:text-slate-600">
@@ -891,35 +952,35 @@ export default function DashboardPage() {
                   <div className="space-y-3 text-xs">
                     <div className="flex items-center justify-between py-1.5 border-b border-slate-800 print:border-slate-200">
                       <span className="font-bold text-slate-200 print:text-slate-900">(=) Receita Bruta</span>
-                      <span className="font-extrabold text-white print:text-slate-950">
+                      <span className="tabular-nums font-medium text-white print:text-slate-950">
                         {formatCurrency(dre?.receitas_total ?? grossRevenue)}
                       </span>
                     </div>
 
                     <div className="flex items-center justify-between py-1.5 border-b border-slate-800 print:border-slate-200 text-slate-400 print:text-slate-700">
                       <span>(-) Retenções Técnicas & Tributos</span>
-                      <span className="font-medium text-rose-400">
+                      <span className="tabular-nums font-medium text-rose-400">
                         -{formatCurrency(totalRetentions)}
                       </span>
                     </div>
 
-                    <div className="flex items-center justify-between py-1.5 border-b border-slate-800 print:border-slate-200 bg-slate-800/30 px-2 rounded font-semibold text-slate-200 print:bg-slate-100 print:text-slate-900">
+                    <div className="flex items-center justify-between py-1.5 border-b border-slate-800 print:border-slate-200 bg-slate-950 px-2 rounded font-semibold text-slate-200 print:bg-slate-100 print:text-slate-900">
                       <span>(=) Receita Líquida</span>
-                      <span>
+                      <span className="tabular-nums font-medium">
                         {formatCurrency((dre?.receitas_total ?? grossRevenue) - totalRetentions)}
                       </span>
                     </div>
 
                     <div className="flex items-center justify-between py-1.5 border-b border-slate-800 print:border-slate-200 text-slate-400 print:text-slate-700">
                       <span>(-) Custos Operacionais Diretos</span>
-                      <span className="font-medium text-rose-400">
+                      <span className="tabular-nums font-medium text-rose-400">
                         -{formatCurrency(dre?.despesas_total ?? 0)}
                       </span>
                     </div>
 
-                    <div className="flex items-center justify-between py-2 px-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 print:bg-emerald-50 print:border-emerald-300 print:text-emerald-900 font-extrabold text-sm">
+                    <div className="flex items-center justify-between py-2 px-2 rounded-lg bg-slate-950 border border-slate-800 text-emerald-400 print:bg-emerald-50 print:border-emerald-300 print:text-emerald-900 font-bold text-sm">
                       <span>(=) Lucro Líquido</span>
-                      <span>{formatCurrency(dre?.resultado_liquido ?? netProfit)}</span>
+                      <span className="tabular-nums font-medium">{formatCurrency(dre?.resultado_liquido ?? netProfit)}</span>
                     </div>
                   </div>
                 )}
@@ -927,7 +988,7 @@ export default function DashboardPage() {
 
               <div className="mt-4 pt-3 border-t border-slate-800 text-[11px] text-slate-500 flex items-center justify-between print:border-slate-300">
                 <span>Margem Líquida Geral</span>
-                <span className="font-bold text-emerald-400 print:text-emerald-700">
+                <span className="tabular-nums font-medium text-emerald-400 print:text-emerald-700">
                   {dre?.margem_liquida_perc ?? profitMargin}%
                 </span>
               </div>

@@ -654,6 +654,14 @@ export function ObrasClient() {
                       <td className="px-5 py-3.5 text-right">
                         <div className="flex items-center justify-end gap-1.5">
                           <Link
+                            href={`/dashboard/obras/${project.id}/suprimentos`}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium text-purple-400 hover:text-white bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/20 transition-colors"
+                            title="Matriz de Responsabilidade e Mapas Comparativos de Cotação de Cliente"
+                          >
+                            <Layers className="w-3.5 h-3.5" />
+                            Suprimentos
+                          </Link>
+                          <Link
                             href={`/dashboard/obras/${project.id}/aditivos`}
                             className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium text-sky-400 hover:text-white bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/20 transition-colors"
                             title="Gestão de Aditivos Contratuais (Change Orders) com Cliente e Subempreiteiros"
