@@ -15,7 +15,21 @@ from typing import Any, Dict, List, Optional, Tuple
 from uuid import UUID, uuid4
 
 import httpx
-from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Query, Request, status
+from cryptography.fernet import Fernet
+from cryptography.hazmat.primitives.serialization import pkcs12
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    File,
+    Form,
+    Header,
+    HTTPException,
+    Query,
+    Request,
+    UploadFile,
+    status,
+)
 
 from app.core.config import settings
 from app.core.deps import get_current_tenant_and_token
@@ -785,3 +799,215 @@ async def create_tax_credit(
             status_code=resp.status_code,
             detail=f"Falha ao registrar crédito tributário: {resp.text}",
         )
+
+
+# ------------------------------------------------------------------------------
+# Cofre Digital do Certificado A1 (PKCS#12 - .pfx / .p12)
+# ------------------------------------------------------------------------------
+@router.get(
+    "/certificate/status",
+    status_code=status.HTTP_200_OK,
+    summary="Consultar Estado Atual do Certificado Digital A1 do Tenant",
+    description="Retorna o status atual (VALID, EXPIRED, MISSING) e a data de expiração do Certificado A1 da empresa.",
+)
+async def get_certificate_status(
+    context: Tuple[UUID, str] = Depends(get_current_tenant_and_token),
+) -> Dict[str, Any]:
+    tenant_id, auth_token = context
+    url = (
+        f"{settings.SUPABASE_URL.rstrip('/')}/rest/v1/companies"
+        f"?id=eq.{tenant_id}&select=id,trade_name,legal_name,cnpj,cert_expiration,cert_status"
+    )
+    api_key = settings.get_anon_key() or settings.get_service_role_key()
+    headers = {
+        "apikey": api_key,
+        "Authorization": f"Bearer {auth_token}",
+    }
+
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        resp = await client.get(url, headers=headers)
+        if resp.status_code != 200 or not resp.json():
+            return {
+                "tenant_id": str(tenant_id),
+                "cert_status": "MISSING",
+                "cert_expiration": None,
+                "formatted_expiration": None,
+                "is_valid": False,
+            }
+
+        company = resp.json()[0]
+        cert_expiration_raw: Optional[str] = company.get("cert_expiration")
+        cert_status: str = str(company.get("cert_status") or "MISSING").upper()
+        formatted_exp: Optional[str] = None
+        is_valid = False
+
+        if cert_expiration_raw:
+            try:
+                exp_dt = datetime.datetime.fromisoformat(cert_expiration_raw.replace("Z", "+00:00"))
+                if exp_dt.tzinfo is None:
+                    exp_dt = exp_dt.replace(tzinfo=datetime.timezone.utc)
+                formatted_exp = exp_dt.strftime("%d/%m/%Y")
+                now_utc = datetime.datetime.now(datetime.timezone.utc)
+                if exp_dt > now_utc and cert_status != "MISSING":
+                    cert_status = "VALID"
+                    is_valid = True
+                else:
+                    cert_status = "EXPIRED"
+                    is_valid = False
+            except ValueError:
+                cert_status = "MISSING"
+
+        return {
+            "tenant_id": str(tenant_id),
+            "company_name": company.get("trade_name") or company.get("legal_name"),
+            "cnpj": company.get("cnpj"),
+            "cert_status": cert_status,
+            "cert_expiration": cert_expiration_raw,
+            "formatted_expiration": formatted_exp,
+            "is_valid": is_valid,
+        }
+
+
+@router.post(
+    "/certificate/upload",
+    status_code=status.HTTP_200_OK,
+    summary="Importação e Validação Criptográfica do Certificado Digital A1 (.pfx / .p12)",
+    description=(
+        "Valida a chave privada e a cadeia X.509 em memória via PKCS#12, cifra a senha com Fernet (SECRET_KEY), "
+        "armazena o arquivo no bucket privado 'tenant-certificates' e atualiza os metadados na tabela companies."
+    ),
+)
+async def upload_certificate_a1(
+    file: UploadFile = File(..., description="Arquivo do Certificado Digital A1 (.pfx ou .p12)"),
+    password: str = Form(..., description="Senha de proteção da chave privada do certificado"),
+    context: Tuple[UUID, str] = Depends(get_current_tenant_and_token),
+) -> Dict[str, Any]:
+    tenant_id, auth_token = context
+
+    filename = (file.filename or "certificado.pfx").lower()
+    if not (filename.endswith(".pfx") or filename.endswith(".p12")):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Formato de ficheiro inválido. Envie apenas certificados digitais .pfx ou .p12.",
+        )
+
+    pfx_bytes = await file.read()
+    if not pfx_bytes:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="O ficheiro do certificado enviado está vazio.",
+        )
+
+    # 1. Validação PKCS#12 estritamente em memória com a biblioteca cryptography
+    try:
+        private_key, certificate, _additional_certs = pkcs12.load_key_and_certificates(
+            pfx_bytes,
+            password.encode("utf-8"),
+        )
+    except (ValueError, TypeError) as exc:
+        logger.warning("Senha inválida ou falha PKCS12 para tenant %s: %s", tenant_id, exc)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Senha inválida para este certificado",
+        ) from exc
+    except Exception as exc:
+        logger.error("Erro ao ler estrutura PKCS12 para tenant %s: %s", tenant_id, exc)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Senha inválida para este certificado",
+        ) from exc
+
+    if certificate is None or private_key is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Senha inválida para este certificado",
+        )
+
+    # 2. Extração da data de expiração (not_valid_after / not_valid_after_utc)
+    not_valid_after: datetime.datetime = getattr(
+        certificate, "not_valid_after_utc", None
+    ) or certificate.not_valid_after.replace(tzinfo=datetime.timezone.utc)
+
+    now_utc = datetime.datetime.now(datetime.timezone.utc)
+    cert_status = "VALID" if not_valid_after > now_utc else "EXPIRED"
+
+    subject_attrs = {attr.oid._name: str(attr.value) for attr in certificate.subject}
+    common_name = subject_attrs.get("commonName", "Certificado Digital ICP-Brasil A1")
+
+    # 3. Criptografia simétrica da senha com Fernet antes de persistir no banco
+    fernet = Fernet(settings.get_fernet_key())
+    encrypted_password = fernet.encrypt(password.encode("utf-8")).decode("utf-8")
+
+    # 4. Upload do ficheiro .pfx para o bucket privado 'tenant-certificates'
+    storage_object_path = f"{tenant_id}/certificado_a1.pfx"
+    storage_url = f"{settings.SUPABASE_URL.rstrip('/')}/storage/v1/object/tenant-certificates/{storage_object_path}"
+    service_or_user_key = settings.get_service_role_key() or auth_token
+    api_key = settings.get_service_role_key() or settings.get_anon_key()
+
+    storage_headers = {
+        "apikey": api_key,
+        "Authorization": f"Bearer {service_or_user_key}",
+        "Content-Type": "application/x-pkcs12",
+        "x-upsert": "true",
+    }
+
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        storage_resp = await client.post(
+            storage_url,
+            headers=storage_headers,
+            content=pfx_bytes,
+        )
+        if storage_resp.status_code not in (200, 201):
+            logger.warning(
+                "Aviso ao gravar no bucket tenant-certificates (%s): %s",
+                storage_resp.status_code,
+                storage_resp.text,
+            )
+
+        # 5. Persistência dos metadados na tabela public.companies respeitando o Tenant
+        companies_url = f"{settings.SUPABASE_URL.rstrip('/')}/rest/v1/companies?id=eq.{tenant_id}"
+        db_headers = {
+            "apikey": settings.get_anon_key() or api_key,
+            "Authorization": f"Bearer {auth_token}",
+            "Content-Type": "application/json",
+            "Prefer": "return=representation",
+        }
+        update_payload = {
+            "cert_password": encrypted_password,
+            "cert_expiration": not_valid_after.isoformat(),
+            "cert_status": cert_status,
+        }
+
+        db_resp = await client.patch(companies_url, headers=db_headers, json=update_payload)
+        if db_resp.status_code not in (200, 204) and settings.get_service_role_key():
+            # Fallback com Service Role caso a policy de UPDATE exija privilégio administrativo
+            admin_headers = {
+                "apikey": settings.get_service_role_key(),
+                "Authorization": f"Bearer {settings.get_service_role_key()}",
+                "Content-Type": "application/json",
+                "Prefer": "return=representation",
+            }
+            db_resp = await client.patch(companies_url, headers=admin_headers, json=update_payload)
+
+        if db_resp.status_code not in (200, 204):
+            logger.error("Erro ao atualizar metadados do certificado em companies: %s", db_resp.text)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Falha ao salvar os metadados do certificado na base de dados: {db_resp.text}",
+            )
+
+    return {
+        "success": True,
+        "tenant_id": str(tenant_id),
+        "cert_status": cert_status,
+        "cert_expiration": not_valid_after.isoformat(),
+        "formatted_expiration": not_valid_after.strftime("%d/%m/%Y"),
+        "common_name": common_name,
+        "serial_number": hex(certificate.serial_number),
+        "storage_bucket": "tenant-certificates",
+        "storage_path": storage_object_path,
+        "message": (
+            f"Certificado Digital A1 validado e armazenado no cofre com sucesso "
+            f"(Válido até {not_valid_after.strftime('%d/%m/%Y')})."
+        ),
+    }

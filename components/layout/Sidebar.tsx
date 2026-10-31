@@ -30,6 +30,7 @@ import {
   X,
   Crown,
   BookOpen,
+  ShieldCheck,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -118,6 +119,7 @@ export function Sidebar({
       label: 'Configurações',
       icon: Building,
       items: [
+        { label: 'Certificado Digital A1', href: '/dashboard/configuracoes/certificado', icon: ShieldCheck },
         { label: 'Faturamento & Planos', href: '/dashboard/configuracoes/faturamento', icon: CreditCard },
         { label: 'Equipe & RBAC', href: '/dashboard/configuracoes/equipe', icon: Users },
         { label: 'Auditoria & Logs', href: '/dashboard/configuracoes/auditoria', icon: History },

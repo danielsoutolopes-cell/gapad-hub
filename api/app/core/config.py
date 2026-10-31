@@ -1,3 +1,5 @@
+import base64
+import hashlib
 from pathlib import Path
 from typing import Any, Optional
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -14,6 +16,9 @@ class Settings(BaseSettings):
     VERSION: str = "1.0.0"
     API_V1_STR: str = "/api/v1"
     DEBUG: bool = False
+
+    # Chave global de criptografia simétrica (Fernet / Cofre de Certificado Digital A1)
+    SECRET_KEY: Optional[str] = None
 
     # Evolution API (WhatsApp Gateway)
     EVOLUTION_API_URL: str = "https://whatsapp-ecostone.onrender.com"
@@ -62,6 +67,19 @@ class Settings(BaseSettings):
 
     def get_anon_key(self) -> str:
         return self.SUPABASE_ANON_KEY or self.NEXT_PUBLIC_SUPABASE_ANON_KEY or ""
+
+    def get_fernet_key(self) -> bytes:
+        """
+        Retorna uma chave Fernet de 32 bytes codificada em URL-safe Base64.
+        Deriva deterministicamente via SHA-256 a partir de SECRET_KEY (ou SUPABASE_SERVICE_ROLE_KEY como fallback).
+        """
+        raw_secret = (
+            self.SECRET_KEY
+            or self.SUPABASE_SERVICE_ROLE_KEY
+            or "gadap-hub-enterprise-vault-master-secret-key-2026"
+        )
+        digest = hashlib.sha256(raw_secret.encode("utf-8")).digest()
+        return base64.urlsafe_b64encode(digest)
 
 
 settings = Settings()

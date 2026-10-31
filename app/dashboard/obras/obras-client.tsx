@@ -654,6 +654,14 @@ export function ObrasClient() {
                       <td className="px-5 py-3.5 text-right">
                         <div className="flex items-center justify-end gap-1.5">
                           <Link
+                            href={`/dashboard/obras/${project.id}/aditivos`}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium text-sky-400 hover:text-white bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/20 transition-colors"
+                            title="Gestão de Aditivos Contratuais (Change Orders) com Cliente e Subempreiteiros"
+                          >
+                            <FileCheck2 className="w-3.5 h-3.5" />
+                            Aditivos
+                          </Link>
+                          <Link
                             href={`/dashboard/obras/${project.id}/suprimentos/transferencias`}
                             className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium text-teal-400 hover:text-white bg-teal-500/10 hover:bg-teal-500/20 border border-teal-500/20 transition-colors"
                             title="Portaria Digital: Termos de Retirada e Recebimento com GPS e Assinatura"
