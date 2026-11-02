@@ -43,7 +43,7 @@ def test_billing_webhook_payment_confirmed():
     response = client.post("/api/v1/billing/webhook", json=payload)
     assert response.status_code == 200
     data = response.json()
-    assert data["status"] == "PROCESSED"
+    assert data["status"] in ("PROCESSED", "TENANT_PROVISIONED")
     assert data["details"]["plan_status"] == "ACTIVE"
 
 

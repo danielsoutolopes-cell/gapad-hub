@@ -19,6 +19,7 @@ import {
   Check,
 } from 'lucide-react';
 import { renewCompanyBenefitAction } from '@/app/actions/billing';
+import { HelpTooltip } from '@/components/ui/tooltip';
 
 interface BillingCompany {
   id: string;
@@ -89,7 +90,11 @@ export function BillingClient({ company, userEmail }: BillingClientProps) {
           <div className="flex items-center gap-2">
             <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight flex items-center gap-3">
               <CreditCard className="w-7 h-7 text-emerald-400" />
-              Faturamento & Gestão de Assinatura (Billing)
+              <span>Faturamento & Gestão de Assinatura (Billing)</span>
+              <HelpTooltip
+                title="Regra de Faturamento & Renovação PIX"
+                content="Gere QR Code PIX ou renove seu benefício comercial PLG com confirmação instantânea via Webhook. Assim que o pagamento é conciliado, os módulos contratados do seu Tenant são desbloqueados em tempo real."
+              />
             </h1>
             {isMasterTenant && (
               <span className="px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/40 flex items-center gap-1">

@@ -24,6 +24,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+import { HelpTooltip } from '@/components/ui/tooltip';
 
 type AmendmentType = 'CLIENT_EXTRA' | 'SUBCONTRACTOR_EXTRA';
 type AmendmentStatus = 'DRAFT' | 'PENDING_SIGNATURE' | 'APPROVED' | 'REJECTED';
@@ -384,6 +385,10 @@ export default function ObraAditivosPage() {
               Gestão de Aditivos Contratuais{' '}
               {project?.name ? `— ${project.name}` : ''}
             </span>
+            <HelpTooltip
+              title="Regra de Aditivos (Change Orders)"
+              content="Aditivos CLIENT_EXTRA somam ao valor do contrato principal e geram Contas a Receber. Aditivos SUBCONTRACTOR_EXTRA recalibram o teto do contrato do empreiteiro e geram Contas a Pagar, protegendo sua margem de lucro e com Termo PDF assinado via Gov.br."
+            />
           </h1>
           <p className="text-xs sm:text-sm text-slate-400">
             Rastreie serviços extras de retrofit/reforma, atualize automaticamente o orçamento da obra

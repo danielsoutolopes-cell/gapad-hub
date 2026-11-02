@@ -216,3 +216,39 @@ export const TooltipContent = React.forwardRef<HTMLDivElement, TooltipContentPro
   }
 );
 TooltipContent.displayName = 'TooltipContent';
+
+export interface HelpTooltipProps {
+  title?: string;
+  content: string;
+  side?: 'top' | 'bottom' | 'left' | 'right';
+}
+
+/**
+ * Componente de Ajuda Contextual (?) para títulos h1/h2 (Prompt 88).
+ * Exibe um ícone (?) discreto que revela um balão explicativo da regra de negócio
+ * ao passar o mouse (hover) ou focar via teclado.
+ */
+export function HelpTooltip({ title, content, side = 'bottom' }: HelpTooltipProps) {
+  return (
+    <Tooltip delayDuration={100}>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          aria-label={title || 'Ajuda contextual da tela'}
+          className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-emerald-400 border border-slate-700 hover:border-emerald-500/40 text-[11px] font-bold transition-all cursor-help align-middle ml-1.5"
+        >
+          ?
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side={side} align="start" className="w-72 sm:w-80 text-left leading-relaxed">
+        {title && (
+          <div className="text-[11px] font-extrabold uppercase tracking-wider text-emerald-400 mb-1">
+            {title}
+          </div>
+        )}
+        <p className="text-xs text-slate-200 font-normal">{content}</p>
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+

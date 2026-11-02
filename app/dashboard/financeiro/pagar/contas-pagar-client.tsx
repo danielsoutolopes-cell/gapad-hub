@@ -25,6 +25,7 @@ import {
   Layers,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+import { HelpTooltip } from '@/components/ui/tooltip';
 
 interface FinancialEntryItem {
   id: string;
@@ -321,7 +322,11 @@ export function ContasPagarClient() {
             </div>
             <div>
               <h1 className="text-2xl font-black text-white tracking-tight flex items-center gap-2">
-                Contas a Pagar
+                <span>Contas a Pagar (Central Financeira)</span>
+                <HelpTooltip
+                  title="Regra da Central Financeira"
+                  content="Centraliza todas as obrigações geradas por Medições de Empreiteiros, Compras Diretas e Mapas de Cotação. Compras marcadas como CLIENT_REIMBURSEMENT geram automaticamente a saída aqui e o espelho de reembolso em Contas a Receber."
+                />
                 <span className="text-xs px-2.5 py-0.5 rounded-full bg-rose-500/10 text-rose-400 border border-rose-500/20 font-bold">
                   Saídas & Insumos
                 </span>
