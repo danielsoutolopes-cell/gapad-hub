@@ -243,3 +243,4 @@ export default function SupplierPublicQuotePage({ params }: PageProps) {
     </div>
   );
 }
+

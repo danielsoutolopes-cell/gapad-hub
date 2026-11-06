@@ -80,3 +80,4 @@ VALUES
     (gen_random_uuid(), 'Colher de Pedreiro Reta Canto Vivo 8 Polegadas Famastil', 'CIVIL', 'UN', 4, 12, 28.00),
     (gen_random_uuid(), 'Pá de Bico com Cabo de Madeira 120cm Tramontina', 'CIVIL', 'UN', 3, 8, 48.00)
 ON CONFLICT DO NOTHING;
+

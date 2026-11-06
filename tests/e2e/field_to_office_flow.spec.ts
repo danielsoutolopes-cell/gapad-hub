@@ -103,3 +103,4 @@ test.describe("Fluxo Ponta a Ponta: TESTE Engenharia (Canteiro ao Escritório)",
     expect(closeData.total_financial_obligation).toBeGreaterThan(0);
   });
 });
+

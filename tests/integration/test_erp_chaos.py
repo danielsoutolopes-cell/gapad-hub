@@ -132,3 +132,4 @@ def test_chaos_scenario_3_supplier_concurrency_race_condition():
         assert body["success"] is True
         assert body["supplier_link_hash"] == hash_code
         assert body["net_total"] > 0
+
