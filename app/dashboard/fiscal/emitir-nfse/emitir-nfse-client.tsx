@@ -22,7 +22,13 @@ import {
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 
-export function EmitirNfseClient() {
+export function EmitirNfseClient({
+  tenantId,
+  initialClients = [],
+}: {
+  tenantId?: string | null;
+  initialClients?: any[];
+}) {
   const router = useRouter();
   const supabase = createClient();
   const queryClient = useQueryClient();
@@ -57,16 +63,54 @@ export function EmitirNfseClient() {
     },
   });
 
-  // 2. Busca lista de Clientes
-  const { data: clients = [], isLoading: loadingClients } = useQuery({
-    queryKey: ['fiscal_form_clients'],
+  // 2. Busca lista de Clientes (com fallback robusto via API proxy e tabela clients)
+  const { data: clients = initialClients, isLoading: loadingClients } = useQuery({
+    queryKey: ['fiscal_form_clients', tenantId],
+    initialData: initialClients.length > 0 ? initialClients : undefined,
     queryFn: async () => {
-      const { data, error } = await supabase
+      // Tentativa 1: Via Endpoint de API (com headers e resolução de tenant)
+      try {
+        const apiRes = await fetch('/api/v1/clients?limit=100');
+        if (apiRes.ok) {
+          const json = await apiRes.json();
+          const items = json.items || json.clients || (Array.isArray(json) ? json : []);
+          if (Array.isArray(items) && items.length > 0) {
+            return items.map((c: any) => ({
+              id: c.id,
+              name: c.name || c.trade_name || 'Cliente Sem Nome',
+              document: c.document || c.tax_id || '',
+              phone: c.phone || '',
+              email: c.email || '',
+            }));
+          }
+        }
+      } catch (err) {
+        console.warn('Fallback para query direta do Supabase client:', err);
+      }
+
+      // Tentativa 2: Consulta direta do Supabase (com document em vez do inexistente tax_id)
+      let query = supabase
         .from('clients')
-        .select('id, name, tax_id, phone, email')
+        .select('id, name, trade_name, document, phone, email')
         .order('name');
-      if (error) throw error;
-      return data || [];
+
+      if (tenantId) {
+        query = query.eq('tenant_id', tenantId);
+      }
+
+      const { data, error } = await query;
+      if (error) {
+        console.error('Erro ao buscar clientes via Supabase:', error);
+        throw error;
+      }
+
+      return (data || []).map((c: any) => ({
+        id: c.id,
+        name: c.name || c.trade_name || 'Cliente Sem Nome',
+        document: c.document || '',
+        phone: c.phone || '',
+        email: c.email || '',
+      }));
     },
   });
 
@@ -244,20 +288,34 @@ export function EmitirNfseClient() {
 
               {/* Cliente */}
               <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1.5">
-                  Cliente / Tomador do Serviço *
+                <label className="block text-xs font-medium text-slate-300 mb-1.5 flex items-center justify-between">
+                  <span>Cliente / Tomador do Serviço *</span>
+                  {loadingClients && (
+                    <span className="text-[10px] text-teal-400 flex items-center gap-1 font-normal">
+                      <Loader2 className="w-3 h-3 animate-spin" /> Buscando...
+                    </span>
+                  )}
                 </label>
                 <select
                   value={clientId}
                   onChange={(e) => setClientId(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-teal-500"
+                  disabled={loadingClients}
+                  className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-teal-500 disabled:opacity-50"
                 >
-                  <option value="">Selecione o Cliente...</option>
-                  {clients.map((c: any) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name} {c.tax_id ? `(${c.tax_id})` : ''}
-                    </option>
-                  ))}
+                  {loadingClients ? (
+                    <option value="">Carregando clientes...</option>
+                  ) : clients.length === 0 ? (
+                    <option value="">Nenhum cliente cadastrado</option>
+                  ) : (
+                    <>
+                      <option value="">Selecione o Cliente...</option>
+                      {clients.map((c: any) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name} {c.document ? `(${c.document})` : ''}
+                        </option>
+                      ))}
+                    </>
+                  )}
                 </select>
               </div>
 

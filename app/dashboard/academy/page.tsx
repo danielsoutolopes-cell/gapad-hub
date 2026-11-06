@@ -13,12 +13,77 @@ import {
   ArrowRight,
   CheckCircle2,
   Sparkles,
+  Smartphone,
+  Users2,
+  ShoppingCart,
+  ShieldCheck,
+  Building,
 } from 'lucide-react';
 import { AcademyClient } from './academy-client';
 
 export const dynamic = 'force-dynamic';
 
 const NEW_BIBLE_MODULES = [
+  {
+    id: 'pwa-field-app',
+    badge: 'Módulo de Campo • PWA Offline-First',
+    title: 'PWA - Field App & Apontamento no Canteiro',
+    description:
+      'Capacite mestres de obras e encarregados a registrar presença de operários com Geofencing GPS (cerca virtual de 300m), Diário de Obras com upload de fotos e envio de requisições de compra com reconhecimento de voz e texto NLP.',
+    highlights: [
+      'Validação de ponto com tolerância GPS (Haversine) e resiliência RFC 7807',
+      'Diário de obra sincronizado com a galeria de transparência do cliente',
+      'Envio de requisições direto do canteiro sem necessidade de catálogo impresso',
+    ],
+    href: '/dashboard/obras',
+    ctaLabel: 'Ver Obras & Diário',
+    icon: Smartphone,
+  },
+  {
+    id: 'motor-folha-esocial',
+    badge: 'RH & Departamento Pessoal • eSocial',
+    title: 'Motor de Folha Avançado & eSocial',
+    description:
+      'Geração de holerites completos CLT com alíquotas progressivas de INSS e IRRF, dedução de dependentes, matrícula sequencial por tenant para o eSocial e fechamento atômico integrado ao Contas a Pagar (Salários, DARF e FGTS Digital).',
+    highlights: [
+      'Cálculo progressivo automático de INSS/IRRF deduzindo dependentes',
+      'Matrícula sequencial do trabalhador (0001, 0002) para integração eSocial',
+      'Fechamento atômico com rollback caso ocorra falha na emissão da DARF',
+    ],
+    href: '/dashboard/rh',
+    ctaLabel: 'Abrir Painel de RH',
+    icon: Users2,
+  },
+  {
+    id: 'smart-procurement-completo',
+    badge: 'Suprimentos & Procurement Inteligente',
+    title: 'Smart Procurement & Portal do Fornecedor',
+    description:
+      'Fluxo de ponta a ponta desde a requisição em texto livre reconhecendo 50 itens mestre até o Mapa de Cotação Dinâmico considerando Frete (+) e Descontos (-), com geração de links públicos para fornecedores responderem sem login.',
+    highlights: [
+      'Catálogo mestre pré-populado com os 50 insumos e ferramentas mais comuns',
+      'Links externos dinâmicos de cotação para lojas e distribuidores preencherem',
+      'Matriz de cotação com recálculo automático de Desconto (-) e Frete (+)',
+    ],
+    href: '/dashboard/suprimentos',
+    ctaLabel: 'Acessar Suprimentos & Cotações',
+    icon: ShoppingCart,
+  },
+  {
+    id: 'portal-transparencia-cliente',
+    badge: 'Portal Premium • Transparência',
+    title: 'Portal do Cliente & Assinatura Gov.br',
+    description:
+      'Ambiente exclusivo view-only com a identidade visual White-Label da construtora para o cliente final acompanhar a Curva S da obra, galeria de fotos do diário e aprovação de aditivos pendentes com assinatura Gov.br.',
+    highlights: [
+      'Visão isolada com restrição de permissão role CLIENT e White-Label',
+      'Acompanhamento do avanço Físico-Financeiro (Curva S) em tempo real',
+      'Assinatura digital de termos aditivos de escopo com carimbo eletrônico',
+    ],
+    href: '/portal-cliente',
+    ctaLabel: 'Visualizar Portal do Cliente',
+    icon: ShieldCheck,
+  },
   {
     id: 'aditivos',
     badge: 'Fase 19 • Contratos B2B',
@@ -49,49 +114,33 @@ const NEW_BIBLE_MODULES = [
     ctaLabel: 'Acessar Logística & Suprimentos',
     icon: Truck,
   },
-  {
-    id: 'smart-procurement',
-    badge: 'Fase 20 • IA & Engenharia de Custos',
-    title: 'Smart Procurement (OCR, IA e Categorização Curva ABC)',
-    description:
-      'Extraia cotações de PDFs, fotos e mensagens de WhatsApp com trava obrigatória Human-in-the-Loop (nenhum dado é gravado sem revisão humana). Agrupe insumos automaticamente por família (ELÉTRICA, HIDRÁULICA, REVESTIMENTOS, ESTRUTURAL) na Curva ABC.',
-    highlights: [
-      'Trava Human-in-the-Loop (HITL) com revisão de preços e categoria deduzida',
-      'Mapas Sequenciais por Obra (MAPA-001-LORENA) e Contas a Pagar Duplo',
-      'PDF executivo agrupado com subtotais por família e Gráfico Curva ABC',
-    ],
-    href: '/dashboard/suprimentos',
-    ctaLabel: 'Abrir Smart Procurement',
-    icon: BrainCircuit,
-  },
-  {
-    id: 'faturamento-pix',
-    badge: 'Fase 20 • Billing & Fiscal',
-    title: 'Faturamento e Renovação PIX',
-    description:
-      'Gerencie sua assinatura SaaS, renove benefícios comerciais PLG/Founder e liquide faturas via QR Code PIX dinâmico com liberação imediata de módulos por Webhook, além da emissão de NF-e/NFS-e com Certificado A1.',
-    highlights: [
-      'Checkout instantâneo via QR Code PIX e Copia-e-Cola (Asaas/Stripe)',
-      'Desbloqueio automático de módulos via Webhook sem espera',
-      'Renovação de benefício comercial de 50% e histórico de faturas',
-    ],
-    href: '/dashboard/configuracoes/faturamento',
-    ctaLabel: 'Ir para Faturamento & PIX',
-    icon: QrCode,
-  },
 ];
 
 const QUICK_FAQS = [
   {
+    question: 'Como aprovar o ponto do canteiro no ERP?',
+    answer:
+      'No menu RH > Ponto do Canteiro, o gestor visualiza os batimentos enviados pelo PWA Mobile. O sistema destaca com alerta visual os registros que ocorreram fora do raio de 300m da obra (Geofence Alert). Basta conferir a justificativa ou aceitar os registros válidos clicando em "Aprovar Ponto da Equipe". As horas são transferidas para o cálculo da folha mensal.',
+  },
+  {
+    question: 'Como funciona o Fechamento de Folha de Pagamento?',
+    answer:
+      'Ao finalizar o mês em RH > Folha de Pagamento, clique em "Calcular Folha". O motor aplica as alíquotas vigentes do INSS e IRRF progressivo, subtrai os dependentes legais e gera o holerite. Ao clicar em "Fechar Folha", uma transação atômica cria automaticamente no Contas a Pagar os títulos dos Salários Líquidos, DARF Previdenciário (INSS+IRRF) e FGTS Digital. Se houver qualquer falha na integração bancária, o sistema executa rollback mantendo a integridade.',
+  },
+  {
+    question: 'Como enviar e gerenciar o Portal do Fornecedor?',
+    answer:
+      'Na tela de Suprimentos > Nova Requisição, digite os insumos desejados ou cole o pedido do encarregado. O sistema cruza os itens com o catálogo de 50 insumos mestre e gera um Link Público de Cotação (RFQ Dinâmica). Você pode copiar o link ou enviar por WhatsApp para a loja. O fornecedor preenche preços, frete e descontos diretamente no formulário web, alimentando em tempo real o seu Mapa Comparativo.',
+  },
+  {
+    question: 'Como o cliente acessa o Portal de Transparência?',
+    answer:
+      'O cliente final recebe um convite com a role "CLIENT". Ele tem acesso a um portal dedicado e restrito (fora do backoffice administrativo) em /portal-cliente, onde pode verificar a Curva S do cronograma, navegar pelas fotos do Diário de Obra e assinar termos aditivos com validade jurídica via Gov.br.',
+  },
+  {
     question: 'Como aprovar uma cotação gerada pela Inteligência Artificial?',
     answer:
       'Por segurança (premissa Human-in-the-Loop), a Inteligência Artificial nunca grava valores diretamente no banco de dados. Na tela de Smart Procurement (Matriz de Cotação), faça o upload do PDF/Foto ou cole o texto do WhatsApp e clique em "Ler com IA (Revisão HITL)". O sistema abrirá o Modal Obrigatório de Revisão Humana exibindo os preços extraídos e a Categoria deduzida pela IA (ex.: ELÉTRICA ou REVESTIMENTOS) em estado de rascunho (Draft). Confira ou edite os valores, valide a categoria e clique em "Confirmar e Injetar na Matriz". Por fim, marque a cotação com o Selo de Recomendação e clique em "Aprovar Cotação Vencedora".',
-  },
-  {
-    question:
-      'Como gerar um termo de recebimento de material para transportadoras (Lalamove/Uber)?',
-    answer:
-      'Ao receber insumos ou equipamentos no canteiro via Lalamove, Uber Flash ou transportadora tradicional, acesse a Portaria Digital / Transferências da Obra (ou a aba de Compras Diretas em Suprimentos). Selecione a entrega correspondente, confira os itens físicos, anexe a foto do material/recibo descarregado e clique em "Gerar Termo de Logística / Recebimento (PDF)". O documento é emitido na hora com identificação do entregador, horário e responsável pelo recebimento no canteiro.',
   },
 ];
 

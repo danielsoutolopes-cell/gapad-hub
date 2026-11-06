@@ -156,3 +156,96 @@ def get_current_superadmin(
             detail=f"Token de autorização inválido ou expirado: {str(exc)}",
         ) from exc
 
+
+def get_current_client_portal_user(
+    credentials: HTTPAuthorizationCredentials = Depends(security_scheme),
+) -> Dict[str, Any]:
+    """
+    Middleware/Dependência de segurança (Prompt 93).
+    Valida e aceita estritamente JWTs com a role 'CLIENT' vinculada ao tenant_id e client_id.
+    Retorna o dicionário de contexto contendo tenant_id, client_id, user_id e token.
+    """
+    token = credentials.credentials
+    try:
+        payload: Dict[str, Any] = jwt.decode(
+            token,
+            options={"verify_signature": False},
+        )
+
+        role = (
+            payload.get("app_metadata", {}).get("role")
+            or payload.get("user_metadata", {}).get("role")
+            or payload.get("role")
+        )
+
+        tenant_id_raw = (
+            payload.get("app_metadata", {}).get("tenant_id")
+            or payload.get("user_metadata", {}).get("tenant_id")
+            or payload.get("tenant_id")
+        )
+
+        client_id_raw = (
+            payload.get("app_metadata", {}).get("client_id")
+            or payload.get("user_metadata", {}).get("client_id")
+            or payload.get("client_id")
+        )
+
+        user_id = payload.get("sub")
+        email = payload.get("email")
+
+        # Fallback para consulta em public.users
+        if (not role or not client_id_raw or not tenant_id_raw) and user_id:
+            from app.core.config import settings
+            import httpx
+            if settings.SUPABASE_SERVICE_ROLE_KEY and settings.SUPABASE_URL:
+                try:
+                    resp = httpx.get(
+                        f"{settings.SUPABASE_URL.rstrip('/')}/rest/v1/users?auth_user_id=eq.{user_id}&select=role,tenant_id,client_id",
+                        headers={
+                            "apikey": settings.SUPABASE_SERVICE_ROLE_KEY,
+                            "Authorization": f"Bearer {settings.SUPABASE_SERVICE_ROLE_KEY}",
+                        },
+                        timeout=5.0,
+                    )
+                    if resp.status_code == 200:
+                        rows = resp.json()
+                        if rows:
+                            row = rows[0]
+                            if not role: role = row.get("role")
+                            if not tenant_id_raw: tenant_id_raw = row.get("tenant_id")
+                            if not client_id_raw: client_id_raw = row.get("client_id")
+                except Exception as check_exc:
+                    logger.warning("Falha ao checar client_portal user no banco: %s", check_exc)
+
+        # Validação mandatória da role CLIENT
+        if str(role).upper() != "CLIENT":
+            logger.warning("Acesso negado ao portal do cliente: role='%s' para user '%s'", role, user_id)
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Acesso Proibido: Este portal é restrito a clientes autenticados (role CLIENT).",
+            )
+
+        if not tenant_id_raw:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Acesso Proibido: Usuário sem tenant_id da construtora associado.",
+            )
+
+        return {
+            "user_id": user_id,
+            "email": email,
+            "role": "CLIENT",
+            "tenant_id": UUID(str(tenant_id_raw)),
+            "client_id": UUID(str(client_id_raw)) if client_id_raw else None,
+            "token": token,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error("Falha ao validar token do Portal do Cliente: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"Token inválido ou expirado: {exc}",
+        ) from exc
+

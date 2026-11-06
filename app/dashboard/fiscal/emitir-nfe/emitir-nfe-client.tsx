@@ -21,7 +21,13 @@ import {
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 
-export function EmitirNfeClient() {
+export function EmitirNfeClient({
+  tenantId,
+  initialClients = [],
+}: {
+  tenantId?: string | null;
+  initialClients?: any[];
+}) {
   const router = useRouter();
   const supabase = createClient();
   const queryClient = useQueryClient();
@@ -40,7 +46,7 @@ export function EmitirNfeClient() {
   const [successModalData, setSuccessModalData] = useState<any | null>(null);
 
   // Busca lista de Obras
-  const { data: projects = [] } = useQuery({
+  const { data: projects = [], isLoading: loadingProjects } = useQuery({
     queryKey: ['nfe_form_projects'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -53,15 +59,44 @@ export function EmitirNfeClient() {
   });
 
   // Busca lista de Fornecedores / Clientes
-  const { data: clients = [] } = useQuery({
-    queryKey: ['nfe_form_clients'],
+  const { data: clients = initialClients, isLoading: loadingClients } = useQuery({
+    queryKey: ['nfe_form_clients', tenantId],
+    initialData: initialClients.length > 0 ? initialClients : undefined,
     queryFn: async () => {
-      const { data, error } = await supabase
+      // Tentativa 1: Endpoint de API
+      try {
+        const apiRes = await fetch('/api/v1/clients?limit=100');
+        if (apiRes.ok) {
+          const json = await apiRes.json();
+          const items = json.items || json.clients || (Array.isArray(json) ? json : []);
+          if (Array.isArray(items) && items.length > 0) {
+            return items.map((c: any) => ({
+              id: c.id,
+              name: c.name || c.trade_name || 'Cliente Sem Nome',
+              document: c.document || c.tax_id || '',
+            }));
+          }
+        }
+      } catch (e) {
+        console.warn('Fallback nfe clients query:', e);
+      }
+
+      let query = supabase
         .from('clients')
-        .select('id, name, tax_id')
+        .select('id, name, trade_name, document')
         .order('name');
+
+      if (tenantId) {
+        query = query.eq('tenant_id', tenantId);
+      }
+
+      const { data, error } = await query;
       if (error) throw error;
-      return data || [];
+      return (data || []).map((c: any) => ({
+        id: c.id,
+        name: c.name || c.trade_name || 'Cliente Sem Nome',
+        document: c.document || '',
+      }));
     },
   });
 
@@ -107,7 +142,7 @@ export function EmitirNfeClient() {
           status: 'autorizada',
           provider_cnpj: '12345678000199',
           provider_city_ibge: '3509502',
-          taker_document: selectedClient?.tax_id || '00000000000191',
+          taker_document: selectedClient?.document || (selectedClient as any)?.tax_id || '00000000000191',
           taker_name: selectedClient?.name || supplierName || 'Destinatário de Materiais',
           construction_city_ibge: '3509502',
           service_code_lc116: '00.00',
@@ -142,7 +177,7 @@ export function EmitirNfeClient() {
             project_id: projectId || null,
             document_number: String(invoiceNumber),
             supplier_name: selectedClient?.name || supplierName || 'Fornecedor de Insumos',
-            supplier_cnpj: selectedClient?.tax_id || '12345678000199',
+            supplier_cnpj: selectedClient?.document || (selectedClient as any)?.tax_id || '12345678000199',
             invoice_date: new Date().toISOString().split('T')[0],
             material_gross_amount: grossAmount,
             cbs_credit_rate: cbsRate,
@@ -238,20 +273,34 @@ export function EmitirNfeClient() {
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1.5">
-                  Destinatário / Tomador
+                <label className="block text-xs font-medium text-slate-300 mb-1.5 flex items-center justify-between">
+                  <span>Destinatário / Tomador</span>
+                  {loadingClients && (
+                    <span className="text-[10px] text-sky-400 flex items-center gap-1 font-normal">
+                      <Loader2 className="w-3 h-3 animate-spin" /> Buscando...
+                    </span>
+                  )}
                 </label>
                 <select
                   value={clientId}
                   onChange={(e) => setClientId(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-sky-500"
+                  disabled={loadingClients}
+                  className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-sky-500 disabled:opacity-50"
                 >
-                  <option value="">Selecione o Cliente / Destinatário...</option>
-                  {clients.map((c: any) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name} {c.tax_id ? `(${c.tax_id})` : ''}
-                    </option>
-                  ))}
+                  {loadingClients ? (
+                    <option value="">Carregando clientes...</option>
+                  ) : clients.length === 0 ? (
+                    <option value="">Nenhum cliente cadastrado</option>
+                  ) : (
+                    <>
+                      <option value="">Selecione o Cliente / Destinatário...</option>
+                      {clients.map((c: any) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name} {c.document ? `(${c.document})` : ''}
+                        </option>
+                      ))}
+                    </>
+                  )}
                 </select>
               </div>
             </div>

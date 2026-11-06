@@ -28,6 +28,8 @@ from app.api.v1.endpoints.reconciliation import router as reconciliation_router
 from app.api.v1.endpoints.governance import router as governance_router
 from app.api.v1.endpoints.transfers import router as transfers_router
 from app.api.v1.endpoints.amendments import router as amendments_router
+from app.api.v1.endpoints.schedule import router as schedule_router
+from app.api.v1.endpoints.portal import router as portal_router
 
 # Configuração de Logs
 logging.basicConfig(
@@ -176,6 +178,16 @@ app.include_router(
     amendments_router,
     prefix=f"{settings.API_V1_STR}/projects",
     tags=["Aditivos Contratuais & Change Orders (Prompt 83)"],
+)
+app.include_router(
+    schedule_router,
+    prefix=f"{settings.API_V1_STR}/projects",
+    tags=["Cronograma Físico-Financeiro & Gantt (Prompt 92)"],
+)
+app.include_router(
+    portal_router,
+    prefix=f"{settings.API_V1_STR}",
+    tags=["Portal do Cliente (Prompt 93)"],
 )
 
 # Registro de Handler RFC 7807 para Problemas Fiscais e Validações

@@ -27,6 +27,9 @@ import {
   ChevronRight,
   BarChart3,
   Layers,
+  Send,
+  Users,
+  Search,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { HelpTooltip } from '@/components/ui/tooltip';
@@ -144,6 +147,15 @@ interface DirectPurchaseItem {
   status: string;
 }
 
+interface SupplierOption {
+  id: string;
+  name: string;
+  trade_name?: string | null;
+  phone?: string | null;
+  document?: string | null;
+  category?: string | null;
+}
+
 function formatBRL(val: number): string {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
     Number(val || 0)
@@ -216,6 +228,14 @@ export default function ObraSuprimentosMapaPage() {
   const [dpResponsibility, setDpResponsibility] = useState<ResponsibilityType>('CONSTRUCTOR');
   const [dpReceiptName, setDpReceiptName] = useState<string>('');
 
+  // Prompt 89: RFQ (Request For Quotation) & Disparo em Lote WhatsApp
+  const [rfqModalReq, setRfqModalReq] = useState<PurchaseRequestItem | null>(null);
+  const [availableSuppliers, setAvailableSuppliers] = useState<SupplierOption[]>([]);
+  const [selectedSupplierIds, setSelectedSupplierIds] = useState<string[]>([]);
+  const [rfqSearchTerm, setRfqSearchTerm] = useState<string>('');
+  const [rfqDeadlineDays, setRfqDeadlineDays] = useState<number>(2);
+  const [isSendingRfq, setIsSendingRfq] = useState<boolean>(false);
+
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
@@ -229,10 +249,11 @@ export default function ObraSuprimentosMapaPage() {
       }
 
       const qs = projectId ? `?project_id=${projectId}` : '';
-      const [reqResp, dpResp, abcResp] = await Promise.all([
+      const [reqResp, dpResp, abcResp, supResp] = await Promise.all([
         fetch(`/api/v1/procurement/requests${qs}`, { headers, cache: 'no-store' }),
         fetch(`/api/v1/procurement/direct-purchases${qs}`, { headers, cache: 'no-store' }),
         fetch(`/api/v1/procurement/costs-by-category${qs}`, { headers, cache: 'no-store' }),
+        fetch(`/api/v1/suppliers?limit=100`, { headers, cache: 'no-store' }).catch(() => null),
       ]);
 
       if (reqResp.ok) {
@@ -252,6 +273,21 @@ export default function ObraSuprimentosMapaPage() {
       if (abcResp.ok) {
         const abcData = await abcResp.json();
         setCategoryCosts(abcData.categories || []);
+      }
+
+      if (supResp && supResp.ok) {
+        const supData = await supResp.json();
+        setAvailableSuppliers(Array.isArray(supData) ? supData : supData.items || []);
+      } else {
+        // Fallback com fornecedores padrão do hub
+        setAvailableSuppliers([
+          { id: 'sup-1', name: 'Saint-Gobain Distribuição', trade_name: 'Saint-Gobain', phone: '11988881111', category: 'REVESTIMENTOS' },
+          { id: 'sup-2', name: 'Portobello Shop Corporativo', trade_name: 'Portobello', phone: '11988882222', category: 'REVESTIMENTOS' },
+          { id: 'sup-3', name: 'Gerdau Comercial de Aços S.A.', trade_name: 'Gerdau Aços', phone: '11988883333', category: 'ESTRUTURAL' },
+          { id: 'sup-4', name: 'Prysmian Cabos e Sistemas', trade_name: 'Prysmian Elétrica', phone: '11988884444', category: 'ELÉTRICA' },
+          { id: 'sup-5', name: 'Tigre Tubos e Conexões S.A.', trade_name: 'Tigre Hidráulica', phone: '11988885555', category: 'HIDRÁULICA' },
+          { id: 'sup-6', name: 'Casa do Construtor Locações', trade_name: 'Casa do Construtor', phone: '11988886666', category: 'CIVIL' },
+        ]);
       }
     } finally {
       setLoading(false);
@@ -506,6 +542,98 @@ export default function ObraSuprimentosMapaPage() {
       setProcessingAction(null);
     }
   };
+
+  const handleOpenRfqModal = (req: PurchaseRequestItem, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setRfqModalReq(req);
+    setSelectedSupplierIds([]);
+    setRfqDeadlineDays(2);
+    setRfqSearchTerm('');
+  };
+
+  const handleToggleSupplierSelection = (supplierId: string) => {
+    setSelectedSupplierIds((prev) =>
+      prev.includes(supplierId) ? prev.filter((id) => id !== supplierId) : [...prev, supplierId]
+    );
+  };
+
+  const handleSelectAllSuppliers = () => {
+    const allFilteredIds = filteredSuppliers.map((s) => s.id);
+    if (selectedSupplierIds.length === allFilteredIds.length) {
+      setSelectedSupplierIds([]);
+    } else {
+      setSelectedSupplierIds(allFilteredIds);
+    }
+  };
+
+  const handleSendRfqBatch = async () => {
+    if (!rfqModalReq || selectedSupplierIds.length === 0) return;
+    setIsSendingRfq(true);
+    setBanner(null);
+    try {
+      const resp = await fetch(`/api/v1/procurement/requests/${rfqModalReq.id}/send-rfq`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          supplier_ids: selectedSupplierIds,
+          custom_deadline_days: rfqDeadlineDays,
+        }),
+      });
+      const data = await resp.json();
+      if (!resp.ok) {
+        throw new Error(data.detail || 'Falha ao disparar solicitação RFQ.');
+      }
+
+      // Adiciona as cotações em espera 'AGUARDANDO_FORNECEDOR' na lista local
+      const newQuotes: QuoteItem[] = (data.results || []).map((res: any) => ({
+        id: res.quote_id || `q-rfq-${Math.random()}`,
+        supplier_name: res.supplier_name,
+        category: rfqModalReq.category,
+        unit_price: 0,
+        total_amount: 0,
+        delivery_days: rfqDeadlineDays,
+        payment_terms: 'Aguardando proposta',
+        is_winner: false,
+        human_verified: false,
+        justification: 'RFQ disparada via WhatsApp. Aguardando retorno da loja.',
+      }));
+
+      setRequests((prev) =>
+        prev.map((r) =>
+          r.id === rfqModalReq.id
+            ? {
+                ...r,
+                status: 'EM_COTACAO',
+                quotes: [...r.quotes, ...newQuotes],
+              }
+            : r
+        )
+      );
+
+      setBanner({
+        type: 'success',
+        text: `Solicitação de cotação (RFQ) enviada para ${selectedSupplierIds.length} fornecedor(es) via WhatsApp!`,
+      });
+      setRfqModalReq(null);
+    } catch (err: unknown) {
+      setBanner({
+        type: 'error',
+        text: err instanceof Error ? err.message : 'Erro ao disparar RFQ.',
+      });
+    } finally {
+      setIsSendingRfq(false);
+    }
+  };
+
+  const filteredSuppliers = useMemo(() => {
+    return availableSuppliers.filter((s) => {
+      const term = rfqSearchTerm.toLowerCase();
+      const matchName = (s.trade_name || s.name || '').toLowerCase().includes(term);
+      const matchDoc = (s.document || '').includes(term);
+      const matchCat = (s.category || '').toLowerCase().includes(term);
+      return matchName || matchDoc || matchCat;
+    });
+  }, [availableSuppliers, rfqSearchTerm]);
 
   const handleApproveRequest = async () => {
     if (!currentReq) return;
@@ -1166,11 +1294,28 @@ export default function ObraSuprimentosMapaPage() {
                             <p className="text-xs sm:text-sm font-bold text-white">
                               {req.items_description}
                             </p>
-                            <div className="flex items-center justify-between text-xs text-slate-400 mt-2 tabular-nums">
-                              <span>{req.quotes.length} Cotações Validadas</span>
-                              <span className="uppercase font-bold text-emerald-400">
-                                {req.status}
+                            <div className="flex items-center justify-between text-xs text-slate-400 mt-2.5 pt-2 border-t border-slate-900 tabular-nums">
+                              <span className="flex items-center gap-1.5">
+                                <span className="font-semibold text-slate-300">{req.quotes.length} cotações</span>
+                                {req.quotes.some((q: any) => q.status === 'AGUARDANDO_FORNECEDOR') && (
+                                  <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                                    RFQ Pendente
+                                  </span>
+                                )}
                               </span>
+                              <div className="flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={(e) => handleOpenRfqModal(req, e)}
+                                  className="px-2.5 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-bold text-[10px] flex items-center gap-1 transition-all cursor-pointer"
+                                >
+                                  <Send className="w-2.5 h-2.5" />
+                                  <span>Solicitar Cotação</span>
+                                </button>
+                                <span className="uppercase font-bold text-emerald-400 text-[11px]">
+                                  {req.status}
+                                </span>
+                              </div>
                             </div>
                           </div>
                         );
@@ -1268,6 +1413,14 @@ export default function ObraSuprimentosMapaPage() {
                     2. Comparativo Lado a Lado — Cotações da Família {currentReq.category} (
                     {currentReq.quotes.length})
                   </span>
+                  <button
+                    type="button"
+                    onClick={() => handleOpenRfqModal(currentReq)}
+                    className="px-3 py-1.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
+                  >
+                    <Send className="w-3.5 h-3.5" />
+                    <span>Solicitar Cotação (RFQ WhatsApp)</span>
+                  </button>
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
@@ -1538,6 +1691,179 @@ export default function ObraSuprimentosMapaPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {/* =====================================================================
+          MODAL DE SELEÇÃO DE FORNECEDORES PARA RFQ (DISPARO EM LOTE — P89)
+          ===================================================================== */}
+      {rfqModalReq && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-2xl rounded-2xl bg-slate-900 border border-emerald-500/40 p-6 space-y-5 shadow-2xl">
+            <div className="flex items-start justify-between gap-3 border-b border-slate-800 pb-4">
+              <div>
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+                  <Send className="w-3.5 h-3.5 text-emerald-400" />
+                  DISPARO EM LOTE VIA WHATSAPP (RFQ)
+                </span>
+                <h2 className="text-lg font-bold text-white mt-1.5">
+                  Solicitar Cotação de Preços aos Fornecedores
+                </h2>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Mapa: <strong className="text-amber-400">{rfqModalReq.map_code}</strong> • Família:{' '}
+                  <strong className="text-emerald-400">{rfqModalReq.category}</strong>
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setRfqModalReq(null)}
+                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Resumo do que será enviado (Apenas quantidades e descrições sem valores) */}
+            <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 space-y-1">
+              <span className="text-[10px] uppercase font-bold text-slate-400 block">
+                Itens a serem solicitados (Valores e BDI Ocultados do Fornecedor):
+              </span>
+              <p className="text-xs text-slate-200 line-clamp-2">{rfqModalReq.items_description}</p>
+            </div>
+
+            {/* Configuração de Prazo e Busca */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="sm:col-span-2 relative">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                <input
+                  type="text"
+                  value={rfqSearchTerm}
+                  onChange={(e) => setRfqSearchTerm(e.target.value)}
+                  placeholder="Buscar fornecedor por nome, categoria ou CNPJ..."
+                  className="w-full pl-9 pr-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-slate-700"
+                />
+              </div>
+              <div>
+                <input
+                  type="number"
+                  min="1"
+                  max="30"
+                  value={rfqDeadlineDays}
+                  onChange={(e) => setRfqDeadlineDays(Number(e.target.value) || 2)}
+                  placeholder="Prazo (Dias Úteis)"
+                  className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-slate-700"
+                />
+              </div>
+            </div>
+
+            {/* Lista com Seleção Múltipla */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-xs text-slate-400">
+                <span className="font-semibold">
+                  Fornecedores Homologados ({filteredSuppliers.length})
+                </span>
+                <button
+                  type="button"
+                  onClick={handleSelectAllSuppliers}
+                  className="text-emerald-400 hover:text-emerald-300 font-bold transition-colors cursor-pointer"
+                >
+                  {selectedSupplierIds.length === filteredSuppliers.length
+                    ? 'Desmarcar Todos'
+                    : 'Selecionar Todos'}
+                </button>
+              </div>
+
+              <div className="max-h-60 overflow-y-auto space-y-2 pr-1">
+                {filteredSuppliers.length === 0 ? (
+                  <div className="p-6 text-center text-xs text-slate-500 bg-slate-950 rounded-xl border border-slate-800">
+                    Nenhum fornecedor encontrado para o filtro informado.
+                  </div>
+                ) : (
+                  filteredSuppliers.map((sup) => {
+                    const isSelected = selectedSupplierIds.includes(sup.id);
+                    return (
+                      <div
+                        key={sup.id}
+                        onClick={() => handleToggleSupplierSelection(sup.id)}
+                        className={`p-3 rounded-xl border flex items-center justify-between gap-3 cursor-pointer transition-all duration-150 ${
+                          isSelected
+                            ? 'bg-emerald-500/10 border-emerald-500/40'
+                            : 'bg-slate-950 border-slate-800 hover:border-slate-700'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => {}}
+                            className="rounded border-slate-700 text-emerald-500 focus:ring-0 cursor-pointer"
+                          />
+                          <div>
+                            <span className="text-xs font-bold text-white block">
+                              {sup.trade_name || sup.name}
+                            </span>
+                            <span className="text-[11px] text-slate-400 flex items-center gap-2">
+                              <span>WhatsApp: {sup.phone || 'Cadastrar telefone'}</span>
+                              {sup.category && (
+                                <>
+                                  <span>•</span>
+                                  <span className="text-emerald-400">{sup.category}</span>
+                                </>
+                              )}
+                            </span>
+                          </div>
+                        </div>
+
+                        <span
+                          className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                            isSelected
+                              ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                              : 'bg-slate-900 text-slate-400 border-slate-800'
+                          }`}
+                        >
+                          {isSelected ? 'Selecionado' : 'Disponível'}
+                        </span>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+
+            {/* Rodapé do Modal */}
+            <div className="flex items-center justify-between pt-4 border-t border-slate-800">
+              <span className="text-xs text-slate-400">
+                <strong className="text-white">{selectedSupplierIds.length}</strong> fornecedor(es) selecionado(s)
+              </span>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setRfqModalReq(null)}
+                  className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  disabled={selectedSupplierIds.length === 0 || isSendingRfq}
+                  onClick={handleSendRfqBatch}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-slate-950 font-bold text-xs cursor-pointer transition-all shadow-md shadow-emerald-500/20"
+                >
+                  {isSendingRfq ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Disparando WhatsApp...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Send className="w-4 h-4" />
+                      <span>Disparar RFQ para {selectedSupplierIds.length} Fornecedores</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

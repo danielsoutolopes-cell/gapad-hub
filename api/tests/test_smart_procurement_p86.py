@@ -110,3 +110,26 @@ def test_quotation_map_pdf_groups_by_category_and_subtotals_p87():
     assert resp.content.startswith(b"%PDF")
 
 
+def test_send_rfq_batch_whatsapp_creates_stubs_and_sets_in_quotation_p89():
+    req_id = "a1111111-1111-1111-1111-111111111111"
+    payload = {
+        "supplier_ids": [
+            "550e8400-e29b-41d4-a716-446655440001",
+            "550e8400-e29b-41d4-a716-446655440002",
+        ],
+        "custom_deadline_days": 3,
+        "urgency_notes": "Prioridade para entrega na próxima segunda-feira",
+    }
+    resp = client.post(f"/api/v1/procurement/requests/{req_id}/send-rfq", json=payload)
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["success"] is True
+    assert data["dispatched_count"] >= 1
+    assert data["total_suppliers_requested"] == 2
+    assert len(data["results"]) == 2
+    first_result = data["results"][0]
+    assert first_result["status"] == "AGUARDANDO_FORNECEDOR"
+    assert "quote_id" in first_result
+
+
+

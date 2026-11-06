@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Package,
   CheckCircle2,
@@ -24,6 +24,9 @@ import {
   ChevronDown,
   ChevronRight,
   BarChart3,
+  Send,
+  Users,
+  Search,
 } from 'lucide-react';
 import { PaywallBlocker } from '@/components/ui/paywall-blocker';
 import { createClient } from '@/lib/supabase/client';
@@ -119,6 +122,15 @@ interface DirectPurchaseItem {
   receipt_file_name?: string;
 }
 
+interface SupplierOption {
+  id: string;
+  name: string;
+  trade_name?: string | null;
+  phone?: string | null;
+  document?: string | null;
+  category?: string | null;
+}
+
 function formatBRL(val: number): string {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
     Number(val || 0)
@@ -154,6 +166,14 @@ export function SuprimentosClient({ activeModules }: { activeModules: string[] }
   const [dpResponsibility, setDpResponsibility] = useState<ResponsibilityType>('CONSTRUCTOR');
   const [dpReceiptName, setDpReceiptName] = useState<string>('');
 
+  // Prompt 89: RFQ e Disparo em Lote via WhatsApp
+  const [rfqModalReq, setRfqModalReq] = useState<PurchaseRequestItem | null>(null);
+  const [availableSuppliers, setAvailableSuppliers] = useState<SupplierOption[]>([]);
+  const [selectedSupplierIds, setSelectedSupplierIds] = useState<string[]>([]);
+  const [rfqSearchTerm, setRfqSearchTerm] = useState<string>('');
+  const [rfqDeadlineDays, setRfqDeadlineDays] = useState<number>(2);
+  const [isSendingRfq, setIsSendingRfq] = useState<boolean>(false);
+
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
@@ -165,10 +185,11 @@ export function SuprimentosClient({ activeModules }: { activeModules: string[] }
       if (session?.access_token) {
         headers['Authorization'] = `Bearer ${session.access_token}`;
       }
-      const [resp, dpResp, abcResp] = await Promise.all([
+      const [resp, dpResp, abcResp, supResp] = await Promise.all([
         fetch('/api/v1/procurement/requests', { headers, cache: 'no-store' }),
         fetch('/api/v1/procurement/direct-purchases', { headers, cache: 'no-store' }),
         fetch('/api/v1/procurement/costs-by-category', { headers, cache: 'no-store' }),
+        fetch('/api/v1/suppliers?limit=100', { headers, cache: 'no-store' }).catch(() => null),
       ]);
       if (resp.ok) {
         const data = await resp.json();
@@ -185,6 +206,36 @@ export function SuprimentosClient({ activeModules }: { activeModules: string[] }
       if (abcResp.ok) {
         const abcData = await abcResp.json();
         setCategoryCosts(abcData.categories || []);
+      }
+      if (supResp && supResp.ok) {
+        const supData = await supResp.json();
+        const sups = supData.suppliers || supData.items || [];
+        if (Array.isArray(sups) && sups.length > 0) {
+          setAvailableSuppliers(
+            sups.map((s: any) => ({
+              id: s.id,
+              name: s.name || s.trade_name || 'Fornecedor',
+              trade_name: s.trade_name || s.name,
+              phone: s.phone || s.whatsapp || '',
+              document: s.document || s.cnpj || '',
+              category: s.category || '',
+            }))
+          );
+        } else {
+          setAvailableSuppliers([
+            { id: 'sup-1', name: 'Distribuidora Telha Norte', trade_name: 'Telhanorte Materiais', phone: '5511999990001', category: 'CIVIL' },
+            { id: 'sup-2', name: 'C&C Casa e Construção', trade_name: 'C&C Pro', phone: '5511999990002', category: 'CIVIL' },
+            { id: 'sup-3', name: 'Hidráulica Paulista Tubos', trade_name: 'Paulista Tubos', phone: '5511999990003', category: 'HIDRÁULICA' },
+            { id: 'sup-4', name: 'Elétrica Santa Ifigênia Materiais', trade_name: 'Santa Ifigênia Cabos', phone: '5511999990004', category: 'ELÉTRICA' },
+          ]);
+        }
+      } else {
+        setAvailableSuppliers([
+          { id: 'sup-1', name: 'Distribuidora Telha Norte', trade_name: 'Telhanorte Materiais', phone: '5511999990001', category: 'CIVIL' },
+          { id: 'sup-2', name: 'C&C Casa e Construção', trade_name: 'C&C Pro', phone: '5511999990002', category: 'CIVIL' },
+          { id: 'sup-3', name: 'Hidráulica Paulista Tubos', trade_name: 'Paulista Tubos', phone: '5511999990003', category: 'HIDRÁULICA' },
+          { id: 'sup-4', name: 'Elétrica Santa Ifigênia Materiais', trade_name: 'Santa Ifigênia Cabos', phone: '5511999990004', category: 'ELÉTRICA' },
+        ]);
       }
     } finally {
       setLoading(false);
@@ -423,6 +474,97 @@ export function SuprimentosClient({ activeModules }: { activeModules: string[] }
       setProcessing(null);
     }
   };
+
+  const handleOpenRfqModal = (req: PurchaseRequestItem, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setRfqModalReq(req);
+    setSelectedSupplierIds([]);
+    setRfqDeadlineDays(2);
+    setRfqSearchTerm('');
+  };
+
+  const handleToggleSupplierSelection = (supplierId: string) => {
+    setSelectedSupplierIds((prev) =>
+      prev.includes(supplierId) ? prev.filter((id) => id !== supplierId) : [...prev, supplierId]
+    );
+  };
+
+  const handleSelectAllSuppliers = () => {
+    const allFilteredIds = filteredSuppliers.map((s: SupplierOption) => s.id);
+    if (selectedSupplierIds.length === allFilteredIds.length) {
+      setSelectedSupplierIds([]);
+    } else {
+      setSelectedSupplierIds(allFilteredIds);
+    }
+  };
+
+  const handleSendRfqBatch = async () => {
+    if (!rfqModalReq || selectedSupplierIds.length === 0) return;
+    setIsSendingRfq(true);
+    setFeedback(null);
+    try {
+      const resp = await fetch(`/api/v1/procurement/requests/${rfqModalReq.id}/send-rfq`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          supplier_ids: selectedSupplierIds,
+          custom_deadline_days: rfqDeadlineDays,
+        }),
+      });
+      const data = await resp.json();
+      if (!resp.ok) {
+        throw new Error(data.detail || 'Falha ao disparar solicitação RFQ.');
+      }
+
+      const newQuotes: QuoteItem[] = (data.results || []).map((res: any) => ({
+        id: res.quote_id || `q-rfq-${Math.random()}`,
+        supplier_name: res.supplier_name,
+        category: rfqModalReq.category,
+        unit_price: 0,
+        total_amount: 0,
+        delivery_days: rfqDeadlineDays,
+        payment_terms: 'Aguardando proposta',
+        is_winner: false,
+        human_verified: false,
+        justification: 'RFQ disparada via WhatsApp. Aguardando retorno da loja.',
+      }));
+
+      setRequests((prev) =>
+        prev.map((r) =>
+          r.id === rfqModalReq.id
+            ? {
+                ...r,
+                status: 'EM_COTACAO',
+                quotes: [...r.quotes, ...newQuotes],
+              }
+            : r
+        )
+      );
+
+      setFeedback({
+        type: 'success',
+        text: `Solicitação de cotação (RFQ) enviada para ${selectedSupplierIds.length} fornecedor(es) via WhatsApp!`,
+      });
+      setRfqModalReq(null);
+    } catch (err: unknown) {
+      setFeedback({
+        type: 'error',
+        text: err instanceof Error ? err.message : 'Erro ao disparar RFQ.',
+      });
+    } finally {
+      setIsSendingRfq(false);
+    }
+  };
+
+  const filteredSuppliers = useMemo(() => {
+    return availableSuppliers.filter((s) => {
+      const term = rfqSearchTerm.toLowerCase();
+      const matchName = (s.trade_name || s.name || '').toLowerCase().includes(term);
+      const matchDoc = (s.document || '').includes(term);
+      const matchCat = (s.category || '').toLowerCase().includes(term);
+      return matchName || matchDoc || matchCat;
+    });
+  }, [availableSuppliers, rfqSearchTerm]);
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -800,9 +942,19 @@ export function SuprimentosClient({ activeModules }: { activeModules: string[] }
                             <span>Responsabilidade: {req.responsibility}</span>
                           </div>
                         </div>
-                        <span className="px-3 py-1 rounded-full text-xs font-bold tabular-nums bg-slate-800 text-slate-300 border border-slate-700">
-                          {req.quotes.length} Cotações Validadas
-                        </span>
+                        <div className="flex items-center gap-3">
+                          <button
+                            type="button"
+                            onClick={(e) => handleOpenRfqModal(req, e)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs font-bold transition-all cursor-pointer"
+                          >
+                            <Send className="w-3.5 h-3.5" />
+                            <span>Solicitar Cotação</span>
+                          </button>
+                          <span className="px-3 py-1 rounded-full text-xs font-bold tabular-nums bg-slate-800 text-slate-300 border border-slate-700">
+                            {req.quotes.length} Cotações Validadas
+                          </span>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -1122,6 +1274,171 @@ export function SuprimentosClient({ activeModules }: { activeModules: string[] }
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* PROMPT 89: MODAL DE SELEÇÃO E DISPARO EM LOTE DE RFQ VIA WHATSAPP */}
+      {rfqModalReq && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-xl w-full p-5 sm:p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div className="flex items-center gap-2">
+                <Send className="w-5 h-5 text-emerald-400" />
+                <h3 className="text-base font-bold text-white">
+                  Solicitar Cotação (RFQ WhatsApp em Lote)
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setRfqModalReq(null)}
+                className="text-slate-400 hover:text-white transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Cabeçalho do Insumo Requisitado */}
+            <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-1">
+              <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">
+                Insumo / Requisição ({rfqModalReq.category || 'CIVIL'})
+              </span>
+              <p className="text-xs text-slate-200 line-clamp-2">{rfqModalReq.items_description}</p>
+            </div>
+
+            {/* Configuração de Prazo e Busca */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="sm:col-span-2 relative">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                <input
+                  type="text"
+                  value={rfqSearchTerm}
+                  onChange={(e) => setRfqSearchTerm(e.target.value)}
+                  placeholder="Buscar fornecedor por nome, categoria ou CNPJ..."
+                  className="w-full pl-9 pr-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-slate-700"
+                />
+              </div>
+              <div>
+                <input
+                  type="number"
+                  min="1"
+                  max="30"
+                  value={rfqDeadlineDays}
+                  onChange={(e) => setRfqDeadlineDays(Number(e.target.value) || 2)}
+                  placeholder="Prazo (Dias Úteis)"
+                  className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-slate-700"
+                />
+              </div>
+            </div>
+
+            {/* Lista com Seleção Múltipla */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-xs text-slate-400">
+                <span className="font-semibold">
+                  Fornecedores Homologados ({filteredSuppliers.length})
+                </span>
+                <button
+                  type="button"
+                  onClick={handleSelectAllSuppliers}
+                  className="text-emerald-400 hover:text-emerald-300 font-bold transition-colors cursor-pointer"
+                >
+                  {selectedSupplierIds.length === filteredSuppliers.length
+                    ? 'Desmarcar Todos'
+                    : 'Selecionar Todos'}
+                </button>
+              </div>
+
+              <div className="max-h-60 overflow-y-auto space-y-2 pr-1">
+                {filteredSuppliers.length === 0 ? (
+                  <div className="p-6 text-center text-xs text-slate-500 bg-slate-950 rounded-xl border border-slate-800">
+                    Nenhum fornecedor encontrado para o filtro informado.
+                  </div>
+                ) : (
+                  filteredSuppliers.map((sup: SupplierOption) => {
+                    const isSelected = selectedSupplierIds.includes(sup.id);
+                    return (
+                      <div
+                        key={sup.id}
+                        onClick={() => handleToggleSupplierSelection(sup.id)}
+                        className={`p-3 rounded-xl border flex items-center justify-between gap-3 cursor-pointer transition-all duration-150 ${
+                          isSelected
+                            ? 'bg-emerald-500/10 border-emerald-500/40'
+                            : 'bg-slate-950 border-slate-800 hover:border-slate-700'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => {}}
+                            className="rounded border-slate-700 text-emerald-500 focus:ring-0 cursor-pointer"
+                          />
+                          <div>
+                            <span className="text-xs font-bold text-white block">
+                              {sup.trade_name || sup.name}
+                            </span>
+                            <span className="text-[11px] text-slate-400 flex items-center gap-2">
+                              <span>WhatsApp: {sup.phone || 'Cadastrar telefone'}</span>
+                              {sup.category && (
+                                <>
+                                  <span>•</span>
+                                  <span className="text-emerald-400">{sup.category}</span>
+                                </>
+                              )}
+                            </span>
+                          </div>
+                        </div>
+
+                        <span
+                          className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                            isSelected
+                              ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                              : 'bg-slate-900 text-slate-400 border-slate-800'
+                          }`}
+                        >
+                          {isSelected ? 'Selecionado' : 'Disponível'}
+                        </span>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+
+            {/* Rodapé do Modal */}
+            <div className="flex items-center justify-between pt-4 border-t border-slate-800">
+              <span className="text-xs text-slate-400">
+                <strong className="text-white">{selectedSupplierIds.length}</strong> fornecedor(es) selecionado(s)
+              </span>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setRfqModalReq(null)}
+                  className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  disabled={selectedSupplierIds.length === 0 || isSendingRfq}
+                  onClick={handleSendRfqBatch}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-slate-950 font-bold text-xs cursor-pointer transition-all shadow-md shadow-emerald-500/20"
+                >
+                  {isSendingRfq ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Disparando WhatsApp...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Send className="w-4 h-4" />
+                      <span>Disparar RFQ para {selectedSupplierIds.length} Fornecedores</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

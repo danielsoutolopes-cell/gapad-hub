@@ -36,11 +36,24 @@ export default async function EmitirNfePage() {
     user.user_metadata?.is_superadmin === true ||
     user.app_metadata?.role === 'superadmin';
 
+  // Pré-busca dos clientes vinculados ao tenant no Server Component
+  let initialClients: any[] = [];
+  if (tenantId) {
+    const { data: serverClients } = await supabase
+      .from('clients')
+      .select('id, name, document, phone, email')
+      .eq('tenant_id', tenantId)
+      .order('name');
+    if (serverClients) {
+      initialClients = serverClients;
+    }
+  }
+
   return (
     <div className="min-h-screen bg-[#090d16] text-slate-100 flex flex-col">
       <DashboardNav tenantName={tenantName} isSuperAdmin={isSuperAdmin} />
       <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 w-full">
-        <EmitirNfeClient />
+        <EmitirNfeClient tenantId={tenantId} initialClients={initialClients} />
       </main>
     </div>
   );
