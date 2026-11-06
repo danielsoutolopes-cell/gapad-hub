@@ -15,42 +15,23 @@ jobs:
     steps:
       - name: Executar Ping no Supavisor / REST API
         env:
-          DEFAULT_SUPABASE_URL: "https://dkjcgrwztyhcsyxlajia.supabase.co"
-          SECRET_SUPABASE_URL: ${{ secrets['SUPABASE_URL'] }}
-          SECRET_ANON_KEY: ${{ secrets['SUPABASE_ANON_KEY'] }}
+          TARGET_URL: "https://dkjcgrwztyhcsyxlajia.supabase.co"
         run: |
           echo "=========================================================="
           echo "Iniciando Ping Keep-Alive no Supabase (Frequência: a cada 3 dias)"
           echo "Timestamp: $(date -u)"
           echo "=========================================================="
 
-          # Resolve URL com fallback
-          TARGET_URL="${SECRET_SUPABASE_URL:-$DEFAULT_SUPABASE_URL}"
-          
-          # 1. Ping na API REST pública do Supabase com verificação de status HTTP
-          if [ -n "$SECRET_ANON_KEY" ]; then
-            RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" \
-              -H "apikey: ${SECRET_ANON_KEY}" \
-              -H "Authorization: Bearer ${SECRET_ANON_KEY}" \
-              "${TARGET_URL}/rest/v1/" || echo "000")
-          else
-            RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" \
-              "${TARGET_URL}/auth/v1/health" || echo "000")
-          fi
+          # Ping direto no endpoint público de healthcheck do Supabase
+          # Mantém o banco relacional e os serviços de autenticação despertos
+          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" "${TARGET_URL}/auth/v1/health" || echo "000")
 
           echo "Status retornado pelo Supabase: ${RESPONSE}"
 
           if [ "$RESPONSE" -ge 200 ] && [ "$RESPONSE" -lt 500 ]; then
             echo "✅ Supabase ativo e respondendo perfeitamente (HTTP ${RESPONSE})!"
           else
-            echo "⚠️ Aviso: Resposta HTTP ${RESPONSE}. Testando endpoint de healthcheck..."
-            HEALTH_RESP=$(curl -s -o /dev/null -w "%{http_code}" "${TARGET_URL}/auth/v1/health" || echo "000")
-            echo "Status Auth Health: ${HEALTH_RESP}"
-            if [ "$HEALTH_RESP" -ge 200 ] && [ "$HEALTH_RESP" -lt 500 ]; then
-              echo "✅ Supabase Auth e Banco acordados com sucesso (HTTP ${HEALTH_RESP})!"
-            else
-              echo "❌ Falha ao contatar Supabase. Verifique se o projeto não foi pausado."
-              exit 1
-            fi
+            echo "❌ Falha ao contatar Supabase. Verifique se o projeto não foi pausado."
+            exit 1
           fi
 
