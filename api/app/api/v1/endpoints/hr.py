@@ -609,3 +609,39 @@ async def close_payroll_and_integrate_financial(
         "message": f"Folha de {payload.reference_month} fechada e títulos gerados no Contas a Pagar!",
     }
 
+
+@router.get("/payroll/records/{record_id}/holerite/pdf")
+async def download_holerite_pdf(
+    record_id: str,
+    x_tenant_id: Optional[str] = Header(None),
+):
+    """
+    [PROMPT 90 & 94: Emissão de Holerite com Edge Caching SRE]
+    Retorna o Holerite com headers de Cache-Control estritos instruindo a CDN
+    a realizar Edge Caching por 30 dias (folhas fechadas são imutáveis).
+    """
+    from starlette.responses import Response
+
+    rec = next((r for r in _MOCK_PAYROLL_RECORDS if r["id"] == record_id), None)
+    emp_name = rec["employee_name"] if rec else "Colaborador"
+    ref_month = rec["reference_month"] if rec else "2026-11"
+
+    # Simulação de PDF de Holerite executivo com assinatura digital
+    mock_pdf_content = (
+        f"%PDF-1.4\n1 0 obj\n<< /Title (Holerite CLT - {emp_name} - {ref_month}) >>\n"
+        f"endobj\ntrailer\n<< /Root 1 0 R >>\n%%EOF"
+    ).encode("utf-8")
+
+    return Response(
+        content=mock_pdf_content,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'inline; filename="Holerite_{record_id}.pdf"',
+            # Cache imutável na CDN por 30 dias para aliviar requisições ao Supabase
+            "Cache-Control": "public, max-age=86400, s-maxage=2592000, stale-while-revalidate=86400",
+            "CDN-Cache-Control": "max-age=2592000",
+            "Vary": "Accept-Encoding, Authorization",
+        },
+    )
+
+

@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 from app.core.config import settings
 from app.services.evolution_whatsapp import EvolutionWhatsAppClient
 from app.core.errors import ProblemException, problem_exception_handler
+from app.core.sre_middleware import SRECrashAlertMiddleware
 from app.api.v1.endpoints.clients import router as clients_router
 from app.api.v1.endpoints.suppliers import router as suppliers_router
 from app.api.v1.endpoints.products import router as products_router
@@ -30,6 +31,7 @@ from app.api.v1.endpoints.transfers import router as transfers_router
 from app.api.v1.endpoints.amendments import router as amendments_router
 from app.api.v1.endpoints.schedule import router as schedule_router
 from app.api.v1.endpoints.portal import router as portal_router
+from app.core.metrics import router as metrics_router
 
 # Configuração de Logs
 logging.basicConfig(
@@ -60,8 +62,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# SRE Observability: Interceptador de Exceções Não Tratadas (Crash Handler com Webhook)
+app.add_middleware(SRECrashAlertMiddleware)
+
 # Instanciação do Cliente de WhatsApp
 whatsapp_client = EvolutionWhatsAppClient()
+
+# Endpoint Oficial SRE de Métricas Prometheus
+app.include_router(metrics_router)
 
 # Registro de Rotas de Módulos Corporativos
 app.include_router(

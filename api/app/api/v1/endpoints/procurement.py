@@ -804,7 +804,12 @@ async def download_quotation_map_pdf(
         io.BytesIO(pdf_bytes),
         media_type="application/pdf",
         headers={
-            "Content-Disposition": f'inline; filename="Mapa_Cotacao_{request_id[:8].upper()}.pdf"'
+            "Content-Disposition": f'inline; filename="Mapa_Cotacao_{request_id[:8].upper()}.pdf"',
+            # SRE Edge Caching (Vercel Edge / Cloudflare CDN):
+            # Cache público de 1 hora (3600s), revalidação em background (stale-while-revalidate 86400s)
+            "Cache-Control": "public, max-age=3600, s-maxage=86400, stale-while-revalidate=86400",
+            "CDN-Cache-Control": "max-age=86400",
+            "Vary": "Accept-Encoding, Authorization",
         },
     )
 

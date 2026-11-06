@@ -40,6 +40,18 @@ class Settings(BaseSettings):
     SUPABASE_ANON_KEY: Optional[str] = None
     NEXT_PUBLIC_SUPABASE_ANON_KEY: Optional[str] = None
 
+    # Supavisor Connection Pooling (Porta 6543 / Modo Transaction)
+    # Formato: postgresql+asyncpg://postgres.[ref]:[pass]@aws-0-[region].pooler.supabase.com:6543/postgres
+    DATABASE_URL: Optional[str] = None
+    DB_POOL_SIZE: int = 20
+    DB_MAX_OVERFLOW: int = 10
+    DB_POOL_TIMEOUT: int = 30
+    DB_POOL_RECYCLE: int = 1800
+
+    # Observabilidade & Webhook de Crash Alertas (Discord / Slack)
+    SRE_ALERT_WEBHOOK_URL: Optional[str] = None
+    ENVIRONMENT: str = "production"
+
     model_config = SettingsConfigDict(
         env_file=(
             str(Path(__file__).resolve().parent.parent.parent.parent / ".env.local"),
