@@ -16,8 +16,8 @@ jobs:
       - name: Executar Ping no Supavisor / REST API
         env:
           DEFAULT_SUPABASE_URL: "https://dkjcgrwztyhcsyxlajia.supabase.co"
-          SECRET_SUPABASE_URL: "${{ secrets.SUPABASE_URL }}"
-          SECRET_ANON_KEY: "${{ secrets.SUPABASE_ANON_KEY }}"
+          SECRET_SUPABASE_URL: ${{ secrets['SUPABASE_URL'] }}
+          SECRET_ANON_KEY: ${{ secrets['SUPABASE_ANON_KEY'] }}
         run: |
           echo "=========================================================="
           echo "Iniciando Ping Keep-Alive no Supabase (Frequência: a cada 3 dias)"
