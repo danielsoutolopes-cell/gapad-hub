@@ -37,6 +37,19 @@ class TransactionType(str, Enum):
     MEASUREMENT = "MEASUREMENT"
 
 
+class SubcontractPaymentCategory(str, Enum):
+    PRINCIPAL = "PRINCIPAL"
+    CONTRACTED_EXTRA = "CONTRACTED_EXTRA"
+    FIELD_EXTRA = "FIELD_EXTRA"
+
+
+class SubcontractExtraStatus(str, Enum):
+    PENDING = "PENDING"
+    APPROVED = "APPROVED"
+    REJECTED = "REJECTED"
+    PAID = "PAID"
+
+
 class RiskStatus(str, Enum):
     GREEN = "GREEN"    # Pagamentos <= Medição (Ok)
     YELLOW = "YELLOW"  # Pagamentos > Medição, mas < 80% do Contrato (Atenção)
@@ -289,6 +302,10 @@ class SubcontractTransactionBase(BaseModel):
         description="Histórico da transação (ex: Adiantamento quinzenal de mão de obra)",
         examples=["Adiantamento para compra de materiais e diárias"],
     )
+    payment_category: Optional[SubcontractPaymentCategory] = Field(
+        default=SubcontractPaymentCategory.PRINCIPAL,
+        description="Segregação de verba: PRINCIPAL, CONTRACTED_EXTRA ou FIELD_EXTRA",
+    )
 
 
 class SubcontractTransactionCreate(SubcontractTransactionBase):
@@ -452,3 +469,75 @@ class SubcontractAccountStatement(BaseModel):
     supplier: Dict[str, Any]
     specialties: List[str]
     transactions: List[SubcontractTransactionResponse]
+
+
+# ------------------------------------------------------------------------------
+# 6. Schemas de Segregação de Verbas e Extras Anti-Fraude (Prompt 100)
+# ------------------------------------------------------------------------------
+class FieldExtraItemInput(BaseModel):
+    description: str = Field(..., min_length=2, description="Descrição do serviço extra de campo (ex: '10 caixinhas 4x2')")
+    amount: Decimal = Field(..., gt=Decimal("0"), decimal_places=2, description="Valor cobrado pelo extra (R$)")
+    requested_by_supplier: Optional[str] = Field(None, description="Nome do encarregado/empreiteiro solicitante")
+    validated_by_field: Optional[str] = Field(None, description="Engenheiro ou mestre que conferiu em campo")
+
+
+class SuspectDuplicateItem(BaseModel):
+    id: UUID
+    description: str
+    amount: Decimal
+    created_at: str
+    similarity_score: float
+    notes: Optional[str] = None
+
+
+class SubcontractPaymentPayload(BaseModel):
+    subcontract_id: UUID = Field(..., description="ID do subcontrato")
+    principal_amount: Decimal = Field(default=Decimal("0.00"), ge=Decimal("0"), decimal_places=2, description="Valor do contrato principal (R$)")
+    contracted_extra_amount: Decimal = Field(default=Decimal("0.00"), ge=Decimal("0"), decimal_places=2, description="Valor de aditivo contratado previamente (R$)")
+    field_extras: List[FieldExtraItemInput] = Field(default=[], description="Lista de extras de campo solicitados")
+    payment_date: Optional[dt_date] = Field(default_factory=dt_date.today, description="Data do pagamento/vencimento")
+    observation: Optional[str] = Field(None, description="Observações gerais sobre a liberação de pagamento")
+
+
+class SubcontractPaymentResponse(BaseModel):
+    success: bool
+    subcontract_id: UUID
+    total_paid_now: Decimal
+    transactions_created: List[Dict[str, Any]]
+    extras_recorded: List[Dict[str, Any]]
+    warning_duplicate_risk: bool
+    duplicate_suspects: List[SuspectDuplicateItem]
+    message: str
+
+
+# ------------------------------------------------------------------------------
+# 7. Schemas de Parsing de Extras via LLM e Negociação (Prompt 101)
+# ------------------------------------------------------------------------------
+class ParseExtrasRequest(BaseModel):
+    raw_text: str = Field(..., min_length=2, description="Texto copiado da conversa de WhatsApp com o empreiteiro")
+    subcontract_id: Optional[UUID] = Field(None, description="ID do subcontrato para contextualização")
+
+
+class ParsedExtraItem(BaseModel):
+    original_text: Optional[str] = Field(None, description="Texto original copiado do WhatsApp")
+    standardized_service: str = Field(..., description="Nome padronizado do serviço de engenharia após correção ortográfica")
+    service: Optional[str] = Field(None, description="Alias compatível com standardized_service")
+    quantity: float = Field(default=1.0, description="Quantidade medida/solicitada")
+    unit_price: Optional[Decimal] = Field(None, description="Preço unitário cobrado (total_line_price / quantity)")
+    total_line_price: Decimal = Field(..., description="Valor total da linha monetária (R$)")
+    total: Optional[Decimal] = Field(None, description="Alias para total_line_price")
+    notes: Optional[str] = Field(None, description="Ajudantes identificados ou observações de campo")
+    historical_average: Optional[Decimal] = Field(None, description="Preço médio unitário histórico registrado no dicionário")
+    highest_historical_price: Optional[Decimal] = Field(None, description="Maior preço unitário já pago")
+    negotiation_alert: bool = Field(default=False, description="True se (total_line_price / quantity) > average_price")
+    price_variance_percent: Optional[float] = Field(None, description="Percentual acima da média histórica (+X%)")
+
+
+class ParseExtrasResponse(BaseModel):
+    success: bool
+    items: List[ParsedExtraItem]
+    total_estimated: Decimal
+    has_negotiation_alerts: bool
+    message: str
+
+

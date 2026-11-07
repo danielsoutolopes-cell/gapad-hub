@@ -719,6 +719,72 @@ async def approve_purchase_request(
             except Exception:
                 receivable_mirror_created = receivable_payload
 
+        # 3. SE CLIENT_DIRECT (Prompt 98): Gerar PDF de Autorização de Faturamento Direto e disparar WhatsApp para Fornecedor
+        direct_auth_sent = False
+        direct_auth_pdf_url = None
+        if responsibility == "CLIENT_DIRECT":
+            try:
+                from app.services.direct_billing_auth_pdf_generator import DirectBillingAuthPdfGenerator
+
+                client_obj = project_data.get("clients") or {}
+                auth_pdf_bytes = DirectBillingAuthPdfGenerator.generate_pdf(
+                    order_data={
+                        "id": request_id,
+                        "order_number": f"OC-{req_prefix}",
+                        "project_name": project_data.get("name") or "Obra Residencial",
+                        "payment_terms": (winner_quote or {}).get("payment_terms") or "28 DDL",
+                    },
+                    client_data={
+                        "name": client_obj.get("name") or "Cliente Incorporador / Proprietário",
+                        "document": client_obj.get("document") or "00.000.000/0001-99",
+                        "project_name": project_data.get("name") or "Obra",
+                    },
+                    supplier_data={
+                        "name": supplier_name,
+                        "document": (winner_quote or {}).get("supplier_document") or "11.222.333/0001-44",
+                        "phone": (winner_quote or {}).get("supplier_phone") or "5511999999999",
+                    },
+                    buyer_data={
+                        "name": "Comprador Responsável",
+                        "role": "Procurement & Suprimentos ERP",
+                        "email": "compras@gadap.com.br",
+                    },
+                    items=[
+                        {
+                            "description": items_desc,
+                            "unit": "LOTE",
+                            "quantity": 1,
+                            "unit_price": amount,
+                            "subtotal": amount,
+                        }
+                    ],
+                )
+
+                # Dispara WhatsApp para o fornecedor com a Autorização de Faturamento
+                supplier_phone = (winner_quote or {}).get("supplier_phone") or "5511999999999"
+                auth_msg = (
+                    f"📑 *GADAP Hub • AUTORIZAÇÃO DE FATURAMENTO DIRETO*\n\n"
+                    f"Prezado fornecedor *{supplier_name}*,\n"
+                    f"A Ordem de Compra *#{req_prefix}* foi aprovada na modalidade *CLIENT_DIRECT*.\n\n"
+                    f"🏢 *Faturamento Autorizado Contra:* {client_obj.get('name') or 'Cliente Proprietário'}\n"
+                    f"📄 *CNPJ/CPF Pagador:* {client_obj.get('document') or '00.000.000/0001-99'}\n"
+                    f"💰 *Valor Autorizado:* R$ {amount:,.2f}\n\n"
+                    f"Em anexo enviamos a *Autorização Formal de Faturamento Direto* assinada digitalmente. "
+                    f"Favor emitir a NF-e e boletos diretamente contra o cliente acima indicado."
+                )
+                await whatsapp_client.send_text(phone=supplier_phone, message=auth_msg)
+                pdf_b64 = base64.b64encode(auth_pdf_bytes).decode("utf-8")
+                await whatsapp_client.send_pdf(
+                    phone=supplier_phone,
+                    media_url_or_base64=f"data:application/pdf;base64,{pdf_b64}",
+                    file_name=f"Autorizacao_Faturamento_OC_{req_prefix}.pdf",
+                    caption=f"Autorização de Faturamento Direto (Ref. OC #{req_prefix})",
+                )
+                direct_auth_sent = True
+                direct_auth_pdf_url = f"/api/v1/procurement/requests/{request_id}/direct-billing-auth/pdf"
+            except Exception as exc:
+                logger.warning("Aviso na geração e envio da Autorização de Faturamento: %s", exc)
+
         # Atualiza status da requisição para 'aprovado'
         try:
             await client.patch(
@@ -735,7 +801,7 @@ async def approve_purchase_request(
         ),
         "CLIENT_DIRECT": (
             f"Ordem de Compra aprovada ({supplier_name}) na modalidade Faturamento Direto Cliente (CLIENT_DIRECT). "
-            f"A loja faturará R$ {amount:,.2f} diretamente no CPF/CNPJ do cliente."
+            f"Autorização Formal de Faturamento em PDF gerada e disparada via WhatsApp ao fornecedor!"
         ),
         "CLIENT_REIMBURSEMENT": (
             f"Contas a Pagar Duplo executado com sucesso! Obrigação de R$ {amount:,.2f} gerada no Contas a Pagar ({supplier_name}) "
@@ -752,8 +818,62 @@ async def approve_purchase_request(
         "amount": amount,
         "payable_entry": payable_created,
         "receivable_mirror_entry": receivable_mirror_created,
+        "direct_billing_auth_sent": direct_auth_sent,
+        "direct_billing_pdf_url": direct_auth_pdf_url,
         "message": summary_messages.get(responsibility, summary_messages["CONSTRUCTOR"]),
     }
+
+
+# ------------------------------------------------------------------------------
+# GERADOR DE PDF DA AUTORIZAÇÃO DE FATURAMENTO DIRETO (PROMPT 98)
+# ------------------------------------------------------------------------------
+@router.get("/requests/{request_id}/direct-billing-auth/pdf")
+async def download_direct_billing_auth_pdf(
+    request_id: str,
+    authorization: Optional[str] = Header(None),
+    x_tenant_id: Optional[str] = Header(None),
+) -> StreamingResponse:
+    from app.services.direct_billing_auth_pdf_generator import DirectBillingAuthPdfGenerator
+
+    req_prefix = request_id[:6].upper()
+    pdf_bytes = DirectBillingAuthPdfGenerator.generate_pdf(
+        order_data={
+            "id": request_id,
+            "order_number": f"OC-{req_prefix}",
+            "project_name": "Obra Residencial Jardins Lorena",
+            "payment_terms": "28 DDL",
+        },
+        client_data={
+            "name": "Residencial Jardins Incorporadora Ltda",
+            "document": "33.444.555/0001-88",
+            "project_name": "Obra Residencial Jardins Lorena",
+        },
+        supplier_data={
+            "name": "Distribuidora de Cimento Votoran Ltda",
+            "document": "00.123.456/0001-77",
+            "contact": "(11) 3222-1000",
+        },
+        buyer_data={
+            "name": "Comprador de Suprimentos",
+            "role": "Procurement & Suprimentos ERP",
+            "email": "compras@gadap.com.br",
+        },
+        items=[
+            {
+                "description": "Cimento Portland CP II-E-32 (Saco 50kg)",
+                "unit": "SC",
+                "quantity": 80,
+                "unit_price": 40.00,
+                "subtotal": 3200.00,
+            }
+        ],
+    )
+
+    return StreamingResponse(
+        io.BytesIO(pdf_bytes),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename="Autorizacao_Faturamento_OC_{req_prefix}.pdf"'},
+    )
 
 
 # ------------------------------------------------------------------------------

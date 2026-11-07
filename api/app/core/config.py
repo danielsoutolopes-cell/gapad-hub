@@ -25,8 +25,9 @@ class Settings(BaseSettings):
     EVOLUTION_API_KEY: Optional[str] = None
     EVOLUTION_INSTANCE_NAME: str = "ecostone"
 
-    # Inteligência Artificial (Google Gemini)
+    # Inteligência Artificial (Google Gemini & OpenAI)
     GEMINI_API_KEY: Optional[str] = None
+    OPENAI_API_KEY: Optional[str] = None
 
     # Gateway de Pagamento PF (Asaas / Mercado Pago)
     ASAAS_API_KEY: Optional[str] = None

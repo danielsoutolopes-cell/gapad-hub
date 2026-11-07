@@ -26,8 +26,23 @@ import {
 import { createClient } from '@/lib/supabase/client';
 import { HelpTooltip } from '@/components/ui/tooltip';
 
-type AmendmentType = 'CLIENT_EXTRA' | 'SUBCONTRACTOR_EXTRA';
+type AmendmentType = 'CLIENT_EXTRA' | 'SUBCONTRACTOR_EXTRA' | 'FIELD_CHANGE_ORDERS';
 type AmendmentStatus = 'DRAFT' | 'PENDING_SIGNATURE' | 'APPROVED' | 'REJECTED';
+
+interface ChangeOrderRequestItem {
+  id: string;
+  project_id: string;
+  task_id?: string | null;
+  task_name?: string | null;
+  client_request_text: string;
+  field_notes?: string | null;
+  photo_urls?: string[];
+  status: 'PENDING_COMMERCIAL' | 'PRICED' | 'APPROVED' | 'REJECTED';
+  priced_amount?: number;
+  priced_notes?: string | null;
+  requested_by_user_name?: string | null;
+  created_at: string;
+}
 
 interface SubcontractOption {
   id: string;
@@ -97,7 +112,12 @@ export default function ObraAditivosPage() {
   const [project, setProject] = useState<ProjectSummary | null>(null);
   const [subcontracts, setSubcontracts] = useState<SubcontractOption[]>([]);
   const [amendments, setAmendments] = useState<AmendmentItem[]>([]);
+  const [changeOrdersRequests, setChangeOrdersRequests] = useState<ChangeOrderRequestItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const [pricingRequestId, setPricingRequestId] = useState<string | null>(null);
+  const [pricingAmount, setPricingAmount] = useState<string>('');
+  const [pricingNotes, setPricingNotes] = useState<string>('');
+  const [isPricing, setIsPricing] = useState<boolean>(false);
 
   // Estado do formulário rápido "+ Novo Aditivo"
   const [showNewForm, setShowNewForm] = useState<boolean>(true);
@@ -142,6 +162,17 @@ export default function ObraAditivosPage() {
         setProject(data.project || null);
         setSubcontracts(data.subcontracts || []);
         setAmendments(data.amendments || []);
+      }
+
+      // Busca Change Orders enviados pelo Campo PWA (Prompt 99)
+      try {
+        const coResp = await fetch(`/api/v1/projects/change-orders-requests?project_id=${projectId}`);
+        if (coResp.ok) {
+          const coData = await coResp.json();
+          setChangeOrdersRequests(coData.requests || []);
+        }
+      } catch {
+        // Fallback silencioso
       }
     } catch {
       // Falha silenciosa tratada na UI
@@ -631,7 +662,161 @@ export default function ObraAditivosPage() {
             {amendments.filter((a) => a.type === 'SUBCONTRACTOR_EXTRA').length}
           </span>
         </button>
+
+        <button
+          type="button"
+          onClick={() => handleTabChange('FIELD_CHANGE_ORDERS')}
+          className={`inline-flex items-center gap-2 px-5 py-3 text-xs sm:text-sm font-bold border-b-2 transition-all ${
+            activeTab === 'FIELD_CHANGE_ORDERS'
+              ? 'border-sky-400 text-sky-400 bg-sky-500/5'
+              : 'border-transparent text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <HardHat className="w-4 h-4 text-sky-400" />
+          <span>Aditivos & Extras do Canteiro / PWA (Prompt 99)</span>
+          <span className="px-2 py-0.5 rounded-full text-[10px] bg-sky-500/15 text-sky-300 font-mono">
+            {changeOrdersRequests.length}
+          </span>
+        </button>
       </div>
+
+      {/* PAINEL DE ADITIVOS E EXTRAS DO CAMPO (PROMPT 99) */}
+      {activeTab === 'FIELD_CHANGE_ORDERS' && (
+        <div className="space-y-4">
+          <div className="rounded-2xl bg-slate-900 border border-slate-800 p-5 space-y-2">
+            <h3 className="text-sm font-bold text-white flex items-center gap-2">
+              <HardHat className="w-4 h-4 text-sky-400" />
+              <span>Painel de Aditivos e Extras Solicitados pelo Cliente no Campo (PWA)</span>
+            </h3>
+            <p className="text-xs text-slate-400">
+              Pedidos de alteração de escopo registrados pela equipe de engenharia durante as vistorias.
+              O orçamentista precifica o insumo/serviço e emite o Termo Aditivo oficial enviado via WhatsApp para o cliente.
+            </p>
+          </div>
+
+          <div className="space-y-3">
+            {changeOrdersRequests.length === 0 ? (
+              <div className="rounded-2xl bg-slate-900/40 border border-slate-800 p-10 text-center text-slate-500 text-xs">
+                Nenhum pedido extra registrado pelo canteiro no momento.
+              </div>
+            ) : (
+              changeOrdersRequests.map((cor) => (
+                <div
+                  key={cor.id}
+                  className="rounded-2xl bg-slate-900 border border-slate-800 p-5 space-y-4 hover:border-slate-700/80 transition-colors"
+                >
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-3">
+                    <div className="flex items-center gap-2.5">
+                      <span className="px-2.5 py-1 rounded-lg text-xs font-mono font-bold bg-slate-950 text-sky-400 border border-slate-800">
+                        {cor.id.slice(0, 8).toUpperCase()}
+                      </span>
+                      <span
+                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                          cor.status === 'APPROVED'
+                            ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+                            : 'bg-amber-500/15 text-amber-400 border-amber-500/30'
+                        }`}
+                      >
+                        {cor.status === 'APPROVED' ? 'ADITIVO GERADO & ASSINADO' : 'PENDENTE DE PRECIFICAÇÃO'}
+                      </span>
+                    </div>
+
+                    <div className="text-xs text-slate-400">
+                      Origem: <strong className="text-slate-300">{cor.requested_by_user_name || 'Engenheiro de Campo'}</strong>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <div className="text-xs font-semibold text-slate-400">Solicitação Expressa do Cliente:</div>
+                    <p className="text-sm font-bold text-white bg-slate-950/70 p-3 rounded-xl border border-slate-800/80">
+                      &quot;{cor.client_request_text}&quot;
+                    </p>
+                  </div>
+
+                  {cor.field_notes && (
+                    <div className="text-xs text-slate-400 flex items-start gap-1.5">
+                      <span className="text-slate-500 font-semibold">Notas do Campo:</span>
+                      <span>{cor.field_notes}</span>
+                    </div>
+                  )}
+
+                  {/* Ação de Precificação e Geração de Aditivo */}
+                  {cor.status !== 'APPROVED' ? (
+                    <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="flex-1 space-y-1">
+                        <label className="text-[11px] font-bold text-slate-300 block">
+                          Valor Precificado pelo Orçamentista (R$):
+                        </label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          placeholder="Ex: 8500.00 (Preço do novo porcelanato + mão de obra)"
+                          value={pricingRequestId === cor.id ? pricingAmount : ''}
+                          onChange={(e) => {
+                            setPricingRequestId(cor.id);
+                            setPricingAmount(e.target.value);
+                          }}
+                          className="w-full sm:w-80 px-3 py-1.5 bg-slate-900 border border-slate-800 rounded-lg text-xs text-white font-mono focus:outline-none focus:border-sky-500"
+                        />
+                      </div>
+
+                      <button
+                        type="button"
+                        disabled={isPricing || (pricingRequestId === cor.id && !pricingAmount)}
+                        onClick={async () => {
+                          if (!pricingAmount) return;
+                          setIsPricing(true);
+                          setFeedbackBanner(null);
+                          try {
+                            const res = await fetch('/api/v1/projects/change-orders-requests/generate-amendment', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({
+                                request_id: cor.id,
+                                priced_amount: Number(pricingAmount),
+                                notes: 'Precificação aprovada pelo orçamentista e gerado aditivo contratual.',
+                              }),
+                            });
+                            const json = await res.json();
+                            if (json.success) {
+                              setFeedbackBanner({
+                                type: 'success',
+                                text: json.message || 'Aditivo gerado e enviado via WhatsApp ao cliente!',
+                              });
+                              loadData();
+                            }
+                          } catch {
+                            setFeedbackBanner({ type: 'error', text: 'Falha ao gerar aditivo contratual.' });
+                          } finally {
+                            setIsPricing(false);
+                            setPricingRequestId(null);
+                            setPricingAmount('');
+                          }
+                        }}
+                        className="px-4 py-2 rounded-xl bg-gradient-to-r from-sky-600 to-indigo-600 hover:from-sky-500 hover:to-indigo-500 text-white font-bold text-xs flex items-center gap-2 shadow-lg shadow-sky-600/25 transition-all self-end sm:self-center cursor-pointer"
+                      >
+                        {isPricing && pricingRequestId === cor.id ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <FileSignature className="w-4 h-4 text-sky-200" />
+                        )}
+                        <span>Gerar Aditivo Contratual</span>
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-between text-xs text-emerald-300">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                        <span>Aditivo homologado no valor de <strong>{formatBRL(cor.priced_amount || 0)}</strong>. Incrementado no orçamento global da obra.</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Lista de Aditivos da Tab Ativa */}
       <div className="space-y-3">

@@ -1098,31 +1098,153 @@ function PaymentModal({
   onSuccess: (res: any) => void;
 }) {
   const supabase = createClient();
-  const [amount, setAmount] = useState<string>('');
+  const [principalAmount, setPrincipalAmount] = useState<string>('');
+  const [contractedExtraAmount, setContractedExtraAmount] = useState<string>('');
+  const [fieldExtras, setFieldExtras] = useState<
+    Array<{
+      description: string;
+      amount: string;
+      requested_by: string;
+      validated_by: string;
+      negotiation_alert?: boolean;
+      historical_average?: number;
+      price_variance_percent?: number;
+    }>
+  >([]);
+
+  // Estado de Parsing via IA (WhatsApp) (Prompt 101)
+  const [rawWhatsAppText, setRawWhatsAppText] = useState<string>('');
+  const [isParsingLLM, setIsParsingLLM] = useState<boolean>(false);
+  const [llmParseNotice, setLlmParseNotice] = useState<string | null>(null);
+
   const [paymentDate, setPaymentDate] = useState<string>(
     new Date().toISOString().split('T')[0]
   );
-  const [dueDate, setDueDate] = useState<string>(
-    new Date().toISOString().split('T')[0]
-  );
   const [observation, setObservation] = useState<string>('');
-  const [createFinancialEntry, setCreateFinancialEntry] = useState<boolean>(true);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Alerta Laranja Anti-Fraude (Prompt 100)
+  const [warningDuplicateRisk, setWarningDuplicateRisk] = useState<boolean>(false);
+  const [duplicateSuspects, setDuplicateSuspects] = useState<any[]>([]);
+  const [pendingSuccessResult, setPendingSuccessResult] = useState<any | null>(null);
+
   const [paymentMethod, setPaymentMethod] = useState<'PIX' | 'TRANSFER' | 'OUTRO'>('PIX');
   const [pixKey, setPixKey] = useState<string>('');
+  const [createFinancialEntry, setCreateFinancialEntry] = useState<boolean>(true);
   const [successPayment, setSuccessPayment] = useState<{ amount: number; date: string; method: string } | null>(null);
 
   const partnerName =
     subcontract.suppliers?.trade_name || subcontract.suppliers?.name || 'Fornecedor';
   const partnerPhone = subcontract.suppliers?.phone || '';
 
+  const handleAddFieldExtra = () => {
+    setFieldExtras((prev) => [
+      ...prev,
+      { description: '', amount: '', requested_by: '', validated_by: '' },
+    ]);
+  };
+
+  const handleRemoveFieldExtra = (index: number) => {
+    setFieldExtras((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleFieldExtraChange = (index: number, field: string, value: string) => {
+    setFieldExtras((prev) => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], [field]: value };
+      return updated;
+    });
+  };
+
+  const handleProcessWhatsAppWithLLM = async () => {
+    if (!rawWhatsAppText.trim()) {
+      setError('Cole a mensagem de WhatsApp antes de disparar o processamento por IA.');
+      return;
+    }
+
+    setIsParsingLLM(true);
+    setLlmParseNotice(null);
+    setError(null);
+
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session) throw new Error('Sessão expirada. Faça login novamente.');
+
+      const res = await fetch('/api/v1/finance/payables/subcontracts/parse-extras', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+          'x-tenant-id': (session.user as any)?.app_metadata?.tenant_id || '',
+        },
+        body: JSON.stringify({
+          raw_text: rawWhatsAppText,
+          subcontract_id: subcontract.id,
+        }),
+      });
+
+      const resJson = await res.json();
+      if (!res.ok) {
+        throw new Error(resJson.detail || 'Falha ao decodificar extras com LLM.');
+      }
+
+      if (resJson.items && resJson.items.length > 0) {
+        const formattedItems = resJson.items.map((it: any) => ({
+          description: `${it.service}${it.quantity > 1 ? ` (${it.quantity} un)` : ''}`,
+          amount: String(Number(it.total).toFixed(2)),
+          requested_by: partnerName,
+          validated_by: '',
+          negotiation_alert: it.negotiation_alert,
+          historical_average: it.historical_average ? Number(it.historical_average) : undefined,
+          price_variance_percent: it.price_variance_percent ? Number(it.price_variance_percent) : undefined,
+        }));
+
+        setFieldExtras(formattedItems);
+        setLlmParseNotice(
+          resJson.has_negotiation_alerts
+            ? '⚠️ IA identificou itens com valor acima da média histórica. Analise as recomendações de negociação!'
+            : '✅ Mensagem decodificada com sucesso! Valores compatíveis com a referência histórica.'
+        );
+      } else {
+        setLlmParseNotice('Nenhum item monetário ou de serviço identificado na mensagem.');
+      }
+    } catch (err: any) {
+      setError(err.message || 'Erro ao processar mensagem com IA.');
+    } finally {
+      setIsParsingLLM(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const numAmount = parseFloat(amount.replace(',', '.'));
-    if (isNaN(numAmount) || numAmount <= 0) {
-      setError('Informe um valor de pagamento válido maior que zero.');
+    const numPrincipal = parseFloat(principalAmount.replace(',', '.')) || 0;
+    const numContracted = parseFloat(contractedExtraAmount.replace(',', '.')) || 0;
+
+    const parsedExtras = fieldExtras.map((item) => ({
+      description: item.description.trim(),
+      amount: parseFloat(item.amount.replace(',', '.')) || 0,
+      requested_by_supplier: item.requested_by.trim() || undefined,
+      validated_by_field: item.validated_by.trim() || undefined,
+    }));
+
+    for (const ext of parsedExtras) {
+      if (!ext.description) {
+        setError('A descrição de cada serviço extra de campo é obrigatória (ex: "10 caixinhas 4x2").');
+        return;
+      }
+      if (ext.amount <= 0) {
+        setError('O valor de cada serviço extra de campo deve ser maior que zero.');
+        return;
+      }
+    }
+
+    const totalCalculated = numPrincipal + numContracted + parsedExtras.reduce((acc, curr) => acc + curr.amount, 0);
+
+    if (totalCalculated <= 0) {
+      setError('Informe um valor de pagamento válido (Principal, Aditivo Contratado ou Extra de Campo).');
       return;
     }
 
@@ -1142,29 +1264,38 @@ function PaymentModal({
         .filter(Boolean)
         .join(' ');
 
-      const res = await fetch(`/api/v1/subcontracts/${subcontract.id}/transactions`, {
+      const res = await fetch(`/api/v1/finance/payables/subcontracts/pay`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${session.access_token}`,
+          'x-tenant-id': (session.user as any)?.app_metadata?.tenant_id || '',
         },
         body: JSON.stringify({
-          type: 'PAYMENT',
-          amount: numAmount,
-          date: paymentDate,
-          due_date: dueDate,
+          subcontract_id: subcontract.id,
+          principal_amount: numPrincipal,
+          contracted_extra_amount: numContracted,
+          field_extras: parsedExtras,
+          payment_date: paymentDate,
           observation: obsFull || undefined,
-          create_financial_entry: createFinancialEntry,
         }),
       });
 
       const resJson = await res.json();
       if (!res.ok) {
-        throw new Error(resJson.detail || 'Erro ao registrar pagamento na conta corrente.');
+        throw new Error(resJson.detail || 'Erro ao registrar pagamento segregado.');
+      }
+
+      // Se a API retornou alerta de duplicidade "Gato Escaldado", exibe o Modal Laranja antes de encerrar
+      if (resJson.warning_duplicate_risk && resJson.duplicate_suspects?.length > 0) {
+        setWarningDuplicateRisk(true);
+        setDuplicateSuspects(resJson.duplicate_suspects);
+        setPendingSuccessResult(resJson);
+        return;
       }
 
       setSuccessPayment({
-        amount: numAmount,
+        amount: totalCalculated,
         date: paymentDate,
         method: paymentMethod,
       });
@@ -1173,6 +1304,19 @@ function PaymentModal({
       setError(err.message || 'Falha ao processar pagamento.');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleConfirmDuplicateWarning = () => {
+    setWarningDuplicateRisk(false);
+    if (pendingSuccessResult) {
+      const totalAmount = pendingSuccessResult.total_paid_now || 0;
+      setSuccessPayment({
+        amount: totalAmount,
+        date: paymentDate,
+        method: paymentMethod,
+      });
+      onSuccess(pendingSuccessResult);
     }
   };
 
@@ -1217,6 +1361,61 @@ function PaymentModal({
             <X className="w-4 h-4" />
           </button>
         </div>
+
+        {/* Modal de Alerta Laranja: Risco de Cobrança Duplicada (Prompt 100) */}
+        {warningDuplicateRisk && (
+          <div className="p-6 space-y-4 bg-amber-950/40 border-b border-amber-500/40 text-left animate-fade-in">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/40 text-amber-400 flex items-center justify-center shrink-0">
+                <AlertTriangle className="w-5 h-5" />
+              </div>
+              <div className="space-y-1 flex-1">
+                <h4 className="text-sm font-bold text-amber-300">
+                  ⚠️ Possível Cobrança Duplicada Detectada
+                </h4>
+                <p className="text-xs text-amber-200/90 leading-relaxed">
+                  O empreiteiro já cobrou por serviços com descrição similar nesta obra anteriormente. Confirme com a engenharia antes de liquidar.
+                </p>
+              </div>
+            </div>
+
+            <div className="p-3 rounded-xl bg-slate-900/90 border border-amber-500/30 text-xs space-y-2">
+              <span className="text-[11px] font-bold text-amber-400 uppercase tracking-wider block">
+                Histórico de Serviços Similares Encontrados:
+              </span>
+              {duplicateSuspects.map((item, idx) => (
+                <div key={idx} className="flex justify-between items-center py-1.5 border-b border-slate-800 last:border-b-0">
+                  <div>
+                    <span className="font-semibold text-white block">{item.description}</span>
+                    <span className="text-[10px] text-slate-400">
+                      Data: {formatDate(item.created_at)} | Similaridade: {(item.similarity_score * 100).toFixed(0)}%
+                    </span>
+                  </div>
+                  <span className="font-mono font-bold text-amber-300">
+                    {formatCurrency(Number(item.amount))}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setWarningDuplicateRisk(false)}
+                className="px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-300 hover:text-white"
+              >
+                Revisar Itens
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDuplicateWarning}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-950 bg-gradient-to-r from-amber-400 to-orange-400 hover:from-amber-300 hover:to-orange-300 transition-all shadow-md shadow-amber-500/20"
+              >
+                Ciente, Prosseguir com Pagamento
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Modal de Sucesso com Ação WhatsApp */}
         {successPayment ? (
@@ -1289,28 +1488,211 @@ function PaymentModal({
               </p>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Valor do Pagamento / Adiantamento (R$) *
-                </label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 font-mono text-xs">
-                    R$
-                  </span>
-                  <input
-                    type="number"
-                    step="0.01"
-                    required
-                    autoFocus
-                    placeholder="0,00"
-                    value={amount}
-                    onChange={(e) => setAmount(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white font-mono text-sm focus:outline-none focus:border-emerald-500"
-                  />
+            {/* Área de IA: Colar Cobrança do WhatsApp (Prompt 101) */}
+            <div className="p-3.5 rounded-xl bg-gradient-to-r from-indigo-950/40 via-purple-950/30 to-slate-900 border border-indigo-500/30 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-indigo-300">
+                  <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+                  <span>Colar cobrança do WhatsApp (Análise IA)</span>
                 </div>
+                <span className="text-[10px] text-indigo-300 bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/20 font-semibold">
+                  Gemini LLM + Dicionário de Preços
+                </span>
+              </div>
+              <textarea
+                rows={3}
+                placeholder="Ex: 'Fala mestre, segue os extras de elétrica desse mês: 10 caixinhas 4x2 a 65 reais = 650 e 4 luminárias a 150 = 600...'"
+                value={rawWhatsAppText}
+                onChange={(e) => setRawWhatsAppText(e.target.value)}
+                className="w-full px-3 py-2 rounded-xl bg-slate-950/80 border border-slate-800 text-white text-xs placeholder:text-slate-600 focus:outline-none focus:border-indigo-500"
+              />
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[11px] text-slate-400">
+                  Decodifica texto livre, extrai quantidades/preços e audita contra histórico.
+                </span>
+                <button
+                  type="button"
+                  onClick={handleProcessWhatsAppWithLLM}
+                  disabled={isParsingLLM || !rawWhatsAppText.trim()}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 transition-all shadow-sm shadow-indigo-500/20"
+                >
+                  {isParsingLLM ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                  Estruturar com IA
+                </button>
               </div>
 
+              {llmParseNotice && (
+                <div className="p-2.5 rounded-lg bg-indigo-950/60 border border-indigo-500/40 text-indigo-200 text-xs">
+                  {llmParseNotice}
+                </div>
+              )}
+            </div>
+
+            {/* Segregação de Verbas (Prompt 100) */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-300">
+                  Segregação de Verbas (Anti-Fraude)
+                </span>
+                <span className="text-[10px] text-emerald-400 font-semibold bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                  Contrato vs. Extras
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    Valor Contrato Principal (R$)
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 font-mono text-xs">
+                      R$
+                    </span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      placeholder="0,00"
+                      value={principalAmount}
+                      onChange={(e) => setPrincipalAmount(e.target.value)}
+                      className="w-full pl-9 pr-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white font-mono text-sm focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    Aditivo Contratado (R$)
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 font-mono text-xs">
+                      R$
+                    </span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      placeholder="0,00"
+                      value={contractedExtraAmount}
+                      onChange={(e) => setContractedExtraAmount(e.target.value)}
+                      className="w-full pl-9 pr-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white font-mono text-sm focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Serviços Extras de Campo (Field Extras) */}
+            <div className="p-3.5 rounded-xl bg-slate-900/60 border border-slate-800 space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="text-xs font-bold text-slate-200 block">
+                    Serviços Extras de Campo (Tarefas Não Previstas)
+                  </span>
+                  <span className="text-[11px] text-slate-400">
+                    Auditado pelo motor anti-duplicidade &quot;Gato Escaldado&quot;.
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleAddFieldExtra}
+                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 transition-all"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  + Adicionar Serviço Extra
+                </button>
+              </div>
+
+              {fieldExtras.length === 0 ? (
+                <p className="text-[11px] text-slate-500 italic py-1">
+                  Nenhum serviço extra de campo adicionado para este pagamento.
+                </p>
+              ) : (
+                <div className="space-y-3 pt-1">
+                  {fieldExtras.map((item, idx) => (
+                    <div key={idx} className="p-3 rounded-lg bg-slate-950/80 border border-slate-800 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-bold text-slate-300">
+                          Item #{idx + 1}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveFieldExtra(idx)}
+                          className="text-rose-400 hover:text-rose-300 text-xs p-1"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        <div className="sm:col-span-2">
+                          <label className="block text-[10px] font-semibold text-slate-400 mb-0.5">
+                            Descrição Obrigatória *
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            placeholder="Ex: 10 caixinhas 4x2 no 2º andar"
+                            value={item.description}
+                            onChange={(e) => handleFieldExtraChange(idx, 'description', e.target.value)}
+                            className="w-full px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-white text-xs focus:outline-none focus:border-emerald-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-semibold text-slate-400 mb-0.5">
+                            Valor (R$) *
+                          </label>
+                          <input
+                            type="number"
+                            step="0.01"
+                            required
+                            placeholder="0,00"
+                            value={item.amount}
+                            onChange={(e) => handleFieldExtraChange(idx, 'amount', e.target.value)}
+                            className="w-full px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-white font-mono text-xs focus:outline-none focus:border-emerald-500"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Tag de Alerta de Negociação do Dicionário de Preços (Prompt 101) */}
+                      {item.negotiation_alert && (
+                        <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-start gap-2 text-amber-300 text-[11px] leading-tight animate-fade-in">
+                          <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-amber-400 mt-0.5" />
+                          <div>
+                            <span className="font-bold">⚠️ Preço {item.price_variance_percent ? `${item.price_variance_percent}% ` : ''}acima da média histórica</span>
+                            {item.historical_average && (
+                              <span> (R$ {item.historical_average.toFixed(2)}). </span>
+                            )}
+                            <span className="text-amber-200/80">Sugestão: Negocie o valor com o fornecedor antes de aprovar.</span>
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                        <div>
+                          <input
+                            type="text"
+                            placeholder="Solicitante (Ex: Encarregado)"
+                            value={item.requested_by}
+                            onChange={(e) => handleFieldExtraChange(idx, 'requested_by', e.target.value)}
+                            className="w-full px-2 py-1 rounded bg-slate-900/60 border border-slate-800 text-[11px] text-slate-300"
+                          />
+                        </div>
+                        <div>
+                          <input
+                            type="text"
+                            placeholder="Validado em Obra por (Ex: Eng. Mestre)"
+                            value={item.validated_by}
+                            onChange={(e) => handleFieldExtraChange(idx, 'validated_by', e.target.value)}
+                            className="w-full px-2 py-1 rounded bg-slate-900/60 border border-slate-800 text-[11px] text-slate-300"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1">
                   Data do Desembolso *
@@ -1322,6 +1704,19 @@ function PaymentModal({
                   onChange={(e) => setPaymentDate(e.target.value)}
                   className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs sm:text-sm focus:outline-none focus:border-emerald-500"
                 />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  Total Consolidado a Liquidar
+                </label>
+                <div className="px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 font-mono text-sm font-bold text-emerald-400">
+                  {formatCurrency(
+                    (parseFloat(principalAmount.replace(',', '.')) || 0) +
+                    (parseFloat(contractedExtraAmount.replace(',', '.')) || 0) +
+                    fieldExtras.reduce((sum, item) => sum + (parseFloat(item.amount.replace(',', '.')) || 0), 0)
+                  )}
+                </div>
               </div>
             </div>
 

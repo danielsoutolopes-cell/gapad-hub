@@ -42,6 +42,9 @@ interface InboundInvoiceItem {
   issue_date?: string | null;
   operation_type?: string;
   created_at: string;
+  reconciliation_status?: 'PENDING' | 'MATCHED' | 'PRICE_DIVERGENCE' | 'QUANTITY_DIVERGENCE' | 'MATCHED_WITH_CREDIT' | null;
+  purchase_request_id?: string | null;
+  goods_receipt_id?: string | null;
 }
 
 interface InboundInvoicesResponse {
@@ -64,7 +67,52 @@ export function InboundInvoicesClient() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // 1. Busca Notas de Entrada
+  // Estados do Modal de Auditoria Fiscal 3-Way Match (PROMPT 96)
+  const [auditModalInvoiceId, setAuditModalInvoiceId] = useState<string | null>(null);
+  const [resolvingCredit, setResolvingCredit] = useState(false);
+
+  // Query de Auditoria Fiscal 3-Way Match
+  const { data: auditResponse, isLoading: isLoadingAudit, refetch: refetchAudit } = useQuery({
+    queryKey: ['three_way_match_audit', auditModalInvoiceId],
+    queryFn: async () => {
+      if (!auditModalInvoiceId) return null;
+      const res = await fetch(`/api/v1/finance/reconciliation/match/${auditModalInvoiceId}/audit`);
+      if (!res.ok) throw new Error('Falha ao obter auditoria fiscal 3-Way Match');
+      return res.json();
+    },
+    enabled: !!auditModalInvoiceId,
+  });
+
+  // Mutação para aprovar pagamento e gerar crédito na Conta Corrente
+  const approveWithCreditMutation = useMutation({
+    mutationFn: async (invoiceId: string) => {
+      setResolvingCredit(true);
+      const res = await fetch(`/api/v1/finance/reconciliation/match/${invoiceId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'APPROVE_WITH_CREDIT',
+          notes: 'Aprovação manual de auditoria com crédito a favor da construtora.',
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.detail || json.message || 'Erro ao homologar crédito de fornecedor.');
+      }
+      return json;
+    },
+    onSuccess: (data) => {
+      setSuccessMessage(data.message || 'Reconciliação 3-Way Match homologada com sucesso! Crédito inserido.');
+      queryClient.invalidateQueries({ queryKey: ['inbound_invoices'] });
+      queryClient.invalidateQueries({ queryKey: ['supplier_credits'] });
+      refetchAudit();
+      setResolvingCredit(false);
+    },
+    onError: (err: any) => {
+      setErrorMessage(err.message || 'Erro ao processar resolução de 3-Way Match');
+      setResolvingCredit(false);
+    },
+  });
   const { data, isLoading, refetch, isFetching } = useQuery<InboundInvoicesResponse>({
     queryKey: ['inbound_invoices', statusFilter],
     queryFn: async () => {
@@ -371,6 +419,25 @@ export function InboundInvoicesClient() {
                       Em Contas a Pagar
                     </span>
                   )}
+                  {/* Status 3-Way Match */}
+                  {inv.reconciliation_status === 'MATCHED' && (
+                    <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 flex items-center gap-1">
+                      <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                      3-Way Match: 100% Ok
+                    </span>
+                  )}
+                  {inv.reconciliation_status === 'MATCHED_WITH_CREDIT' && (
+                    <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-teal-500/20 text-teal-300 border border-teal-500/40 flex items-center gap-1">
+                      <DollarSign className="w-3 h-3 text-teal-400" />
+                      3-Way: Crédito Gerado
+                    </span>
+                  )}
+                  {(inv.reconciliation_status === 'QUANTITY_DIVERGENCE' || inv.reconciliation_status === 'PRICE_DIVERGENCE') && (
+                    <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-rose-500/20 text-rose-300 border border-rose-500/40 flex items-center gap-1 animate-pulse">
+                      <AlertCircle className="w-3 h-3 text-rose-400" />
+                      Divergência Fiscal
+                    </span>
+                  )}
                 </div>
 
                 <div className="flex items-baseline gap-2">
@@ -396,6 +463,16 @@ export function InboundInvoicesClient() {
 
               {/* Lado Direito: Ações */}
               <div className="flex items-center gap-2 sm:gap-2.5 flex-wrap flex-shrink-0">
+                {/* Botão Auditoria Fiscal 3-Way Match */}
+                <button
+                  onClick={() => setAuditModalInvoiceId(inv.id)}
+                  className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-sky-300 hover:text-white font-semibold text-xs rounded-lg border border-slate-700 transition-all flex items-center gap-1.5"
+                  title="Auditoria 3-Way Match (PO x GR x NF-e)"
+                >
+                  <ShieldCheck className="w-3.5 h-3.5 text-sky-400" />
+                  <span>Auditar 3-Way Match</span>
+                </button>
+
                 {/* Botão Manifestar Confirmação se ainda não confirmada */}
                 {inv.manifestation_status === 'NOT_MANIFESTED' && (
                   <button
@@ -451,6 +528,226 @@ export function InboundInvoicesClient() {
           ))
         )}
       </div>
+      {/* MODAL DE AUDITORIA FISCAL (3-WAY MATCH) - PROMPT 96 */}
+      {auditModalInvoiceId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-5xl w-full max-h-[90vh] overflow-hidden flex flex-col shadow-2xl">
+            {/* Modal Header */}
+            <div className="p-6 border-b border-slate-800 flex items-center justify-between bg-slate-900/50">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-sky-500/10 border border-sky-500/20 text-sky-400">
+                  <ShieldCheck className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                    Auditoria Fiscal 3-Way Match
+                    <span className="text-xs px-2.5 py-0.5 rounded-full font-semibold border bg-slate-800 text-slate-300 border-slate-700">
+                      Procure-to-Pay
+                    </span>
+                  </h3>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Reconciliação cruzada: Pedido de Compra (PO) × Recebimento Físico (GR) × NF-e (SEFAZ)
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setAuditModalInvoiceId(null)}
+                className="text-slate-400 hover:text-white p-2 rounded-lg hover:bg-slate-800 transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 overflow-y-auto space-y-6 flex-1">
+              {isLoadingAudit ? (
+                <div className="py-16 text-center text-slate-400">
+                  <Loader2 className="w-8 h-8 animate-spin mx-auto text-sky-400 mb-3" />
+                  <p className="text-sm font-medium">Cruzando 3 vias fiscais e de almoxarifado...</p>
+                </div>
+              ) : !auditResponse?.audit ? (
+                <div className="py-12 text-center text-slate-400">
+                  <AlertCircle className="w-8 h-8 text-amber-400 mx-auto mb-2" />
+                  <p>Não foi possível carregar os dados de auditoria para esta nota.</p>
+                </div>
+              ) : (
+                <>
+                  {/* Status Banner */}
+                  <div
+                    className={`p-4 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+                      auditResponse.audit.status === 'MATCHED'
+                        ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+                        : auditResponse.audit.status === 'MATCHED_WITH_CREDIT'
+                        ? 'bg-teal-500/10 border-teal-500/30 text-teal-300'
+                        : 'bg-rose-500/10 border-rose-500/30 text-rose-300'
+                    }`}
+                  >
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2 font-bold text-sm">
+                        {auditResponse.audit.status === 'MATCHED' ? (
+                          <>
+                            <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+                            <span>Reconciliação 100% Compatível (3-Way Matched)</span>
+                          </>
+                        ) : auditResponse.audit.status === 'MATCHED_WITH_CREDIT' ? (
+                          <>
+                            <CheckCircle2 className="w-5 h-5 text-teal-400" />
+                            <span>Reconciliado com Geração de Saldo Credor (Conta Corrente)</span>
+                          </>
+                        ) : (
+                          <>
+                            <AlertCircle className="w-5 h-5 text-rose-400" />
+                            <span>Divergência Fiscal Detectada — Contas a Pagar Travado (BLOCKED)</span>
+                          </>
+                        )}
+                      </div>
+                      <p className="text-xs opacity-90">
+                        Fornecedor: <strong>{auditResponse.audit.issuer_name}</strong> | NF-e: <strong>#{auditResponse.audit.nfe_number}</strong>
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <div className="text-right">
+                        <div className="text-[11px] text-slate-400">Total Faturado (NF-e)</div>
+                        <div className="text-base font-bold font-mono text-white">
+                          R$ {Number(auditResponse.audit.total_amount_nfe || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* As 3 Colunas: Comparativo de Itens */}
+                  <div className="space-y-4">
+                    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                      Detalhamento dos Itens Cruzados
+                    </h4>
+
+                    {auditResponse.audit.items?.map((item: any, idx: number) => (
+                      <div
+                        key={idx}
+                        className="bg-slate-950/70 border border-slate-800 rounded-2xl p-4 sm:p-5 space-y-4"
+                      >
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-800/80 pb-3 gap-2">
+                          <span className="font-semibold text-white text-sm">
+                            {item.item_description}
+                          </span>
+                          {item.financial_difference > 0 && (
+                            <span className="text-xs font-bold px-2.5 py-1 rounded-lg bg-rose-500/20 text-rose-400 border border-rose-500/30 flex items-center gap-1">
+                              <AlertCircle className="w-3.5 h-3.5" />
+                              Faturado a maior: {item.missing_quantity} un (Diferença: R$ {item.financial_difference.toLocaleString('pt-BR', { minimumFractionDigits: 2 })})
+                            </span>
+                          )}
+                        </div>
+
+                        {/* As 3 Colunas */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                          {/* Coluna 1: Comprado (PO) */}
+                          <div className="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800 space-y-2">
+                            <div className="text-[11px] font-bold text-sky-400 uppercase tracking-wider flex items-center justify-between">
+                              <span>1. Pedido de Compra (PO)</span>
+                              <FileText className="w-3.5 h-3.5 text-sky-400" />
+                            </div>
+                            <div className="text-xs text-slate-300 space-y-1">
+                              <div>Qtd: <strong className="text-white font-mono">{item.purchased_po.quantity}</strong></div>
+                              <div>Preço Unit: <strong className="text-white font-mono">R$ {Number(item.purchased_po.unit_price).toFixed(2)}</strong></div>
+                              <div className="pt-1 border-t border-slate-800 text-sky-300 font-mono font-bold">
+                                Total: R$ {Number(item.purchased_po.total).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Coluna 2: Recebido (GR) */}
+                          <div className="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800 space-y-2">
+                            <div className="text-[11px] font-bold text-teal-400 uppercase tracking-wider flex items-center justify-between">
+                              <span>2. Recebido no Campo (GR)</span>
+                              <CheckCircle2 className="w-3.5 h-3.5 text-teal-400" />
+                            </div>
+                            <div className="text-xs text-slate-300 space-y-1">
+                              <div>Qtd Real: <strong className="text-white font-mono">{item.received_gr.quantity}</strong></div>
+                              <div>Preço Base: <strong className="text-white font-mono">R$ {Number(item.received_gr.unit_price).toFixed(2)}</strong></div>
+                              <div className="pt-1 border-t border-slate-800 text-teal-300 font-mono font-bold">
+                                Total Físico: R$ {Number(item.received_gr.total).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Coluna 3: Faturado (NF-e XML) */}
+                          <div className="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800 space-y-2">
+                            <div className="text-[11px] font-bold text-purple-400 uppercase tracking-wider flex items-center justify-between">
+                              <span>3. Faturado NF-e (XML)</span>
+                              <FileCheck2 className="w-3.5 h-3.5 text-purple-400" />
+                            </div>
+                            <div className="text-xs text-slate-300 space-y-1">
+                              <div>Qtd Cobrada: <strong className="text-white font-mono">{item.invoiced_nfe.quantity}</strong></div>
+                              <div>Preço Unit: <strong className="text-white font-mono">R$ {Number(item.invoiced_nfe.unit_price).toFixed(2)}</strong></div>
+                              <div className="pt-1 border-t border-slate-800 text-purple-300 font-mono font-bold">
+                                Total NF-e: R$ {Number(item.invoiced_nfe.total).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Resolução Inteligente de Créditos (Prompt 95 + 96 + 98) */}
+                  {auditResponse.can_approve_with_credit && (
+                    <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex flex-col md:flex-row items-center justify-between gap-4">
+                      <div className="space-y-1">
+                        <div className="text-xs font-bold text-amber-300 flex items-center gap-1.5">
+                          <DollarSign className="w-4 h-4 text-amber-400" />
+                          <span>
+                            {auditResponse.audit.responsibility === 'CLIENT_DIRECT'
+                              ? 'Resolução CLIENT_DIRECT: Faturado a maior no CNPJ do Cliente'
+                              : 'Oportunidade de Compensação Financeira (Saldo Credor Construtora)'}
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-400">
+                          {auditResponse.audit.responsibility === 'CLIENT_DIRECT'
+                            ? `A NF-e cobrou R$ ${Number(auditResponse.financial_credit_potential).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} a mais do que a entrega física. Ao aprovar, o crédito fica retido exclusivamente para esta obra e o boleto corrigido é liberado para envio ao cliente.`
+                            : `A NF-e cobrou R$ ${Number(auditResponse.financial_credit_potential).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} a mais do que a entrega física. Você pode destravar o Contas a Pagar sem protestos e criar automaticamente um Saldo Credor com o fornecedor.`}
+                        </p>
+                      </div>
+
+                      <button
+                        onClick={() => approveWithCreditMutation.mutate(auditModalInvoiceId)}
+                        disabled={resolvingCredit}
+                        className="px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-emerald-600/25 border border-emerald-400/30 flex items-center gap-2 whitespace-nowrap disabled:opacity-50 transition-all hover:scale-[1.02] active:scale-[0.98]"
+                      >
+                        {resolvingCredit ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            <span>Processando Crédito...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Check className="w-4 h-4 text-emerald-200" />
+                            <span>
+                              {auditResponse.audit.responsibility === 'CLIENT_DIRECT'
+                                ? 'Aprovar Boleto com Divergência e Gerar Crédito na Obra'
+                                : 'Aprovar Pagamento e Gerar Crédito'}
+                            </span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 border-t border-slate-800 bg-slate-900/50 flex justify-end">
+              <button
+                onClick={() => setAuditModalInvoiceId(null)}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-semibold rounded-xl border border-slate-700 transition-colors"
+              >
+                Fechar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

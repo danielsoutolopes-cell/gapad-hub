@@ -311,3 +311,19 @@ async def delete_supplier(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Falha ao excluir fornecedor: {exc.response.text}",
             ) from exc
+
+
+@router.get(
+    "/{supplier_id}/credits",
+    status_code=status.HTTP_200_OK,
+    summary="Consultar créditos do fornecedor com isolamento por obra e cliente (Prompt 97)",
+    description="Retorna o saldo credor disponível. Aplica a tranca dupla: se project_id for informado, créditos de CLIENT_DIRECT só são retornados se a obra coincidir rigorosamente.",
+)
+async def get_supplier_credits_endpoint(
+    supplier_id: str,
+    project_id: Optional[str] = Query(None, description="ID da obra para validação de centro de custo exclusivo"),
+    status_filter: Optional[str] = Query(None, alias="status"),
+) -> Dict[str, Any]:
+    from app.api.v1.endpoints.logistics import get_supplier_credits
+    return await get_supplier_credits(supplier_id=supplier_id, project_id=project_id, status_filter=status_filter)
+

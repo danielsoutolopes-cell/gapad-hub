@@ -131,6 +131,42 @@ interface SupplierOption {
   category?: string | null;
 }
 
+interface SupplierCreditItem {
+  id: string;
+  supplier_id: string;
+  supplier_name: string;
+  client_id_owner?: string | null;
+  client_name?: string | null;
+  project_id_owner?: string | null;
+  project_name?: string | null;
+  responsibility?: ResponsibilityType;
+  receipt_id?: string;
+  credit_amount: number;
+  status: 'AVAILABLE' | 'USED' | 'REFUNDED';
+  notes?: string;
+  created_at: string;
+}
+
+interface SupplierProjectBreakdown {
+  project_id: string;
+  project_name: string;
+  client_id?: string | null;
+  client_name?: string | null;
+  responsibility: ResponsibilityType;
+  subtotal_available: number;
+  credits: SupplierCreditItem[];
+}
+
+interface SupplierCreditSummary {
+  supplier_id: string;
+  supplier_name: string;
+  total_available_credit: number;
+  total_used_credit: number;
+  records_count: number;
+  credits: SupplierCreditItem[];
+  by_projects?: SupplierProjectBreakdown[];
+}
+
 function formatBRL(val: number): string {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
     Number(val || 0)
@@ -139,11 +175,14 @@ function formatBRL(val: number): string {
 
 export function SuprimentosClient({ activeModules }: { activeModules: string[] }) {
   const [activeTab, setActiveTab] = useState<
-    'concorrencia' | 'requisicoes' | 'comprinhas' | 'custos_abc'
+    'concorrencia' | 'requisicoes' | 'comprinhas' | 'custos_abc' | 'conta_corrente'
   >('concorrencia');
   const [requests, setRequests] = useState<PurchaseRequestItem[]>([]);
   const [directPurchases, setDirectPurchases] = useState<DirectPurchaseItem[]>([]);
   const [categoryCosts, setCategoryCosts] = useState<CategoryCostItem[]>([]);
+  const [supplierCreditsSummary, setSupplierCreditsSummary] = useState<SupplierCreditSummary[]>([]);
+  const [totalNetworkCredit, setTotalNetworkCredit] = useState<number>(0);
+  const [openCreditAccordions, setOpenCreditAccordions] = useState<Record<string, boolean>>({});
   const [openCategories, setOpenCategories] = useState<Record<string, boolean>>({});
   const [selectedReqId, setSelectedReqId] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(true);
@@ -185,11 +224,12 @@ export function SuprimentosClient({ activeModules }: { activeModules: string[] }
       if (session?.access_token) {
         headers['Authorization'] = `Bearer ${session.access_token}`;
       }
-      const [resp, dpResp, abcResp, supResp] = await Promise.all([
+      const [resp, dpResp, abcResp, supResp, credResp] = await Promise.all([
         fetch('/api/v1/procurement/requests', { headers, cache: 'no-store' }),
         fetch('/api/v1/procurement/direct-purchases', { headers, cache: 'no-store' }),
         fetch('/api/v1/procurement/costs-by-category', { headers, cache: 'no-store' }),
         fetch('/api/v1/suppliers?limit=100', { headers, cache: 'no-store' }).catch(() => null),
+        fetch('/api/v1/logistics/credits/summary', { headers, cache: 'no-store' }).catch(() => null),
       ]);
       if (resp.ok) {
         const data = await resp.json();
@@ -206,6 +246,11 @@ export function SuprimentosClient({ activeModules }: { activeModules: string[] }
       if (abcResp.ok) {
         const abcData = await abcResp.json();
         setCategoryCosts(abcData.categories || []);
+      }
+      if (credResp && credResp.ok) {
+        const credData = await credResp.json();
+        setSupplierCreditsSummary(credData.items || []);
+        setTotalNetworkCredit(credData.total_network_credit || 0);
       }
       if (supResp && supResp.ok) {
         const supData = await supResp.json();
@@ -704,6 +749,23 @@ export function SuprimentosClient({ activeModules }: { activeModules: string[] }
           <Receipt className="w-3.5 h-3.5 text-amber-400" />
           <span>Compras Diretas / &ldquo;Comprinhas&rdquo; ({directPurchases.length})</span>
         </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('conta_corrente')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+            activeTab === 'conta_corrente'
+              ? 'bg-slate-900 text-emerald-300 border border-emerald-500/40'
+              : 'text-slate-400 hover:text-white'
+          }`}
+        >
+          <Award className="w-3.5 h-3.5 text-emerald-400" />
+          <span>Conta Corrente de Fornecedores ({supplierCreditsSummary.length})</span>
+          {totalNetworkCredit > 0 && (
+            <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-emerald-500 text-slate-950 font-extrabold">
+              {formatBRL(totalNetworkCredit)}
+            </span>
+          )}
+        </button>
       </div>
 
       {loading ? (
@@ -878,6 +940,184 @@ export function SuprimentosClient({ activeModules }: { activeModules: string[] }
                 ))}
               </tbody>
             </table>
+          </div>
+        </div>
+      ) : activeTab === 'conta_corrente' ? (
+        <div className="space-y-6">
+          {/* Card Resumo Global da Conta Corrente de Fornecedores */}
+          <div className="rounded-2xl bg-gradient-to-r from-emerald-950/40 via-slate-900 to-slate-900 border border-emerald-500/30 p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-400">
+                PROMPT 95 & 97 • Supply Chain & Goods Receipt (Isolamento por Obra)
+              </span>
+              <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                <Award className="w-5 h-5 text-emerald-400" />
+                <span>Conta Corrente de Fornecedores (Saldos Credores / Haveres)</span>
+              </h2>
+              <p className="text-xs text-slate-300 max-w-2xl">
+                Quando uma entrega no canteiro é conferida com faltas ou divergências, o valor restante gera Saldo Credor.
+                Em compras faturadas no CNPJ do cliente (<strong className="text-emerald-400">CLIENT_DIRECT</strong>), os créditos
+                ficam estritamente isolados para a respectiva obra, impedindo uso cruzado indevido.
+              </p>
+            </div>
+            <div className="text-right flex-shrink-0 bg-slate-950 p-4 rounded-xl border border-slate-800">
+              <span className="text-[10px] text-slate-400 block font-semibold uppercase">Saldo Credor Total Disponível</span>
+              <span className="text-xl font-extrabold text-emerald-400 font-mono">
+                {formatBRL(totalNetworkCredit)}
+              </span>
+            </div>
+          </div>
+
+          {/* Lista com Accordion por Fornecedor e Segregação por Obras (Prompt 97) */}
+          <div className="space-y-3">
+            {supplierCreditsSummary.length === 0 ? (
+              <div className="rounded-xl bg-slate-900 border border-slate-800 p-8 text-center text-slate-500 text-xs">
+                Nenhum crédito de fornecedor registrado no momento.
+              </div>
+            ) : (
+              supplierCreditsSummary.map((item) => {
+                const isAccordionOpen = openCreditAccordions[item.supplier_id] ?? true;
+                return (
+                  <div
+                    key={item.supplier_id}
+                    className="rounded-2xl bg-slate-900 border border-slate-800 overflow-hidden shadow-sm"
+                  >
+                    {/* Cabeçalho do Accordion Fornecedor */}
+                    <div
+                      onClick={() =>
+                        setOpenCreditAccordions((prev) => ({
+                          ...prev,
+                          [item.supplier_id]: !isAccordionOpen,
+                        }))
+                      }
+                      className="p-4 sm:p-5 bg-slate-950/70 hover:bg-slate-950 flex flex-col sm:flex-row sm:items-center justify-between gap-4 cursor-pointer transition-colors border-b border-slate-800"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-400">
+                          {isAccordionOpen ? (
+                            <ChevronDown className="w-4 h-4 text-emerald-400" />
+                          ) : (
+                            <ChevronRight className="w-4 h-4 text-slate-400" />
+                          )}
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-bold text-white text-sm">{item.supplier_name}</h3>
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-800 text-slate-300 border border-slate-700">
+                              {item.records_count} entrega(s)
+                            </span>
+                          </div>
+                          <p className="text-[11px] font-mono text-slate-500 mt-0.5">
+                            ID Fornecedor: {item.supplier_id}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-6 justify-between sm:justify-end">
+                        <div className="text-right">
+                          <span className="text-[10px] text-slate-400 block uppercase">Crédito Utilizado</span>
+                          <span className="text-xs font-mono text-slate-400 font-medium">
+                            {formatBRL(item.total_used_credit)}
+                          </span>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-[10px] text-slate-400 block uppercase">Saldo Disponível</span>
+                          <span className="text-sm sm:text-base font-mono font-bold text-emerald-400">
+                            {formatBRL(item.total_available_credit)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Conteúdo Expandido do Accordion: Segregação por Obras */}
+                    {isAccordionOpen && (
+                      <div className="p-4 sm:p-5 bg-slate-900/40 space-y-4">
+                        <div className="flex items-center justify-between">
+                          <h4 className="text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+                            <span>🏗️ Segregação de Haveres por Centro de Custo / Obra</span>
+                            <span className="text-[10px] font-semibold text-amber-400 border border-amber-500/30 px-2 py-0.5 rounded-full bg-amber-500/10">
+                              Uso Cruzado Bloqueado
+                            </span>
+                          </h4>
+                          <span className="text-[10px] text-slate-500">
+                            Matriz de Responsabilidade (Prompt 97)
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-3">
+                          {item.by_projects && item.by_projects.length > 0 ? (
+                            item.by_projects.map((proj) => (
+                              <div
+                                key={proj.project_id}
+                                className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 hover:border-slate-700/80 transition-colors space-y-2.5"
+                              >
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800/60 pb-2">
+                                  <div className="flex items-center gap-2">
+                                    <Building2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                                    <div>
+                                      <div className="font-bold text-white text-xs">{proj.project_name}</div>
+                                      {proj.client_name && (
+                                        <div className="text-[10px] text-slate-400">
+                                          Proprietário/CNPJ: <strong className="text-slate-200">{proj.client_name}</strong>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  <div className="flex items-center gap-2">
+                                    <span
+                                      className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+                                        proj.responsibility === 'CLIENT_DIRECT'
+                                          ? 'bg-amber-500/15 text-amber-300 border-amber-500/30'
+                                          : 'bg-sky-500/15 text-sky-300 border-sky-500/30'
+                                      }`}
+                                    >
+                                      {proj.responsibility === 'CLIENT_DIRECT'
+                                        ? '🔒 Faturado Cliente (Uso Exclusivo)'
+                                        : '🏢 Construtora'}
+                                    </span>
+                                    <span className="font-mono font-bold text-xs text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-lg">
+                                      {formatBRL(proj.subtotal_available)}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                {/* Ocorrências na Obra */}
+                                <div className="space-y-1.5 pl-6">
+                                  {proj.credits.map((cr) => (
+                                    <div
+                                      key={cr.id}
+                                      className="text-[11px] text-slate-300 flex flex-col sm:flex-row sm:items-center justify-between gap-1 py-1 border-t border-slate-800/40 first:border-0"
+                                    >
+                                      <div className="flex items-center gap-2 truncate">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 flex-shrink-0" />
+                                        <span className="truncate">{cr.notes || 'Entrega parcial conferida no PWA de campo'}</span>
+                                      </div>
+                                      <div className="flex items-center gap-3 font-mono text-[10px] flex-shrink-0">
+                                        <span className="text-slate-500">
+                                          {new Date(cr.created_at).toLocaleDateString('pt-BR')}
+                                        </span>
+                                        <span className="font-bold text-emerald-400">
+                                          {formatBRL(cr.credit_amount)}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            ))
+                          ) : (
+                            <div className="p-3 text-center text-slate-500 text-xs">
+                              Sem detalhamento por obra para este fornecedor.
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })
+            )}
           </div>
         </div>
       ) : activeTab === 'requisicoes' ? (
@@ -1115,6 +1355,29 @@ export function SuprimentosClient({ activeModules }: { activeModules: string[] }
                     )}
 
                     <h3 className="text-sm font-bold text-white">{q.supplier_name}</h3>
+
+                    {/* Banner de Crédito Disponível / Conta de Haveres */}
+                    {(() => {
+                      const supCredit = supplierCreditsSummary.find(
+                        (s) =>
+                          s.supplier_name.toLowerCase().includes(q.supplier_name.toLowerCase()) ||
+                          q.supplier_name.toLowerCase().includes(s.supplier_name.toLowerCase())
+                      );
+                      if (supCredit && supCredit.total_available_credit > 0) {
+                        return (
+                          <div className="p-2.5 rounded-lg bg-emerald-500/15 border border-emerald-500/40 text-[11px] text-emerald-300 space-y-1">
+                            <div className="flex items-center gap-1.5 font-bold">
+                              <Award className="w-3.5 h-3.5 text-emerald-400" />
+                              <span>Crédito Disponível: {formatBRL(supCredit.total_available_credit)}</span>
+                            </div>
+                            <p className="text-[10px] text-slate-300">
+                              Atenção: Você possui saldo de entrega parcial com esta loja. Negocie o abatimento nesta compra!
+                            </p>
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
 
                     <div className="space-y-1.5 text-xs">
                       <div className="flex justify-between text-slate-400">

@@ -16,6 +16,12 @@ class ProjectTaskBase(BaseModel):
     name: str = Field(..., min_length=2, max_length=255, description="Nome da etapa/tarefa da obra")
     start_date: date = Field(..., description="Data de início previsto")
     end_date: date = Field(..., description="Data de término previsto")
+    planned_start: Optional[date] = Field(None, description="Data planejada de início")
+    planned_end: Optional[date] = Field(None, description="Data planejada de término")
+    actual_start: Optional[date] = Field(None, description="Data real de início")
+    actual_end: Optional[date] = Field(None, description="Data real de término")
+    parent_task_id: Optional[UUID] = Field(None, description="Tarefa pai na árvore WBS")
+    wbs_code: Optional[str] = Field(None, description="Código WBS (ex: 1.1, 1.2)")
     progress_percentage: float = Field(default=0.0, ge=0.0, le=100.0, description="Percentual de avanço físico executado (0 a 100%)")
     budget_rubric_id: Optional[UUID] = Field(default=None, description="Vínculo com rubrica orçamentária")
     dependencies_json: List[str] = Field(default_factory=list, description="IDs das tarefas predecessoras")
@@ -31,11 +37,31 @@ class ProjectTaskUpdate(BaseModel):
     name: Optional[str] = None
     start_date: Optional[date] = None
     end_date: Optional[date] = None
+    planned_start: Optional[date] = None
+    planned_end: Optional[date] = None
+    actual_start: Optional[date] = None
+    actual_end: Optional[date] = None
+    parent_task_id: Optional[UUID] = None
+    wbs_code: Optional[str] = None
     progress_percentage: Optional[float] = Field(None, ge=0.0, le=100.0)
     budget_rubric_id: Optional[UUID] = None
     dependencies_json: Optional[List[str]] = None
     planned_cost: Optional[float] = None
     sort_order: Optional[int] = None
+
+
+class DiaryInputPayload(BaseModel):
+    workforce_count: Optional[int] = Field(default=0, ge=0, description="Contingente de trabalhadores no dia")
+    weather_condition: Optional[str] = Field(default="ENSOLARADO", description="Condição climática")
+    observations: Optional[str] = Field(None, description="Relato das atividades e ocorrências")
+    photo_urls: Optional[List[str]] = Field(default_factory=list, description="Fotos probatórias do avanço")
+
+
+class TaskProgressUpdatePayload(BaseModel):
+    progress_percentage: float = Field(..., ge=0.0, le=100.0, description="Novo percentual de avanço")
+    actual_start: Optional[date] = None
+    actual_end: Optional[date] = None
+    field_report: Optional[DiaryInputPayload] = None
 
 
 class ProjectTaskResponse(ProjectTaskBase):
