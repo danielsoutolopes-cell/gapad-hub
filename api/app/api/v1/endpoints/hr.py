@@ -67,6 +67,28 @@ class TerminateEmployeeRequest(BaseModel):
     termination_reason: str = Field(..., description="Motivo da rescisão (sem justa causa, pedido, etc.)")
 
 
+class EmployeeImportItem(BaseModel):
+    full_name: str
+    cpf: str
+    role: str
+    base_salary: float = Field(..., gt=0, description="Salário base mensal (R$)")
+    admission_date: Optional[date] = None
+    phone: Optional[str] = None
+    current_project: Optional[str] = None
+
+
+class EmployeeImportRequest(BaseModel):
+    employees: List[EmployeeImportItem]
+
+
+class EmployeeImportResponse(BaseModel):
+    success: bool
+    imported_count: int
+    skipped_count: int
+    imported_employees: List[Dict[str, Any]]
+    message: str
+
+
 class CalculatePayrollRequest(BaseModel):
     reference_month: str = Field(..., pattern=r"^\d{4}-\d{2}$", description="Mês de competência YYYY-MM (ex: 2026-11)")
     employee_ids: Optional[List[str]] = Field(default=None, description="Opcional: recalcular apenas para IDs específicos")
@@ -319,6 +341,59 @@ async def create_employee(payload: EmployeeCreateRequest):
     _MOCK_EMPLOYEES.append(record)
     logger.info(f"Colaborador admitido: {record['full_name']} (CPF: {record['cpf']})")
     return record
+
+
+@router.post("/employees/import", response_model=EmployeeImportResponse, status_code=status.HTTP_201_CREATED)
+async def import_employees(payload: EmployeeImportRequest):
+    """
+    Importação em lote de relação de colaboradores/funcionários (via CSV, planilha ou JSON).
+    Evita duplicação de cadastros por CPF e atualiza o quadro funcional.
+    """
+    imported = []
+    skipped = 0
+
+    for item in payload.employees:
+        clean_cpf = "".join(filter(str.isdigit, item.cpf))
+        # Verifica se já existe colaborador com esse CPF
+        exists = any(
+            "".join(filter(str.isdigit, str(e.get("cpf", "")))) == clean_cpf
+            for e in _MOCK_EMPLOYEES
+        )
+        if exists:
+            skipped += 1
+            continue
+
+        new_id = f"emp-{len(_MOCK_EMPLOYEES) + 1}"
+        record = {
+            "id": new_id,
+            "full_name": item.full_name.strip(),
+            "role": item.role.strip(),
+            "cpf": item.cpf.strip(),
+            "base_salary": round(item.base_salary, 2),
+            "daily_wage": round(item.base_salary / 30.0, 2),
+            "admission_date": (item.admission_date or date.today()).isoformat(),
+            "termination_date": None,
+            "termination_reason": None,
+            "vacation_start_date": None,
+            "vacation_end_date": None,
+            "leave_reason": None,
+            "current_project": item.current_project or "Matriz / A definir",
+            "phone": item.phone or "",
+            "status": EmployeeStatus.ACTIVE.value,
+            "epi_status": "regular",
+            "created_at": datetime.now().isoformat(),
+        }
+        _MOCK_EMPLOYEES.append(record)
+        imported.append(record)
+
+    logger.info(f"Importação de colaboradores: {len(imported)} inseridos, {skipped} ignorados por duplicidade de CPF.")
+    return EmployeeImportResponse(
+        success=True,
+        imported_count=len(imported),
+        skipped_count=skipped,
+        imported_employees=imported,
+        message=f"{len(imported)} colaboradores importados com sucesso! ({skipped} ignorados por duplicidade)",
+    )
 
 
 @router.patch("/employees/{employee_id}")

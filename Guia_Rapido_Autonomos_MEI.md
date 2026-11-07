@@ -77,6 +77,16 @@ Por determinação legal da **Lei Complementar nº 123/2006 (Estatuto da Micro e
 
 ---
 
+## PASSO 4: Cobrança de Serviços Extras sem Atrito via WhatsApp & IA
+
+Com frequência surgem pedidos adicionais do cliente ou do mestre de obras ("instalar mais um ponto de tomada", "trocar torneira gourmet"). O GADAP Hub organiza essas solicitações para você não perder dinheiro:
+
+1. **Mensagens do WhatsApp Decodificadas:** Basta colar o texto bruto ou áudio transcrito da conversa na tela de pagamentos/extras.
+2. **Estruturação por Inteligência Artificial:** O sistema detecta o que foi feito, separa os valores e cria a solicitação estruturada.
+3. **Histórico de Preços:** Mantém sua média de preços para que você cobre com precisão e profissionalismo a cada serviço extra.
+
+---
+
 # ❓ PERGUNTAS FREQUENTES (FAQ DO AUTÔNOMO)
 
 ### 1. Preciso emitir nota fiscal para todo orçamento que fechar?

@@ -17,6 +17,8 @@ import {
   ArrowLeft,
   Loader2,
   Clock,
+  FileSpreadsheet,
+  Upload,
 } from 'lucide-react';
 import { PaywallBlocker } from '@/components/ui/paywall-blocker';
 import { HelpTooltip } from '@/components/ui/tooltip';
@@ -78,6 +80,11 @@ export function FuncionariosClient({ activeModules }: { activeModules: string[] 
   // Formulário de Rescisão
   const [termDate, setTermDate] = useState(new Date().toISOString().slice(0, 10));
   const [termReason, setTermReason] = useState('Demissão sem justa causa');
+
+  // Modal de Importação em Lote de Colaboradores
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importText, setImportText] = useState('');
+  const [isImporting, setIsImporting] = useState(false);
 
   const loadEmployees = useCallback(async () => {
     setLoading(true);
@@ -234,6 +241,65 @@ export function FuncionariosClient({ activeModules }: { activeModules: string[] 
     }
   };
 
+  // Handler de Importação em Lote de Colaboradores (CSV / TSV / Texto)
+  const handleImportEmployees = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!importText.trim()) return;
+    setIsImporting(true);
+
+    try {
+      // Faz o parsing das linhas (formato: Nome, CPF, Cargo, Salário, [Telefone], [Obra])
+      const lines = importText.split('\n').map((l) => l.trim()).filter(Boolean);
+      const itemsToImport: any[] = [];
+
+      for (const line of lines) {
+        // Ignora cabeçalhos se houver
+        if (line.toLowerCase().includes('nome') && line.toLowerCase().includes('cpf')) continue;
+
+        const parts = line.split(/[;,\t]/).map((p) => p.trim());
+        if (parts.length >= 4) {
+          const [name, cpf, role, salaryStr, phone, project] = parts;
+          const salary = parseFloat(salaryStr.replace('R$', '').replace('.', '').replace(',', '.')) || 0;
+          if (name && cpf && salary > 0) {
+            itemsToImport.push({
+              full_name: name,
+              cpf: cpf,
+              role: role || 'Ajudante',
+              base_salary: salary,
+              phone: phone || '',
+              current_project: project || 'Matriz / Obra Central',
+            });
+          }
+        }
+      }
+
+      if (itemsToImport.length === 0) {
+        throw new Error('Nenhum formato válido de colaborador reconhecido. Utilize: Nome, CPF, Cargo, Salário.');
+      }
+
+      const res = await fetch('/api/v1/hr/employees/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ employees: itemsToImport }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || 'Falha ao importar colaboradores.');
+
+      setBanner({
+        type: 'success',
+        text: data.message || `${data.imported_count} colaboradores importados com sucesso!`,
+      });
+      setShowImportModal(false);
+      setImportText('');
+      loadEmployees();
+    } catch (err: any) {
+      setBanner({ type: 'error', text: err.message || 'Erro ao importar relação de colaboradores.' });
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
   if (!activeModules.includes('RH')) {
     return (
       <PaywallBlocker
@@ -269,14 +335,26 @@ export function FuncionariosClient({ activeModules }: { activeModules: string[] 
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={() => setShowAddModal(true)}
-          className="px-4 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs rounded-xl shadow-lg shadow-emerald-500/20 flex items-center gap-2 cursor-pointer transition-all"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Nova Admissão</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setShowImportModal(true)}
+            className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-semibold text-xs rounded-xl shadow-sm flex items-center gap-2 cursor-pointer transition-all"
+            title="Importar lista de colaboradores a partir de planilha, texto ou CSV"
+          >
+            <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
+            <span>Importar Lista</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setShowAddModal(true)}
+            className="px-4 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs rounded-xl shadow-lg shadow-emerald-500/20 flex items-center gap-2 cursor-pointer transition-all"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Nova Admissão</span>
+          </button>
+        </div>
       </div>
 
       {/* FEEDBACK BANNER */}
@@ -788,6 +866,94 @@ export function FuncionariosClient({ activeModules }: { activeModules: string[] 
                   {isSubmitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                   <span>Efetivar Rescisão</span>
                 </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DE IMPORTAÇÃO DE FUNCIONÁRIOS EM LOTE */}
+      {showImportModal && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-2xl w-full p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-emerald-500/10 border border-emerald-500/20 rounded-lg">
+                  <FileSpreadsheet className="w-5 h-5 text-emerald-400" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-white text-base">Importação em Lote de Colaboradores</h3>
+                  <p className="text-xs text-slate-400">Cole linhas de planilha (Excel / Google Sheets) ou arquivo CSV / TSV</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowImportModal(false)}
+                className="text-slate-400 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="bg-slate-950/60 p-3.5 rounded-xl border border-slate-800 text-xs space-y-2">
+              <p className="font-semibold text-slate-200">Formato esperado por linha (separado por TAB ou ponto-e-vírgula):</p>
+              <code className="block bg-slate-900 p-2 rounded text-[11px] text-emerald-300 overflow-x-auto font-mono">
+                Nome; CPF; Cargo; Salário Base; Telefone; Nome da Obra
+              </code>
+              <p className="text-[11px] text-slate-400">
+                • Se o CPF já existir no cadastro, ele será desconsiderado para evitar duplicidade.<br/>
+                • Linhas de cabeçalho com a palavra &quot;nome&quot; ou &quot;cpf&quot; são ignoradas automaticamente.
+              </p>
+            </div>
+
+            <form onSubmit={handleImportEmployees} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  Conteúdo da Relação de Funcionários
+                </label>
+                <textarea
+                  rows={8}
+                  value={importText}
+                  onChange={(e) => setImportText(e.target.value)}
+                  placeholder={`João da Silva\t123.456.789-00\tPedreiro\t2800\t(11) 98888-1111\tEdifício Horizonte\nMaria Santos\t987.654.321-99\tEngenheira Civil\t8500\t(11) 97777-2222\tMatriz`}
+                  className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white font-mono text-xs focus:border-emerald-500 focus:outline-none placeholder:text-slate-600"
+                  required
+                />
+              </div>
+
+              <div className="flex items-center justify-between pt-3 border-t border-slate-800 text-xs">
+                <span className="text-slate-400">
+                  {importText.trim() ? `${importText.trim().split('\n').length} linha(s) detectada(s)` : 'Nenhuma linha inserida'}
+                </span>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowImportModal(false);
+                      setImportText('');
+                    }}
+                    className="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 font-semibold"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isImporting || !importText.trim()}
+                    className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold flex items-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isImporting ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        <span>Processando Importação...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="w-3.5 h-3.5" />
+                        <span>Confirmar e Importar</span>
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
             </form>
           </div>

@@ -34,6 +34,8 @@
    - Módulo 6: Inteligência Artificial a seu favor: Como Não Depender do Contador para Alíquotas e Insumos
    - **Módulo 7: Preparando sua construtora para o IBS e CBS (Reforma Tributária e Período de Convivência 2026-2032)**
    - **Módulo 8: Pagando Terceirizados sem Burocracia (Modelo Farol, Campos de Atuação & Zero Travas)**
+   - **Módulo 9: WBS Integrada, Cronograma Gantt e Gestão Comercial de Aditivos Contratuais**
+   - **Módulo 10: Inteligência Anti-Fraude e Parsing de Extras de WhatsApp com IA & RH em Lote**
 
 4. **PARTE III: Manual do Administrador da Plataforma (Área Restrita Master)**
    - 4.1 Torre de Controle Global (God Mode)
@@ -219,6 +221,24 @@ $$\text{Exposição\ Financeira\ a\ Descoberto} = \max(0, Total\ Pago - Total\ M
 - **Stress Testing Backend (Locust):** Simulação de 500 usuários simultâneos nos endpoints de alta concorrência `/api/v1/fiscal/invoices/simulate` e `/api/v1/finance/payables` avaliando pooling de conexões e tempo de resposta.
 - **Engenharia do Caos (Chaos Resilience):** Tratamento determinístico de timeout da SEFAZ (>10s) via RFC 7807 (Problem Details), degradação suave na queda do WhatsApp (Evolution API) e tolerância a falhas de rede no Supabase Storage via `BackgroundTasks`.
 - **Frontend E2E (Playwright):** Cobertura automatizada do fluxo crítico ponta a ponta: *Login -> Criar Obra -> Orçamento Markup -> Aprovar -> Lançar Medição*.
+
+### 10. Módulo WBS, Cronograma Gantt e Aditivos Contratuais (Prompt 99)
+- **Estruturação WBS (Work Breakdown Structure):** Gestão hierárquica de tarefas (`project_tasks`) com datas planejadas, reais e percentuais de avanço. Rota `GET /api/v1/projects/{id}/gantt` fornece os dados para visualização completa em cascata no ERP e no PWA de campo.
+- **Diários de Obra Atômicos:** A rota `PATCH /api/v1/projects/tasks/{task_id}/progress` consolida a atualização de percentual da tarefa e o envio do diário de obra em uma única transação atômica.
+- **Aditivos e Pedidos Extras (`change_orders_requests`):** O orçamentista precifica os pedidos vindos do campo, gera a minuta em PDF via WeasyPrint e dispara via Evolution API para colheita de assinatura eletrônica do cliente.
+
+### 11. Segregação de Verbas e Motor Anti-Fraude "Gato Escaldado" (Prompt 100)
+- **Segregação Financeira:** Divisão contábil de pagamentos a terceiros em `PRINCIPAL`, `CONTRACTED_EXTRA` e `FIELD_EXTRA` via `subcontract_transactions`.
+- **Prevenção de Duplicidade:** O middleware "Gato Escaldado" pesquisa cobranças passadas via similaridade de texto trigram/fuzzy no PostgreSQL. Se o subempreiteiro tentar cobrar novamente por serviços anteriores (ex: "caixinhas", "luminárias"), o Contas a Pagar emite alerta imediato `warning_duplicate_risk: true` sem travar a operação.
+
+### 12. Parsing de Extras "Sujos" via LLM & Dicionário Histórico de Preços (Prompts 101 e 102)
+- **Motor NLP Especializado:** A rota `POST /api/v1/finance/payables/subcontracts/parse-extras` recebe textos brutos de conversas do WhatsApp repletos de gírias, erros ortográficos e valores desordenados.
+- **Normalização e Extração Inteligente:** A IA identifica o serviço padronizado, quantitativos e valores unitários, isolando nomes de ajudantes em notas de observação.
+- **Dicionário Histórico (`subcontract_price_dictionary`):** Base isolada por RLS (`tenant_id`) com índice de performance que armazena preços médios praticados. Caso a cobrança enviada supere o valor médio histórico, o ERP aciona a flag `negotiation_alert: true`, capacitando o financeiro para negociar o preço com o empreiteiro.
+
+### 13. Importação em Lote de Colaboradores no Recursos Humanos (RH)
+- **Importação Rápida:** Rota `POST /api/v1/hr/employees/import` e interface no ERP permitindo copiar e colar listas completas do Excel/Sheets (Nome, CPF, Cargo, Salário, Telefone, Obra).
+- **Tratamento de Dados:** Higienização de CPFs, cálculo automático do valor diário trabalhado (`daily_wage`), atribuição de status ativo e prevenção contra colaboradores duplicados.
 
 ---
 

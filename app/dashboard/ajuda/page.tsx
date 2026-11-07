@@ -100,6 +100,24 @@ export default async function HelpCenterPage() {
       answer:
         'Em Configurações da Empresa, basta informar seu CNPJ. O robô busca automaticamente os dados na Receita Federal e permite upload do logotipo oficial da empresa, que sairá impresso no cabeçalho de todas as propostas, orçamentos e relatórios de medição.',
     },
+    {
+      id: 'faq-7',
+      question: 'Como funciona a Importação em Lote de Colaboradores no RH?',
+      answer:
+        'No módulo de Recursos Humanos (/dashboard/rh/funcionarios), clique no botão "Importar Lista". Você pode colar diretamente linhas copiadas do Excel, Google Sheets ou arquivos CSV/TSV contendo Nome, CPF, Cargo, Salário Base, Telefone e Obra. O sistema valida os CPFs, calcula o valor do dia trabalhado (daily_wage) automaticamente e rejeita duplicidades existentes.',
+    },
+    {
+      id: 'faq-8',
+      question: 'O que é a Segregação de Verbas de Terceiros e o Motor Anti-Fraude "Gato Escaldado"?',
+      answer:
+        'Ao lançar pagamentos a empreiteiros e terceirizados (/dashboard/financeiro/pagar), o ERP segrega o valor em Contrato Principal, Aditivo Contratado e Extras de Campo. Quando um extra de campo é inserido, o motor "Gato Escaldado" analisa por similaridade semântica (trigrama/text search) o histórico do subcontrato e emite um alerta imediato com risco de duplicidade se o mesmo serviço já tiver sido pago anteriormente.',
+    },
+    {
+      id: 'faq-9',
+      question: 'Como funciona o Parsing de Extras por IA e o Dicionário Histórico de Preços?',
+      answer:
+        'O sistema aceita a colagem direta de mensagens brutas e informais do WhatsApp (com gírias de obra, abreviações e erros ortográficos). A inteligência artificial isola os serviços, normaliza para termos técnicos, calcula quantidade e valor, e compara o preço unitário com o Dicionário Histórico da Construtora. Caso o valor esteja acima da média histórica, um alerta de negociação ("Chorar Preço") é ativado.',
+    },
   ];
 
   return (
@@ -196,7 +214,7 @@ export default async function HelpCenterPage() {
               </p>
             </div>
             <span className="text-xs font-semibold text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/20">
-              6 Tópicos Essenciais
+              9 Tópicos Essenciais
             </span>
           </div>
 

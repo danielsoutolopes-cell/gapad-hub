@@ -714,6 +714,48 @@ export function GuiaRapidoClient() {
               Enquadramento municipal de serviços de engenharia com alíquotas de LC 116/03.
             </p>
           </Link>
+
+          <Link
+            href="/dashboard/rh/funcionarios"
+            className="glass-panel p-4 rounded-xl border border-slate-800 hover:border-emerald-500/40 transition-all hover:scale-[1.01] group"
+          >
+            <div className="flex items-center justify-between text-xs text-slate-400 mb-2">
+              <span className="font-semibold text-emerald-400">Recursos Humanos & DP</span>
+              <ArrowUpRight className="w-4 h-4 text-slate-500 group-hover:text-emerald-400 transition-colors" />
+            </div>
+            <div className="font-bold text-white text-sm">Importação em Lote de Pessoal</div>
+            <p className="text-[11px] text-slate-400 mt-1">
+              Importação rápida de equipes e operários via planilha, cálculo de diária e prevenção de duplicidades.
+            </p>
+          </Link>
+
+          <Link
+            href="/dashboard/financeiro/pagar"
+            className="glass-panel p-4 rounded-xl border border-slate-800 hover:border-amber-500/40 transition-all hover:scale-[1.01] group"
+          >
+            <div className="flex items-center justify-between text-xs text-slate-400 mb-2">
+              <span className="font-semibold text-amber-400">Contas a Pagar Inteligente</span>
+              <ArrowUpRight className="w-4 h-4 text-slate-500 group-hover:text-amber-400 transition-colors" />
+            </div>
+            <div className="font-bold text-white text-sm">Anti-Fraude e Parsing de IA</div>
+            <p className="text-[11px] text-slate-400 mt-1">
+              Motor &quot;Gato Escaldado&quot; contra extras duplicados e decodificação de cobranças do WhatsApp com IA.
+            </p>
+          </Link>
+
+          <Link
+            href="/dashboard/obras"
+            className="glass-panel p-4 rounded-xl border border-slate-800 hover:border-indigo-500/40 transition-all hover:scale-[1.01] group"
+          >
+            <div className="flex items-center justify-between text-xs text-slate-400 mb-2">
+              <span className="font-semibold text-indigo-400">WBS & Cronograma Gantt</span>
+              <ArrowUpRight className="w-4 h-4 text-slate-500 group-hover:text-indigo-400 transition-colors" />
+            </div>
+            <div className="font-bold text-white text-sm">Gantt e Gestão de Aditivos</div>
+            <p className="text-[11px] text-slate-400 mt-1">
+              Árvore WBS integrada a diários atômicos e geração de aditivos contratuais com assinatura remota.
+            </p>
+          </Link>
         </div>
       </div>
     </div>
