@@ -156,3 +156,4 @@ if __name__ == '__main__':
     if os.path.exists(r'c:\gadap_hub\public'):
         shutil.copy2(r'c:\gadap_hub\Guia_Rapido_Autonomos_MEI.pdf', r'c:\gadap_hub\public\Guia_Rapido_Autonomos_MEI.pdf')
         print('Copied to public/Guia_Rapido_Autonomos_MEI.pdf')
+

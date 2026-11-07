@@ -1,20 +1,20 @@
 # PROMPT MESTRE PARA CANVA: APRESENTAÇÃO COMERCIAL & PLANO DE VENDAS GADAP HUB
 
 **Instruções de Uso no Canva:**
-Copie o prompt estruturado abaixo e cole diretamente na ferramenta **Canva Magic Design / Apresentações com IA**, ou utilize os blocos de cada slide como roteiro de design para criar uma apresentação visual moderna (Pitch Deck Comercial de 10 Slides).
+Copie o prompt estruturado abaixo e cole diretamente na ferramenta **Canva Magic Design / Apresentações com IA**, ou utilize os blocos de cada slide como roteiro de design para criar uma apresentação visual moderna (Pitch Deck Comercial de 11 Slides).
 
 ---
 
 ```markdown
 Role: Designer de Pitch Decks Corporativos e Especialista em Branding SaaS B2B.
-Objetivo: Criar uma apresentação comercial executiva de alto impacto (16:9) para o GADAP Hub ERP, voltada para pequenas construtoras, empreiteiros e engenheiros autônomos.
+Objetivo: Criar uma apresentação comercial executiva de alto impacto (16:9) para o GADAP Hub ERP, voltada para pequenas construtoras, empreiteiros e engenheiros autônomos, apresentando os 3 Modos de Assinatura e Benchmarking Competitivo.
 
 Paleta de Cores e Estilo Visual:
 - Fundo Primário: Dark Mode sofisticado (#090D16 / Slate 950) com detalhes em Verde Esmeralda (#10B981) e Azul Royal (#2563EB).
 - Tipografia: Sans-serif moderna, geométrica e limpa (Inter, Montserrat ou Poppins).
 - Elementos Gráficos: Gráficos de barra limpos, badges de status modernos, mockups de smartphone com PWA e telas de ERP desktop em vidro translúcido (Glassmorphism).
 
-ESTRUTURA DOS 10 SLIDES DA APRESENTAÇÃO:
+ESTRUTURA DOS 11 SLIDES DA APRESENTAÇÃO:
 
 ---
 SLIDE 1: CAPA DE ABERTURA
@@ -46,7 +46,7 @@ SLIDE 4: BENCHMARKING COMPETITIVO (GADAP vs MERCADO)
   * Sienge (R$ 2.500+/mês | Setup R$ 8k-20k): Muito caro, sem IA nativa, implantação de 4 a 6 meses. Score 8.2/10.
   * Mais Controle (R$ 600-1.200/mês): Bom financeiro, mas sem leitura de WhatsApp nem anti-fraude. Score 7.4/10.
   * Obra Prima (R$ 400-800/mês): Entrada simples, fraco em reconciliação fiscal e compras. Score 7.1/10.
-  * GADAP Hub (R$ 97-147/mês | Setup GRÁTIS): 1º com IA Generativa, Motor Anti-Duplicidade e 3-Way Match. Score 9.8/10!
+  * GADAP Hub (R$ 59 a 147/mês | Setup GRÁTIS): 1º com IA Generativa, Motor Anti-Duplicidade e 3-Way Match. Score 9.8/10!
 
 ---
 SLIDE 5: O MOTOR "GATO ESCALDADO" (ANTI-DUPLICIDADE DE EXTRAS)
@@ -63,25 +63,31 @@ SLIDE 6: CRONOGRAMA WBS, GANTT & DIÁRIOS ATÔMICOS
   - Gestão de Aditivos Comerciais: O campo solicita, o orçamentista precifica e gera minuta com assinatura remota em 1 clique.
 
 ---
-SLIDE 7: PLANO COMERCIAL & PREÇOS DE ENTRADA
-- Título: Planos Transparentes Feitos para o Bolso da PME
-- Comparativo Visual de 2 Planos Principais:
-  * PLANO START OBRA (Autônomos & MEI): R$ 97/mês
-    - Até 3 obras ativas | Orçamento Markup | NFS-e Bypass MEI | Diário PWA | 50 leituras IA/mês.
-  * PLANO CONSTRUTORA PRO (Mais Vendido): R$ 147/mês
-    - Obras ilimitadas | WBS Gantt | Motor Anti-Fraude Gato Escaldado | Dicionário de Preços | 3-Way Match Fiscal.
-    - OFERTA DE LANÇAMENTO: 6 Meses de Isenção no Core + Fiscal!
+SLIDE 7: OS 3 MODOS DE ASSINATURA (FLEXIBILIDADE COMERCIAL)
+- Título: Escolha o Modelo Ideal para a sua Operação
+- 3 Colunas Comparativas:
+  1. MODO MENSAL (Flexibilidade Total):
+     - R$ 147/mês | Sem fidelidade | Cancele quando quiser | 6 meses grátis no Core + Fiscal.
+  2. MODO ANUAL (Melhor Custo-Benefício • 25% OFF):
+     - R$ 119/mês (Equiv.) | 2 meses grátis | Onboarding VIP 1 a 1 | IA WhatsApp prioritária.
+  3. MODO POR OBRA ATIVA (Pay-Per-Project):
+     - R$ 49/mês por obra | Sem custo fixo de escritório | Lançamento direto no centro de custo da obra.
 
 ---
-SLIDE 8: MÓDULOS EXTRAS PLUG & PLAY (CRESÇA CONFORME PRECISA)
+SLIDE 8: TABELA DE PREÇOS DE ENTRADA & COMPARATIVO DE MODOS
+- Título: Matriz de Investimento Acessível
+- Grid com os recursos inclusos em cada Modo de Assinatura, destacando a apropriação por centro de custo e suporte a multi-obras.
+
+---
+SLIDE 9: MÓDULOS EXTRAS PLUG & PLAY (CRESÇA CONFORME PRECISA)
 - Título: Flexibilidade Total: Ative Somente o que sua Construtora Usar
 - 3 Cards Modulares com 50% de Desconto de Boas-Vindas:
-  1. RH & DP Inteligente: De R$ 69 por R$ 34,50/mês (Importação em lote de funcionários por planilha, ponto e holerite).
+  1. RH & DP Inteligente: De R$ 69 por R$ 34,50/mês (Importação em lote de funcionários por planilha, ponto e folha).
   2. Suprimentos & Portaria: De R$ 89 por R$ 44,50/mês (Cotações com fornecedores e termos com assinatura touch).
   3. CRM Comercial de Obras: De R$ 49 por R$ 24,50/mês (Pipeline de vendas e propostas).
 
 ---
-SLIDE 9: CASOS DE SUCESSO & RETORNO DO INVESTIMENTO (ROI)
+SLIDE 10: CASOS DE SUCESSO & RETORNO DO INVESTIMENTO (ROI)
 - Título: Quem Usa, Blinda a Margem de Lucro
 - Métricas em Destaque:
   - +14% de economia média em compras com o Dicionário Histórico de Preços.
@@ -89,7 +95,7 @@ SLIDE 9: CASOS DE SUCESSO & RETORNO DO INVESTIMENTO (ROI)
   - Redução de 15 horas semanais no fechamento de medições e notas fiscais.
 
 ---
-SLIDE 10: CHAMADA PARA AÇÃO (CTA & FECHAMENTO)
+SLIDE 11: CHAMADA PARA AÇÃO (CTA & FECHAMENTO)
 - Título: Comece a Blindar o Lucro das suas Obras Hoje Mesmo
 - Oferta Irresistível: Setup 100% Gratuito + 6 Meses de Isenção no Módulo Fiscal.
 - Link / Acesso: app.gadap.com.br / WhatsApp: (11) 99999-9999

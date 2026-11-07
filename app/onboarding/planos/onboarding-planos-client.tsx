@@ -60,6 +60,10 @@ export function OnboardingPlanosClient({ company, userEmail }: OnboardingPlanosC
     crm: false,
   });
 
+  // 3 Modos de Assinatura: MENSAL, ANUAL (25% OFF) ou POR OBRA (Pay-Per-Project)
+  const [subscriptionMode, setSubscriptionMode] = useState<'MONTHLY' | 'ANNUAL' | 'PER_PROJECT'>('ANNUAL');
+  const [activeProjectsCount, setActiveProjectsCount] = useState<number>(2);
+
   // Modal / Seção de Checkout Integrado Asaas (PF)
   const [showCheckoutModal, setShowCheckoutModal] = useState(false);
   const [billingType, setBillingType] = useState<'PIX' | 'CREDIT_CARD'>('PIX');
@@ -85,12 +89,12 @@ export function OnboardingPlanosClient({ company, userEmail }: OnboardingPlanosC
   const maxRenewals = company?.max_renewals || 1;
   const canRenew = renewalCount < maxRenewals;
 
-  // Preços condizentes com player de entrada (vs Sienge R$ 2.500+, Mais Controle R$ 600-1.200, Obra Prima R$ 400-800)
+  // Preços condizentes com player de entrada nos 3 Modos de Assinatura
   const prices = {
-    coreFiscal: 147, // Gratuito nos primeiros 6 meses (de R$ 297 por R$ 147)
-    rh: 69, // Entrada: R$ 69/mês (50% OFF no onboarding = R$ 34,50)
-    suprimentos: 89, // Entrada: R$ 89/mês (50% OFF no onboarding = R$ 44,50)
-    crm: 49, // Entrada: R$ 49/mês (50% OFF no onboarding = R$ 24,50)
+    coreFiscal: subscriptionMode === 'ANNUAL' ? 119 : subscriptionMode === 'PER_PROJECT' ? 49 * activeProjectsCount : 147,
+    rh: subscriptionMode === 'ANNUAL' ? 55 : 69,
+    suprimentos: subscriptionMode === 'ANNUAL' ? 69 : 89,
+    crm: subscriptionMode === 'ANNUAL' ? 39 : 49,
   };
 
   const discountRateExtras = isMasterTenant ? 1.0 : 0.5; // Master: 100% OFF; Padrão: 50% OFF
@@ -369,6 +373,122 @@ export function OnboardingPlanosClient({ company, userEmail }: OnboardingPlanosC
             </div>
           </div>
         )}
+
+        {/* Seletor dos 3 Modos de Assinatura */}
+        <div className="w-full max-w-5xl bg-slate-900/80 border border-slate-800 rounded-3xl p-4 sm:p-5 shadow-xl space-y-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+            <div>
+              <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
+                <BadgePercent className="w-4 h-4" /> Escolha o Modo de Assinatura Ideal
+              </span>
+              <h2 className="text-sm sm:text-base font-extrabold text-white mt-0.5">
+                3 Modos Flexíveis para o Tamanho da sua Operação
+              </h2>
+            </div>
+            <span className="text-[11px] text-slate-400 bg-slate-950 px-3 py-1 rounded-full border border-slate-800">
+              Troque de modo a qualquer momento sem custos
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            {/* Modo 1: Mensal */}
+            <button
+              type="button"
+              onClick={() => setSubscriptionMode('MONTHLY')}
+              className={`p-4 rounded-2xl border text-left transition-all ${
+                subscriptionMode === 'MONTHLY'
+                  ? 'bg-slate-800 border-emerald-500/60 shadow-lg shadow-emerald-500/10 scale-[1.01]'
+                  : 'bg-slate-950/40 border-slate-800 hover:border-slate-700 opacity-70'
+              }`}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <span className="font-bold text-white text-xs sm:text-sm">Modo Mensal</span>
+                <span className="text-[10px] font-semibold text-slate-400 bg-slate-800 px-2 py-0.5 rounded">
+                  Sem Fidelidade
+                </span>
+              </div>
+              <div className="text-base sm:text-lg font-black text-white">
+                R$ 147,00<span className="text-xs font-normal text-slate-400">/mês</span>
+              </div>
+              <p className="text-[11px] text-slate-400 mt-1">
+                Flexibilidade total. Pause ou cancele quando quiser sem multas contratuais.
+              </p>
+            </button>
+
+            {/* Modo 2: Anual (Recomendado) */}
+            <button
+              type="button"
+              onClick={() => setSubscriptionMode('ANNUAL')}
+              className={`p-4 rounded-2xl border text-left transition-all relative overflow-hidden ${
+                subscriptionMode === 'ANNUAL'
+                  ? 'bg-gradient-to-br from-slate-800 to-emerald-950/40 border-emerald-500 shadow-xl shadow-emerald-500/15 scale-[1.02]'
+                  : 'bg-slate-950/40 border-slate-800 hover:border-slate-700 opacity-70'
+              }`}
+            >
+              <div className="absolute top-0 right-0 bg-emerald-500 text-slate-950 text-[9px] font-black uppercase px-2.5 py-0.5 rounded-bl-lg tracking-wider">
+                Mais Vendido (25% OFF)
+              </div>
+              <div className="flex items-center justify-between mb-2">
+                <span className="font-bold text-emerald-300 text-xs sm:text-sm flex items-center gap-1">
+                  <Sparkles className="w-3.5 h-3.5" /> Modo Anual
+                </span>
+              </div>
+              <div className="text-base sm:text-lg font-black text-emerald-400">
+                R$ 119,00<span className="text-xs font-normal text-slate-400">/mês</span>
+              </div>
+              <p className="text-[11px] text-slate-300 mt-1">
+                Equivalente a 2 meses grátis + Onboarding VIP + IA de WhatsApp ilimitada.
+              </p>
+            </button>
+
+            {/* Modo 3: Por Obra Ativa */}
+            <button
+              type="button"
+              onClick={() => setSubscriptionMode('PER_PROJECT')}
+              className={`p-4 rounded-2xl border text-left transition-all ${
+                subscriptionMode === 'PER_PROJECT'
+                  ? 'bg-slate-800 border-teal-500/60 shadow-lg shadow-teal-500/10 scale-[1.01]'
+                  : 'bg-slate-950/40 border-slate-800 hover:border-slate-700 opacity-70'
+              }`}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <span className="font-bold text-white text-xs sm:text-sm">Por Obra Ativa</span>
+                <span className="text-[10px] font-semibold text-teal-400 bg-teal-500/10 px-2 py-0.5 rounded border border-teal-500/20">
+                  Pay-per-Project
+                </span>
+              </div>
+              <div className="text-base sm:text-lg font-black text-teal-300">
+                R$ 49,00<span className="text-xs font-normal text-slate-400">/obra/mês</span>
+              </div>
+              <p className="text-[11px] text-slate-400 mt-1">
+                Aproprie o software como custo direto da obra. Custo zero de escritório quando não houver canteiro.
+              </p>
+            </button>
+          </div>
+
+          {subscriptionMode === 'PER_PROJECT' && (
+            <div className="flex items-center justify-between p-3 bg-slate-950 border border-slate-800 rounded-xl text-xs">
+              <span className="text-slate-300 font-medium">Quantidade de obras em execução simultânea:</span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setActiveProjectsCount((c) => Math.max(1, c - 1))}
+                  className="w-7 h-7 rounded-lg bg-slate-800 text-white font-bold hover:bg-slate-700"
+                >
+                  -
+                </button>
+                <span className="font-mono font-bold text-teal-400 px-2">{activeProjectsCount} obras</span>
+                <button
+                  type="button"
+                  onClick={() => setActiveProjectsCount((c) => c + 1)}
+                  className="w-7 h-7 rounded-lg bg-slate-800 text-white font-bold hover:bg-slate-700"
+                >
+                  +
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* Grade de Configuração de Módulos & Checkout */}
         <div className="w-full max-w-5xl grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
