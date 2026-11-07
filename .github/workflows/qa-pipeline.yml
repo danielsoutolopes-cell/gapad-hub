@@ -54,6 +54,12 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
           NEXT_PUBLIC_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.e30.placeholder
 
+      - name: Start FastAPI Backend for E2E
+        run: |
+          python -m pip install -r api/requirements.txt uvicorn
+          uvicorn app.main:app --app-dir api --host 127.0.0.1 --port 8000 &
+          sleep 3
+
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps chromium
 
@@ -63,3 +69,4 @@ jobs:
           CI: true
           NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
           NEXT_PUBLIC_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.e30.placeholder
+          API_URL: http://127.0.0.1:8000
