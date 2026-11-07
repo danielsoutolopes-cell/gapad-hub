@@ -85,12 +85,12 @@ export function OnboardingPlanosClient({ company, userEmail }: OnboardingPlanosC
   const maxRenewals = company?.max_renewals || 1;
   const canRenew = renewalCount < maxRenewals;
 
-  // Preços cheios dos módulos extras (mensais)
+  // Preços condizentes com player de entrada (vs Sienge R$ 2.500+, Mais Controle R$ 600-1.200, Obra Prima R$ 400-800)
   const prices = {
-    coreFiscal: 297, // Gratuito nos primeiros 6 meses
-    rh: 149, // 50% = R$ 74,50
-    suprimentos: 189, // 50% = R$ 94,50
-    crm: 119, // 50% = R$ 59,50
+    coreFiscal: 147, // Gratuito nos primeiros 6 meses (de R$ 297 por R$ 147)
+    rh: 69, // Entrada: R$ 69/mês (50% OFF no onboarding = R$ 34,50)
+    suprimentos: 89, // Entrada: R$ 89/mês (50% OFF no onboarding = R$ 44,50)
+    crm: 49, // Entrada: R$ 49/mês (50% OFF no onboarding = R$ 24,50)
   };
 
   const discountRateExtras = isMasterTenant ? 1.0 : 0.5; // Master: 100% OFF; Padrão: 50% OFF
@@ -420,7 +420,7 @@ export function OnboardingPlanosClient({ company, userEmail }: OnboardingPlanosC
               </div>
 
               <div className="mt-5 pt-4 border-t border-slate-800 flex items-center justify-between text-xs">
-                <span className="text-slate-400">Mensalidade normal: <del>R$ 297,00/mês</del></span>
+                <span className="text-slate-400">Mensalidade normal: <del>R$ 147,00/mês</del></span>
                 <span className="text-emerald-400 font-extrabold text-sm">R$ 0,00 / 6 meses</span>
               </div>
             </div>
