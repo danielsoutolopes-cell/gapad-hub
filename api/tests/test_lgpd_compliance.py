@@ -85,3 +85,4 @@ def test_lgpd_endpoints_governance():
     assert diag["score_lgpd"] == 100.0
     assert "encryption_at_rest" in diag["security_safeguards"]
     assert "superadmin_privacy" in diag["security_safeguards"]
+

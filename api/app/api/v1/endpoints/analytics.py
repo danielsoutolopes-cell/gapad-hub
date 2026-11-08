@@ -199,6 +199,31 @@ def _as_dict_list(data: Any) -> List[Dict[str, Any]]:
     return [dict(row) for row in data if isinstance(row, Mapping)]
 
 
+def _fetch_company_metadata(supabase: Client, tenant_id_str: str) -> Tuple[str, str]:
+    """
+    Recupera com segurança os dados cadastrais (Razão Social/Nome Fantasia e CNPJ)
+    da empresa/tenant, tratando rigorosamente as tipagens do PostgREST.
+    """
+    company_name = "Empresa Contratante"
+    cnpj = "00.000.000/0000-00"
+    try:
+        comp_res = (
+            supabase.table("companies")
+            .select("name, trade_name, document, cnpj")
+            .eq("id", tenant_id_str)
+            .limit(1)
+            .execute()
+        )
+        data = _as_dict_list(comp_res.data)
+        if data:
+            cdata = data[0]
+            company_name = str(cdata.get("trade_name") or cdata.get("name") or company_name)
+            cnpj = str(cdata.get("cnpj") or cdata.get("document") or cnpj)
+    except Exception as comp_err:
+        logger.warning("Falha ao recuperar metadados da empresa: %s", comp_err)
+    return company_name, cnpj
+
+
 def _fetch_authorized_invoices(supabase: Client, tenant_id_str: str) -> List[Dict[str, Any]]:
     """
     Consulta as faturas autorizadas na tabela/view `invoices` com RLS ativo.
@@ -698,22 +723,7 @@ async def export_excel_report(
     supabase = get_supabase_client(token)
 
     # 2. Obter dados cadastrais da empresa/tenant para compliance e rastreabilidade LGPD
-    company_name = "Empresa Contratante"
-    cnpj = "00.000.000/0000-00"
-    try:
-        comp_res = (
-            supabase.table("companies")
-            .select("name, trade_name, document, cnpj")
-            .eq("id", tenant_id_str)
-            .limit(1)
-            .execute()
-        )
-        if comp_res.data and len(comp_res.data) > 0:
-            cdata = comp_res.data[0]
-            company_name = cdata.get("trade_name") or cdata.get("name") or company_name
-            cnpj = cdata.get("cnpj") or cdata.get("document") or cnpj
-    except Exception as comp_err:
-        logger.warning("Falha ao recuperar metadados da empresa para marca d'água: %s", comp_err)
+    company_name, cnpj = _fetch_company_metadata(supabase, tenant_id_str)
 
     try:
         entries_res = (
@@ -894,16 +904,7 @@ async def export_sector_dre_report(
     check_tenant_export_rate_limit(tenant_id_str)
     supabase = get_supabase_client(token)
 
-    company_name = "Empresa Contratante"
-    cnpj = "00.000.000/0000-00"
-    try:
-        comp_res = supabase.table("companies").select("trade_name, name, cnpj, document").eq("id", tenant_id_str).limit(1).execute()
-        if comp_res.data:
-            cdata = comp_res.data[0]
-            company_name = cdata.get("trade_name") or cdata.get("name") or company_name
-            cnpj = cdata.get("cnpj") or cdata.get("document") or cnpj
-    except Exception:
-        pass
+    company_name, cnpj = _fetch_company_metadata(supabase, tenant_id_str)
 
     wb = Workbook()
     ws = wb.active or wb.create_sheet()
@@ -987,16 +988,7 @@ async def export_sector_inadimplencia_report(
     check_tenant_export_rate_limit(tenant_id_str)
     supabase = get_supabase_client(token)
 
-    company_name = "Empresa Contratante"
-    cnpj = "00.000.000/0000-00"
-    try:
-        comp_res = supabase.table("companies").select("trade_name, name, cnpj, document").eq("id", tenant_id_str).limit(1).execute()
-        if comp_res.data:
-            cdata = comp_res.data[0]
-            company_name = cdata.get("trade_name") or cdata.get("name") or company_name
-            cnpj = cdata.get("cnpj") or cdata.get("document") or cnpj
-    except Exception:
-        pass
+    company_name, cnpj = _fetch_company_metadata(supabase, tenant_id_str)
 
     wb = Workbook()
     ws = wb.active or wb.create_sheet()
@@ -1086,16 +1078,7 @@ async def export_sector_sla_docas_report(
     check_tenant_export_rate_limit(tenant_id_str)
     supabase = get_supabase_client(token)
 
-    company_name = "Empresa Contratante"
-    cnpj = "00.000.000/0000-00"
-    try:
-        comp_res = supabase.table("companies").select("trade_name, name, cnpj, document").eq("id", tenant_id_str).limit(1).execute()
-        if comp_res.data:
-            cdata = comp_res.data[0]
-            company_name = cdata.get("trade_name") or cdata.get("name") or company_name
-            cnpj = cdata.get("cnpj") or cdata.get("document") or cnpj
-    except Exception:
-        pass
+    company_name, cnpj = _fetch_company_metadata(supabase, tenant_id_str)
 
     wb = Workbook()
     ws = wb.active or wb.create_sheet()
@@ -1170,16 +1153,7 @@ async def export_sector_movimentacao_report(
     check_tenant_export_rate_limit(tenant_id_str)
     supabase = get_supabase_client(token)
 
-    company_name = "Empresa Contratante"
-    cnpj = "00.000.000/0000-00"
-    try:
-        comp_res = supabase.table("companies").select("trade_name, name, cnpj, document").eq("id", tenant_id_str).limit(1).execute()
-        if comp_res.data:
-            cdata = comp_res.data[0]
-            company_name = cdata.get("trade_name") or cdata.get("name") or company_name
-            cnpj = cdata.get("cnpj") or cdata.get("document") or cnpj
-    except Exception:
-        pass
+    company_name, cnpj = _fetch_company_metadata(supabase, tenant_id_str)
 
     wb = Workbook()
     ws = wb.active or wb.create_sheet()

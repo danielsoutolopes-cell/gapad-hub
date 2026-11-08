@@ -81,3 +81,4 @@ def sanitize_employee_for_lgpd(emp: Dict[str, Any], include_full_cpf: bool = Fal
     if "phone" in emp_copy:
         emp_copy["phone_masked"] = mask_phone(emp_copy["phone"])
     return emp_copy
+
