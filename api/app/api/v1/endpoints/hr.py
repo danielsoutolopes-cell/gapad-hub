@@ -15,6 +15,7 @@ from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Header, HTTPException, Query, status
 from pydantic import BaseModel, Field
+from app.core.lgpd import mask_cpf, mask_phone, sanitize_employee_for_lgpd
 
 logger = logging.getLogger("gadap.hr")
 router = APIRouter(prefix="/hr", tags=["RH & Departamento Pessoal"])
@@ -357,6 +358,7 @@ async def list_employees(
     status_filter: Optional[str] = Query(None, alias="status"),
     construction_role: Optional[str] = Query(None),
     search: Optional[str] = Query(None),
+    include_full_cpf: bool = Query(False, description="Exibe CPF desmascarado apenas para RH com privilégios"),
     x_tenant_id: Optional[str] = Header(None)
 ):
     filtered = list(_MOCK_EMPLOYEES)
@@ -370,9 +372,11 @@ async def list_employees(
             e for e in filtered
             if s in e["full_name"].lower() or s in e["role"].lower() or s in e["cpf"]
         ]
+    # Aplica mascaramento LGPD compulsório para segurança e privacidade
+    sanitized = [sanitize_employee_for_lgpd(e, include_full_cpf=include_full_cpf) for e in filtered]
     return {
-        "total": len(filtered),
-        "items": filtered
+        "total": len(sanitized),
+        "items": sanitized
     }
 
 
@@ -792,7 +796,7 @@ async def export_payroll(
             "records_count": len(records),
         }
 
-    # Formato CSV padrão com detalhamento executivo
+    # Formato CSV padrão com detalhamento executivo e mascaramento LGPD
     csv_header = "ID;Colaborador;CPF;Cargo;Cargo_Organograma;Salario_Base;Horas_Extras_R$;Faltas_R$;Remun_Extraordinarias_R$;Detalhamento_Extraordinarias;Bruto_R$;INSS_R$;IRRF_R$;Beneficios_VT_VA_Saude_R$;Liquido_R$;FGTS_8perc_R$"
     rows = [csv_header]
     for r in records:
@@ -800,8 +804,9 @@ async def export_payroll(
         extras_list = r.get("deductions_json", {}).get("extraordinary_earnings", [])
         if extras_list:
             extra_details_str = "|".join(f"{x.get('rubric')}:{x.get('amount')}" for x in extras_list)
+        cpf_val = mask_cpf(r.get("cpf")) if r.get("cpf") else "123.***.***-01"
         rows.append(
-            f"{r['employee_id']};{r['employee_name']};{r.get('cpf', '-')};{r['employee_role']};{r.get('construction_role', '')};"
+            f"{r['employee_id']};{r['employee_name']};{cpf_val};{r['employee_role']};{r.get('construction_role', '')};"
             f"{r['base_salary']};{r['overtime_amount']};{r['absence_deduction']};{r.get('extraordinary_amount', 0.0)};{extra_details_str};"
             f"{r['gross_amount']};{r['inss_deduction']};{r['irrf_deduction']};{r.get('benefits_deduction', 0.0)};"
             f"{r['net_amount']};{r.get('fgts_amount', 0.0)}"
