@@ -957,8 +957,8 @@ async def export_sector_dre_report(
         ws.cell(row=row_idx, column=3).number_format = "R$ #,##0.00"
         row_idx += 1
 
-    for col in ws.columns:
-        col_letter = get_column_letter(col[0].column)
+    for col_idx, col in enumerate(ws.columns, start=1):
+        col_letter = get_column_letter(col_idx)
         ws.column_dimensions[col_letter].width = 22
 
     stream = io.BytesIO()
@@ -1047,8 +1047,8 @@ async def export_sector_inadimplencia_report(
         ws.cell(row=row_idx, column=6).number_format = "R$ #,##0.00"
         row_idx += 1
 
-    for col in ws.columns:
-        col_letter = get_column_letter(col[0].column)
+    for col_idx, col in enumerate(ws.columns, start=1):
+        col_letter = get_column_letter(col_idx)
         ws.column_dimensions[col_letter].width = 22
 
     stream = io.BytesIO()
@@ -1122,8 +1122,8 @@ async def export_sector_sla_docas_report(
     for row in sample_rows:
         ws.append(list(row))
 
-    for col in ws.columns:
-        col_letter = get_column_letter(col[0].column)
+    for col_idx, col in enumerate(ws.columns, start=1):
+        col_letter = get_column_letter(col_idx)
         ws.column_dimensions[col_letter].width = 24
 
     stream = io.BytesIO()
@@ -1196,8 +1196,8 @@ async def export_sector_movimentacao_report(
     for row in sample_moves:
         ws.append(list(row))
 
-    for col in ws.columns:
-        col_letter = get_column_letter(col[0].column)
+    for col_idx, col in enumerate(ws.columns, start=1):
+        col_letter = get_column_letter(col_idx)
         ws.column_dimensions[col_letter].width = 24
 
     stream = io.BytesIO()
