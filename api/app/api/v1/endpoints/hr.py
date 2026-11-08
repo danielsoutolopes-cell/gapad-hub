@@ -645,8 +645,8 @@ async def list_payroll_records(
     return {
         "reference_month": reference_month or (records[0]["reference_month"] if records else date.today().strftime("%Y-%m")),
         "total_records": len(records),
-        "total_gross": round(sum(r["gross_amount"] for r in records), 2),
-        "total_net": round(sum(r["net_amount"] for r in records), 2),
+        "total_gross": round(sum(float(r["gross_amount"]) for r in records), 2),
+        "total_net": round(sum(float(r["net_amount"]) for r in records), 2),
         "items": records
     }
 
@@ -683,15 +683,15 @@ async def close_payroll_and_integrate_financial(
         )
 
     # Consolidação de Rúbricas para Contas a Pagar
-    total_net = sum(r["net_amount"] for r in records)
-    total_inss = sum(r["inss_deduction"] for r in records)
-    total_irrf = sum(r["irrf_deduction"] for r in records)
-    total_fgts = sum(r.get("fgts_amount", round(r["gross_amount"] * 0.08, 2)) for r in records)
+    total_net = sum(float(r["net_amount"]) for r in records)
+    total_inss = sum(float(r["inss_deduction"]) for r in records)
+    total_irrf = sum(float(r["irrf_deduction"]) for r in records)
+    total_fgts = sum(float(r.get("fgts_amount", round(float(r["gross_amount"]) * 0.08, 2))) for r in records)
     
     # Rúbricas de Benefícios de Terceiros (Fornecedores de VA, VT e Convênio Médico)
-    total_health = sum(r.get("deductions_json", {}).get("plano_saude_coparticipacao", 0.0) for r in records)
-    total_vt = sum(r.get("deductions_json", {}).get("vale_transporte_6perc", 0.0) for r in records)
-    total_va = sum(r.get("deductions_json", {}).get("vale_alimentacao_pat", 0.0) for r in records)
+    total_health = sum(float(r.get("deductions_json", {}).get("plano_saude_coparticipacao", 0.0)) for r in records)
+    total_vt = sum(float(r.get("deductions_json", {}).get("vale_transporte_6perc", 0.0)) for r in records)
+    total_va = sum(float(r.get("deductions_json", {}).get("vale_alimentacao_pat", 0.0)) for r in records)
 
     staged_payables = [
         # 1. Salários Líquidos a Pagar aos Colaboradores
@@ -749,7 +749,7 @@ async def close_payroll_and_integrate_financial(
     for r in records:
         r["status"] = "CLOSED"
 
-    total_obligation = round(sum(p["amount"] for p in staged_payables), 2)
+    total_obligation = round(sum(float(p["amount"]) for p in staged_payables), 2)
 
     return {
         "success": True,
