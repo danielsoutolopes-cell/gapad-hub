@@ -749,7 +749,10 @@ async def close_payroll_and_integrate_financial(
     for r in records:
         r["status"] = "CLOSED"
 
-    total_obligation = round(sum(float(p["amount"]) for p in staged_payables), 2)
+    total_obligation = 0.0
+    for p in staged_payables:
+        total_obligation += float(p["amount"])
+    total_obligation = round(total_obligation, 2)
 
     return {
         "success": True,
