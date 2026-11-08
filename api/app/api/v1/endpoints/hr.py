@@ -116,18 +116,39 @@ class EmployeeImportResponse(BaseModel):
     message: str
 
 
+class ExtraordinaryEarningType(str, Enum):
+    BONUS_PRODUTIVIDADE = "BONUS_PRODUTIVIDADE"
+    DISSIDIO_RETROATIVO = "DISSIDIO_RETROATIVO"
+    PLR = "PLR"  # Participação nos Lucros e Resultados (Lei 10.101/2000 - isento de INSS e IRRF exclusivo)
+    GRATIFICACAO_FUNCAO = "GRATIFICACAO_FUNCAO"
+    PREMIO_DESEMPENHO = "PREMIO_DESEMPENHO"
+    ADICIONAL_NOTURNO = "ADICIONAL_NOTURNO"
+    ADICIONAL_PERICULOSIDADE = "ADICIONAL_PERICULOSIDADE"
+    ADICIONAL_INSALUBRIDADE = "ADICIONAL_INSALUBRIDADE"
+    DSR_SOBRE_VARIAVEIS = "DSR_SOBRE_VARIAVEIS"
+    DIARIA_VIAGEM = "DIARIA_VIAGEM"
+
+
 class ExtraordinaryEarningItem(BaseModel):
     employee_id: str
-    rubric_name: str = Field(..., description="Ex: Bônus de Produtividade, Adicional Noturno, DSR, Diária de Viagem")
-    amount: float = Field(..., gt=0)
-    taxable_inss: bool = Field(default=True)
-    taxable_irrf: bool = Field(default=True)
+    rubric_type: Optional[ExtraordinaryEarningType] = Field(
+        default=ExtraordinaryEarningType.BONUS_PRODUTIVIDADE,
+        description="Tipo canônico da remuneração extraordinária",
+    )
+    rubric_name: str = Field(..., description="Ex: Bônus de Produtividade, Dissídio Coletivo, PLR Semestral, Gratificação")
+    amount: float = Field(..., gt=0, description="Valor nominal da rúbrica (R$)")
+    taxable_inss: bool = Field(default=True, description="Incide INSS (falso para PLR e Diárias de Viagem conforme Lei)")
+    taxable_irrf: bool = Field(default=True, description="Incide IRRF na tabela progressiva")
+    taxable_fgts: bool = Field(default=True, description="Incide FGTS Digital de 8%")
 
 
 class CalculatePayrollRequest(BaseModel):
     reference_month: str = Field(..., pattern=r"^\d{4}-\d{2}$", description="Mês de competência YYYY-MM (ex: 2026-11)")
     employee_ids: Optional[List[str]] = Field(default=None, description="Opcional: recalcular apenas para IDs específicos")
-    extraordinary_earnings: Optional[List[ExtraordinaryEarningItem]] = Field(default=[], description="Remunerações extraordinárias (Bônus, Adicional Noturno, etc)")
+    extraordinary_earnings: Optional[List[ExtraordinaryEarningItem]] = Field(
+        default=[],
+        description="Remunerações extraordinárias (Bônus, Dissídios, PLR, Gratificações, Adicionais)",
+    )
 
 
 # -----------------------------------------------------------------------------
@@ -479,26 +500,40 @@ async def calculate_payroll(payload: CalculatePayrollRequest, x_tenant_id: Optio
         overtime_hours = 8.0 if emp["id"] == "emp-2" else 0.0
         overtime_amount = round(overtime_hours * hourly_rate * 1.5, 2)
 
-        # Adiciona bônus/adicionais extraordinários
+        # Adiciona bônus/adicionais extraordinários (Dissídios, PLR, Gratificações, Prêmios)
         emp_extras = extra_by_emp.get(emp["id"], [])
         extra_earnings_amount = round(sum(item.amount for item in emp_extras), 2)
+
+        # Segregação de incidências legais por rúbrica:
+        # PLR (Lei 10.101/2000) e diárias de viagem justificadas são isentas de INSS/FGTS
+        extra_inss_taxable = sum(item.amount for item in emp_extras if item.taxable_inss)
+        extra_irrf_taxable = sum(item.amount for item in emp_extras if item.taxable_irrf)
+        extra_fgts_taxable = sum(item.amount for item in emp_extras if item.taxable_fgts)
+
         extra_earnings_details = [
-            {"rubric": item.rubric_name, "amount": item.amount, "taxable_inss": item.taxable_inss}
+            {
+                "rubric": item.rubric_name,
+                "rubric_type": (item.rubric_type.value if hasattr(item.rubric_type, 'value') else str(item.rubric_type)),
+                "amount": item.amount,
+                "taxable_inss": item.taxable_inss,
+                "taxable_irrf": item.taxable_irrf,
+                "taxable_fgts": item.taxable_fgts,
+            }
             for item in emp_extras
         ]
 
         absent_days = 1 if emp["id"] == "emp-1" else 0
         absence_deduction = round(absent_days * (base_salary / 30.0), 2)
 
-        # Salário Bruto Total = Base + HE + Bônus Extraordinários - Faltas
+        # Salário Bruto Total = Base + HE + Rúbricas Extraordinárias - Faltas
         gross_amount = round(base_salary + overtime_amount + extra_earnings_amount - absence_deduction, 2)
 
-        # Base para INSS: Bruto (considerando extraordinários tributáveis)
-        inss_base = gross_amount
+        # Base para INSS: Salário Base + HE - Faltas + Adicionais Tributáveis a INSS
+        inss_base = max(0.0, base_salary + overtime_amount - absence_deduction + extra_inss_taxable)
         inss = round(_calculate_inss(inss_base), 2)
 
-        # Base para IRRF: Bruto - INSS
-        taxable_base_irrf = max(0.0, gross_amount - inss)
+        # Base para IRRF: Salário Base + HE - Faltas + Adicionais Tributáveis a IRRF - INSS
+        taxable_base_irrf = max(0.0, (base_salary + overtime_amount - absence_deduction + extra_irrf_taxable) - inss)
         irrf = round(_calculate_irrf(taxable_base_irrf), 2)
 
         # Descontos Legais Trabalhistas Brasileiros (Rúbricas CLT)
@@ -520,8 +555,9 @@ async def calculate_payroll(payload: CalculatePayrollRequest, x_tenant_id: Optio
         
         net_amount = round(gross_amount - total_emp_deductions, 2)
 
-        # FGTS Digital: 8% sobre a remuneração bruta (encargo patronal, não desconta do trabalhador)
-        fgts_amount = round(gross_amount * 0.08, 2)
+        # FGTS Digital: 8% sobre a remuneração base tributável a FGTS
+        fgts_base = max(0.0, base_salary + overtime_amount - absence_deduction + extra_fgts_taxable)
+        fgts_amount = round(fgts_base * 0.08, 2)
 
         deductions_json = {
             "inss": inss,
@@ -756,13 +792,17 @@ async def export_payroll(
             "records_count": len(records),
         }
 
-    # Formato CSV padrão
-    csv_header = "ID;Colaborador;Cargo;Cargo_Organograma;Salario_Base;Horas_Extras_R$;Faltas_R$;Remun_Extraordinarias_R$;Bruto_R$;INSS_R$;IRRF_R$;Beneficios_VT_VA_Saude_R$;Liquido_R$;FGTS_8perc_R$"
+    # Formato CSV padrão com detalhamento executivo
+    csv_header = "ID;Colaborador;CPF;Cargo;Cargo_Organograma;Salario_Base;Horas_Extras_R$;Faltas_R$;Remun_Extraordinarias_R$;Detalhamento_Extraordinarias;Bruto_R$;INSS_R$;IRRF_R$;Beneficios_VT_VA_Saude_R$;Liquido_R$;FGTS_8perc_R$"
     rows = [csv_header]
     for r in records:
+        extra_details_str = ""
+        extras_list = r.get("deductions_json", {}).get("extraordinary_earnings", [])
+        if extras_list:
+            extra_details_str = "|".join(f"{x.get('rubric')}:{x.get('amount')}" for x in extras_list)
         rows.append(
-            f"{r['employee_id']};{r['employee_name']};{r['employee_role']};{r.get('construction_role', '')};"
-            f"{r['base_salary']};{r['overtime_amount']};{r['absence_deduction']};{r.get('extraordinary_amount', 0.0)};"
+            f"{r['employee_id']};{r['employee_name']};{r.get('cpf', '-')};{r['employee_role']};{r.get('construction_role', '')};"
+            f"{r['base_salary']};{r['overtime_amount']};{r['absence_deduction']};{r.get('extraordinary_amount', 0.0)};{extra_details_str};"
             f"{r['gross_amount']};{r['inss_deduction']};{r['irrf_deduction']};{r.get('benefits_deduction', 0.0)};"
             f"{r['net_amount']};{r.get('fgts_amount', 0.0)}"
         )

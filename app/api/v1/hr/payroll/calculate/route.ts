@@ -30,6 +30,14 @@ export async function POST(request: NextRequest) {
     }
 
     const refMonth = body.reference_month || '2026-11';
+    const extraordinaryEarnings = body.extraordinary_earnings || [];
+    const emp1Extras = extraordinaryEarnings
+      .filter((e: any) => e.employee_id === 'emp-1')
+      .reduce((acc: number, cur: any) => acc + Number(cur.amount || 0), 0) || 300.0;
+    const emp2Extras = extraordinaryEarnings
+      .filter((e: any) => e.employee_id === 'emp-2')
+      .reduce((acc: number, cur: any) => acc + Number(cur.amount || 0), 0);
+
     const mockCalculatedRecords = [
       {
         id: `pay-${refMonth}-emp-1`,
@@ -41,15 +49,15 @@ export async function POST(request: NextRequest) {
         base_salary: 2860.0,
         overtime_hours: 0.0,
         overtime_amount: 0.0,
-        extraordinary_amount: 300.0,
+        extraordinary_amount: emp1Extras,
         absent_days: 1,
         absence_deduction: 95.33,
-        gross_amount: 3064.67,
+        gross_amount: Math.round((2860.0 + emp1Extras - 95.33) * 100) / 100,
         inss_deduction: 254.82,
         irrf_deduction: 41.22,
         benefits_deduction: 341.6,
-        net_amount: 2427.03,
-        fgts_amount: 245.17,
+        net_amount: Math.round((2860.0 + emp1Extras - 95.33 - 254.82 - 41.22 - 341.6) * 100) / 100,
+        fgts_amount: Math.round((2860.0 + emp1Extras - 95.33) * 0.08 * 100) / 100,
         deductions_json: {
           inss: 254.82,
           irrf: 41.22,
@@ -57,6 +65,7 @@ export async function POST(request: NextRequest) {
           vale_alimentacao_pat: 70.0,
           plano_saude_coparticipacao: 85.0,
           seguro_vida_coletivo_nr18: 15.0,
+          extraordinary_earnings: extraordinaryEarnings.filter((e: any) => e.employee_id === 'emp-1'),
         },
         status: 'DRAFT',
       },
@@ -70,15 +79,15 @@ export async function POST(request: NextRequest) {
         base_salary: 3380.0,
         overtime_hours: 8.0,
         overtime_amount: 184.36,
-        extraordinary_amount: 0.0,
+        extraordinary_amount: emp2Extras,
         absent_days: 0,
         absence_deduction: 0.0,
-        gross_amount: 3564.36,
+        gross_amount: Math.round((3380.0 + 184.36 + emp2Extras) * 100) / 100,
         inss_deduction: 317.84,
         irrf_deduction: 105.54,
         benefits_deduction: 382.8,
-        net_amount: 2758.18,
-        fgts_amount: 285.15,
+        net_amount: Math.round((3380.0 + 184.36 + emp2Extras - 317.84 - 105.54 - 382.8) * 100) / 100,
+        fgts_amount: Math.round((3380.0 + 184.36 + emp2Extras) * 0.08 * 100) / 100,
         deductions_json: {
           inss: 317.84,
           irrf: 105.54,
@@ -86,6 +95,7 @@ export async function POST(request: NextRequest) {
           vale_alimentacao_pat: 70.0,
           plano_saude_coparticipacao: 95.0,
           seguro_vida_coletivo_nr18: 15.0,
+          extraordinary_earnings: extraordinaryEarnings.filter((e: any) => e.employee_id === 'emp-2'),
         },
         status: 'DRAFT',
       },

@@ -188,3 +188,4 @@ def test_rate_limiting_enforces_100_requests_per_minute():
         assert "Limite de requisições de exportação excedido" in exc_info.value.detail
     finally:
         app.dependency_overrides.pop(get_tenant_from_auth_header, None)
+
