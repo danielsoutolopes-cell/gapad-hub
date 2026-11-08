@@ -118,6 +118,24 @@ export default async function HelpCenterPage() {
       answer:
         'O sistema aceita a colagem direta de mensagens brutas e informais do WhatsApp (com gírias de obra, abreviações e erros ortográficos). A inteligência artificial isola os serviços, normaliza para termos técnicos, calcula quantidade e valor, e compara o preço unitário com o Dicionário Histórico da Construtora. Caso o valor esteja acima da média histórica, um alerta de negociação ("Chorar Preço") é ativado.',
     },
+    {
+      id: 'faq-10',
+      question: 'Qual é a hierarquia de usuários de uma construtora e como funciona o isolamento do Superusuário?',
+      answer:
+        'O GADAP Hub estrutura os perfis da construtora em: Diretor, Engenheiro Coordenador, Engenheiro de Campo, Mestre de Obras, Comprador, Financeiro, RH/DP e Portal do Cliente. Para resguardar a LGPD e o segredo industrial, o Superusuário do SaaS opera em modelo Zero-Knowledge: ele monitora a integridade dos clusters e tenants, mas é tecnicamente impedido pelo banco de visualizar dados confidenciais (faturamento, notas, salários e orçamentos).',
+    },
+    {
+      id: 'faq-11',
+      question: 'Como os códigos SKU de materiais são protegidos contra vazamento entre construtoras?',
+      answer:
+        'Cada código SKU (Stock Keeping Unit) cadastrado em Produtos/Insumos possui uma restrição de unicidade composta por (tenant_id, code) com índice específico no PostgreSQL. Com as políticas de Row Level Security (RLS) forçadas em nível de banco de dados, é fisicamente impossível que uma empresa veja os códigos SKU, fornecedores ou preços de custo de outra empresa.',
+    },
+    {
+      id: 'faq-12',
+      question: 'Como funcionam os descontos legais (VA/VT, Plano de Saúde) e a integração com o Contas a Pagar?',
+      answer:
+        'Na apuração mensal da folha (/dashboard/rh/folha), o sistema aplica as rúbricas da legislação brasileira: INSS e IRRF progressivos, Vale Transporte (até 6%), Vale Alimentação/Refeição (PAT), coparticipação em Plano de Saúde e Seguro de Vida NR-18. Ao fechar a folha, o módulo gera automaticamente 5 títulos integrados no Contas a Pagar (Salários Líquidos, DARF Previdenciário, FGTS Digital, Operadora de Saúde e Ticket/Alimentação).',
+    },
   ];
 
   return (
@@ -214,7 +232,7 @@ export default async function HelpCenterPage() {
               </p>
             </div>
             <span className="text-xs font-semibold text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/20">
-              9 Tópicos Essenciais
+              12 Tópicos Essenciais
             </span>
           </div>
 

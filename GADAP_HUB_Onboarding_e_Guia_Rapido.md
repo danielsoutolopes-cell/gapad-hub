@@ -36,6 +36,8 @@
    - **Módulo 8: Pagando Terceirizados sem Burocracia (Modelo Farol, Campos de Atuação & Zero Travas)**
    - **Módulo 9: WBS Integrada, Cronograma Gantt e Gestão Comercial de Aditivos Contratuais**
    - **Módulo 10: Inteligência Anti-Fraude e Parsing de Extras de WhatsApp com IA & RH em Lote**
+   - **Módulo 11: Organograma Funcional da Construtora (RBAC) e Isolamento Zero-Knowledge do Superusuário**
+   - **Módulo 12: Folha de Pagamento Completa CLT: Rúbricas Legais, VA/VT, Saúde e Exportação CNAB240**
 
 4. **PARTE III: Manual do Administrador da Plataforma (Área Restrita Master)**
    - 4.1 Torre de Controle Global (God Mode)
@@ -239,6 +241,16 @@ $$\text{Exposição\ Financeira\ a\ Descoberto} = \max(0, Total\ Pago - Total\ M
 ### 13. Importação em Lote de Colaboradores no Recursos Humanos (RH)
 - **Importação Rápida:** Rota `POST /api/v1/hr/employees/import` e interface no ERP permitindo copiar e colar listas completas do Excel/Sheets (Nome, CPF, Cargo, Salário, Telefone, Obra).
 - **Tratamento de Dados:** Higienização de CPFs, cálculo automático do valor diário trabalhado (`daily_wage`), atribuição de status ativo e prevenção contra colaboradores duplicados.
+
+### 14. Organograma da Construtora e Isolamento Zero-Knowledge do Superusuário
+- **Hierarquia Funcional de Obras:** Organograma estruturado com 8 papéis (`DIRETOR`, `ENGENHEIRO_COORDENADOR`, `ENGENHEIRO_CAMPO`, `MESTRE_OBRAS`, `COMPRADOR`, `FINANCEIRO`, `RH_DEPARTAMENTO_PESSOAL`, `VISITANTE_CLIENTE`) acessível em `/dashboard/usuarios`.
+- **Blindagem do Superusuário (Zero-Knowledge):** O painel do Superusuário (`/dashboard/admin`) permite auditoria de infraestrutura e saúde dos tenants, mas é tecnicamente impedido pelo banco de visualizar dados confidenciais (faturamento, notas, salários e orçamentos).
+- **Isolamento Estrito de SKUs:** O catálogo de materiais (`products`) possui restrição de unicidade composta `UNIQUE(tenant_id, code)`, garantindo que códigos SKU e custos de insumos nunca vazem entre empresas concorrentes.
+
+### 15. Motor Salarial Completo CLT & Geração Automática no Contas a Pagar
+- **Rúbricas Salariais CLT:** Apuração com tabelas progressivas 2026 de INSS e IRRF, horas extras a 50%, remunerações extraordinárias (bônus/noturno), desconto legal de Vale Transporte (até 6%), coparticipação em Vale Alimentação/Refeição (PAT), Plano de Saúde e Seguro de Vida NR-18.
+- **Fechamento Atômico & 5 Títulos no Contas a Pagar:** Ao fechar a folha, o ERP cria automaticamente títulos para Salários Líquidos, DARF Previdenciário (eSocial), FGTS Digital, Operadora de Saúde e Fornecedora de Alimentação.
+- **Importação e Exportação de Arquivos:** Suporte nativo à exportação da folha em formato CSV e Remessa Bancária CNAB 240 (Febraban) para crédito direto em conta corrente.
 
 ---
 

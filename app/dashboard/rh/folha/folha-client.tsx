@@ -179,19 +179,65 @@ export function FolhaClient({ activeModules }: { activeModules: string[] }) {
             />
           </div>
 
-          <button
-            type="button"
-            onClick={handleCalculatePayroll}
-            disabled={calculating}
-            className="px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-bold text-xs rounded-xl shadow-lg shadow-emerald-600/20 flex items-center gap-2 cursor-pointer transition-all disabled:opacity-60"
-          >
-            {calculating ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <Play className="w-4 h-4 fill-white" />
-            )}
-            <span>Calcular Folha do Mês</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={async () => {
+                const res = await fetch(`/api/v1/hr/payroll/export?reference_month=${selectedMonth}&format_type=csv`);
+                if (res.ok) {
+                  const data = await res.json();
+                  const blob = new Blob([data.content], { type: 'text/csv;charset=utf-8;' });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = data.file_name;
+                  a.click();
+                  URL.revokeObjectURL(url);
+                }
+              }}
+              className="px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-semibold text-xs rounded-xl flex items-center gap-1.5 transition-all cursor-pointer"
+              title="Exportar Folha Detalhada em CSV"
+            >
+              <Download className="w-4 h-4 text-emerald-400" />
+              <span>Exportar CSV</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={async () => {
+                const res = await fetch(`/api/v1/hr/payroll/export?reference_month=${selectedMonth}&format_type=cnab240`);
+                if (res.ok) {
+                  const data = await res.json();
+                  const blob = new Blob([data.content], { type: 'text/plain;charset=utf-8;' });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = data.file_name;
+                  a.click();
+                  URL.revokeObjectURL(url);
+                }
+              }}
+              className="px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-semibold text-xs rounded-xl flex items-center gap-1.5 transition-all cursor-pointer"
+              title="Exportar Remessa Bancária CNAB 240 (Febraban)"
+            >
+              <FileSpreadsheet className="w-4 h-4 text-indigo-400" />
+              <span>Remessa CNAB240</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleCalculatePayroll}
+              disabled={calculating}
+              className="px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-bold text-xs rounded-xl shadow-lg shadow-emerald-600/20 flex items-center gap-2 cursor-pointer transition-all disabled:opacity-60"
+            >
+              {calculating ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Play className="w-4 h-4 fill-white" />
+              )}
+              <span>Calcular Folha com Rúbricas</span>
+            </button>
+          </div>
         </div>
       </div>
 

@@ -119,6 +119,7 @@ export function Sidebar({
       label: 'Configurações',
       icon: Building,
       items: [
+        { label: 'Organograma & Usuários', href: '/dashboard/usuarios', icon: Users },
         { label: 'Certificado Digital A1', href: '/dashboard/configuracoes/certificado', icon: ShieldCheck },
         { label: 'Faturamento & Planos', href: '/dashboard/configuracoes/faturamento', icon: CreditCard },
         { label: 'Equipe & RBAC', href: '/dashboard/configuracoes/equipe', icon: Users },
@@ -280,16 +281,29 @@ export function Sidebar({
         {/* Rodapé da Sidebar */}
         <div className="p-3 border-t border-slate-800/80 bg-slate-950/60 space-y-2">
           {isSuperAdmin && (
-            <Link
-              href="/backoffice"
-              className="flex items-center justify-between px-3 py-1.5 rounded-xl text-xs font-bold text-red-400 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 transition-all"
-            >
-              <span className="flex items-center gap-2">
-                <Crown className="w-3.5 h-3.5" />
-                <span>God Mode</span>
-              </span>
-              <span className="text-[10px] px-1.5 py-0.2 rounded bg-red-500/20 uppercase font-mono">Master</span>
-            </Link>
+            <div className="space-y-1">
+              <Link
+                href="/dashboard/admin"
+                className="flex items-center justify-between px-3 py-1.5 rounded-xl text-xs font-bold text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 transition-all"
+              >
+                <span className="flex items-center gap-2">
+                  <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Painel Superusuário</span>
+                </span>
+                <span className="text-[10px] px-1.5 py-0.2 rounded bg-amber-500/20 uppercase font-mono">Zero-Data</span>
+              </Link>
+
+              <Link
+                href="/backoffice"
+                className="flex items-center justify-between px-3 py-1.5 rounded-xl text-xs font-bold text-red-400 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 transition-all"
+              >
+                <span className="flex items-center gap-2">
+                  <Crown className="w-3.5 h-3.5" />
+                  <span>God Mode</span>
+                </span>
+                <span className="text-[10px] px-1.5 py-0.2 rounded bg-red-500/20 uppercase font-mono">Master</span>
+              </Link>
+            </div>
           )}
 
           <div className="text-[10px] text-slate-500 text-center font-medium">
