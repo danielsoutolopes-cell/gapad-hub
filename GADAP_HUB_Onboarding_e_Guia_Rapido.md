@@ -252,6 +252,11 @@ $$\text{Exposição\ Financeira\ a\ Descoberto} = \max(0, Total\ Pago - Total\ M
 - **Fechamento Atômico & 5 Títulos no Contas a Pagar:** Ao fechar a folha, o ERP cria automaticamente títulos para Salários Líquidos, DARF Previdenciário (eSocial), FGTS Digital, Operadora de Saúde e Fornecedora de Alimentação.
 - **Importação e Exportação de Arquivos:** Suporte nativo à exportação da folha em formato CSV e Remessa Bancária CNAB 240 (Febraban) para crédito direto em conta corrente.
 
+### 16. Segurança Avançada de Relatórios Gerenciais & Exportações Setoriais
+- **Injeção Estrita de Tenant:** Todas as rotas de exportação analítica (DRE, SLA de Docas, Inadimplência e Movimentação) utilizam a dependência `get_tenant_from_auth_header`, eliminando qualquer parâmetro de consulta genérico ou fallback que pudesse desviar o contexto multi-tenant.
+- **Marca d'Água Digital e Rastreabilidade Criptográfica (LGPD):** Cada planilha Excel (`.xlsx`) gerada recebe um carimbo no cabeçalho e rodapé contendo Razão Social, CNPJ mascarado, carimbo de tempo UTC e Hash SHA-256 exclusivo. Qualquer cópia física ou vazamento pode ser imediatamente auditado e atribuído à origem.
+- **Rate-Limiting por Tenant no Gateway (100 req/min):** Proteção ativa contra automações de BI ou loops descontrolados que sobrecarreguem o cluster de relatórios. Disparos acima do teto retornam `HTTP 429 Too Many Requests` com cabeçalho `Retry-After: 60`.
+
 ---
 
 # 🎯 MVP CONCLUÍDO, BLINDADO & CORE SELADO

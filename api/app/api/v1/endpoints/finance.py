@@ -45,7 +45,6 @@ async def _resolve_tenant_and_headers(
 ):
     service_key = settings.get_service_role_key()
     anon_key = settings.get_anon_key()
-    default_tenant = "7ffdf475-b337-4282-ae1f-3f8056394334"
 
     token = None
     tenant_id = x_tenant_id
@@ -67,7 +66,11 @@ async def _resolve_tenant_and_headers(
             pass
 
     if not tenant_id:
-        tenant_id = default_tenant
+        logger.warning("Tentativa de acesso à rota financeira sem tenant_id vinculado.")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Acesso Proibido: Tenant não informado. Cabeçalho de autorização ou x-tenant-id obrigatório.",
+        )
 
     use_key = service_key or anon_key
     # Se o token não for um JWT válido de 3 partes, utiliza use_key no header do PostgREST

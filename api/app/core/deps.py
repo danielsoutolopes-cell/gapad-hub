@@ -82,6 +82,10 @@ def get_current_tenant_and_token(
         ) from exc
 
 
+# Alias explícito para conformidade de arquitetura multi-tenant
+get_tenant_from_auth_header = get_current_tenant_and_token
+
+
 def get_current_superadmin(
     credentials: HTTPAuthorizationCredentials = Depends(security_scheme),
 ) -> Dict[str, Any]:

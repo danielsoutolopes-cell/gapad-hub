@@ -136,6 +136,18 @@ export default async function HelpCenterPage() {
       answer:
         'Na apuração mensal da folha (/dashboard/rh/folha), o sistema aplica as rúbricas da legislação brasileira: INSS e IRRF progressivos, Vale Transporte (até 6%), Vale Alimentação/Refeição (PAT), coparticipação em Plano de Saúde e Seguro de Vida NR-18. Ao fechar a folha, o módulo gera automaticamente 5 títulos integrados no Contas a Pagar (Salários Líquidos, DARF Previdenciário, FGTS Digital, Operadora de Saúde e Ticket/Alimentação).',
     },
+    {
+      id: 'faq-13',
+      question: 'Como as exportações de relatórios gerenciais protegem dados confidenciais contra vazamento físico (LGPD)?',
+      answer:
+        'Todas as planilhas Excel (.xlsx) e relatórios executivos setoriais (DRE, SLA de Docas, Inadimplência e Movimentação) gerados pelo GADAP Hub incorporam no cabeçalho e no rodapé de impressão uma marca d\'água digital com Razão Social, CNPJ mascarado, timestamp UTC e um Hash Criptográfico SHA-256 exclusivo. Qualquer impressão física ou arquivo compartilhado possui autenticidade rastreável contra vazamentos de dados concorrenciais.',
+    },
+    {
+      id: 'faq-14',
+      question: 'O que é a política de Rate-Limiting por Tenant no Gateway para relatórios analíticos?',
+      answer:
+        'Para assegurar alta disponibilidade e evitar que scripts automatizados de BI sobrecarreguem a fila de CPU e memória dos demais clientes concorrentes, o gateway do GADAP Hub aplica um teto de 100 requisições por minuto por empresa para rotas de exportação volumosa (.xlsx/PDF). Se o limite for excedido, a API retorna HTTP 429 Too Many Requests com cabeçalho Retry-After: 60.',
+    },
   ];
 
   return (
@@ -232,7 +244,7 @@ export default async function HelpCenterPage() {
               </p>
             </div>
             <span className="text-xs font-semibold text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/20">
-              12 Tópicos Essenciais
+              14 Tópicos Essenciais
             </span>
           </div>
 

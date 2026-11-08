@@ -84,3 +84,4 @@ DROP POLICY IF EXISTS superadmin_audit_logs_insert ON public.superadmin_audit_lo
 CREATE POLICY superadmin_audit_logs_insert ON public.superadmin_audit_logs
     FOR INSERT
     WITH CHECK (true);
+

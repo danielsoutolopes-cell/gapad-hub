@@ -144,3 +144,4 @@ def test_payroll_export_formats_csv_and_cnab240():
     data_cnab = resp_cnab.json()
     assert data_cnab["format"] == "CNAB240"
     assert "LOTE FOLHA DE PAGAMENTO" in data_cnab["content"]
+
