@@ -260,7 +260,7 @@ def run_seed():
                 json={
                     "tenant_id": tenant_id,
                     "full_name": "Daniel Master (SuperAdmin)",
-                    "role": "superadmin",
+                    "role": "admin",
                     "is_superadmin": True,
                     "is_active": True,
                 },
@@ -275,7 +275,7 @@ def run_seed():
                     "full_name": "Daniel Master (SuperAdmin)",
                     "email": master_email,
                     "phone": "11999998888",
-                    "role": "superadmin",
+                    "role": "admin",
                     "is_superadmin": True,
                     "is_active": True,
                 },
@@ -313,6 +313,13 @@ def run_seed():
         # Deleta clientes
         client.delete(f"/rest/v1/clients?tenant_id=eq.{tenant_id}").raise_for_status()
         print("   ✓ Clientes anteriores removidos.")
+
+        # Deleta subcontratos e transações
+        try:
+            client.delete(f"/rest/v1/subcontract_transactions?tenant_id=eq.{tenant_id}")
+            client.delete(f"/rest/v1/subcontracts?tenant_id=eq.{tenant_id}")
+        except Exception:
+            pass
 
         # Deleta fornecedores, produtos e serviços
         client.delete(f"/rest/v1/suppliers?tenant_id=eq.{tenant_id}").raise_for_status()
