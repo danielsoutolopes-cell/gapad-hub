@@ -8,11 +8,14 @@ Arquivo: api/app/api/v1/endpoints/finance.py
 import logging
 from datetime import date, datetime
 from decimal import Decimal
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
+from uuid import UUID, uuid4
 import httpx
-from fastapi import APIRouter, Header, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
+from pydantic import BaseModel, Field
 
 from app.core.config import settings
+from app.core.deps import get_current_tenant_and_token
 from app.schemas.finance import (
     FinancialEntryItem,
     FinancialEntriesTotals,
