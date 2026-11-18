@@ -17,8 +17,9 @@ Este roteiro foi desenhado para que você valide, em poucos minutos, toda a jorn
 ---
 
 ## 📱 Roteiro 1: Canteiro de Obras no Celular (PWA `GADAP Field`)
+**Acesso Direto (Mobile / Desktop):** [https://gadap-field.vercel.app/](https://gadap-field.vercel.app/)
 
-1. **Login Blindado**: Acesse o PWA Field e entre com o usuário teste. Observe que nenhuma informação financeira sensível (DRE, salários, margens) é carregada no bundle do canteiro.
+1. **Login Blindado**: Acesse o PWA Field em `https://gadap-field.vercel.app/` e entre com o usuário teste. Observe que nenhuma informação financeira sensível (DRE, salários, margens) é carregada no bundle do canteiro.
 2. **Medição Diária com Fotos, Clima & Presença**:
    - Selecione a obra **Reforma Residencial Alpha**.
    - Na etapa **Fundações & Infraestrutura**, arraste a barra de rolagem de avanço para **`+10%`**.

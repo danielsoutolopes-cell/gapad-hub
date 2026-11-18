@@ -152,7 +152,7 @@ export default async function HelpCenterPage() {
       id: 'faq-15',
       question: 'Como o clima (chuva) no PWA de campo impacta o cronograma e a cobrança por medição?',
       answer:
-        'No aplicativo de campo (GADAP Field), o mestre de obras pode detectar automaticamente o clima oficial via GPS (OpenWeatherMap) e registrar dias de paralisação por intempérie. O sistema calcula o deslocamento automático do cronograma (Excusable Delay) para relatórios de clientes PF ou SPE, e permite optar por sugerir o valor da medição com base no delta de evolução física da etapa (ex: de 5% para 15% = +10% do orçamento alocado na fase).',
+        'No aplicativo de campo (GADAP Field — acessível em https://gadap-field.vercel.app/), o mestre de obras pode detectar automaticamente o clima oficial via GPS (OpenWeatherMap) e registrar dias de paralisação por intempérie. O sistema calcula o deslocamento automático do cronograma (Excusable Delay) para relatórios de clientes PF ou SPE, e permite optar por sugerir o valor da medição com base no delta de evolução física da etapa (ex: de 5% para 15% = +10% do orçamento alocado na fase).',
     },
     {
       id: 'faq-16',

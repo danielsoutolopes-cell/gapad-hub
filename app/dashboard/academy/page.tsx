@@ -35,8 +35,8 @@ const NEW_BIBLE_MODULES = [
       'Sugestão automática de medição por Delta WBS (evolução % da etapa vs. última medição faturada)',
       'Caixinha da Obra (Pix/Dinheiro), ponto GPS, recebimento de materiais e Radar Regional de Preços (30 dias)',
     ],
-    href: '/dashboard/obras',
-    ctaLabel: 'Ver Obras & Diário',
+    href: 'https://gadap-field.vercel.app/',
+    ctaLabel: 'Abrir PWA Field ↗',
     icon: Smartphone,
   },
   {

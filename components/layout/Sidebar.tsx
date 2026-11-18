@@ -280,6 +280,18 @@ export function Sidebar({
 
         {/* Rodapé da Sidebar */}
         <div className="p-3 border-t border-slate-800/80 bg-slate-950/60 space-y-2">
+          <a
+            href="https://gadap-field.vercel.app/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 transition-all"
+          >
+            <span className="flex items-center gap-2">
+              <HardHat className="w-3.5 h-3.5 text-emerald-400" />
+              <span>PWA de Campo (Field)</span>
+            </span>
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 uppercase font-mono">Abrir ↗</span>
+          </a>
           {isSuperAdmin && (
             <div className="space-y-1">
               <Link

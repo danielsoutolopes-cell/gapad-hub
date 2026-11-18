@@ -270,7 +270,7 @@ $$\text{Exposição\ Financeira\ a\ Descoberto} = \max(0, Total\ Pago - Total\ M
 
 ## 📱 7. GADAP Field (PWA Blindado de Canteiro), Clima & Medição por Delta WBS
 
-- **PWA Independente (`GADAP Field`)**: Aplicativo blindado para celulares de Mestres de Obras e Apontadores, conectado ao mesmo Supabase Auth e rotas da API, sem expor dados financeiros ou DRE do escritório.
+- **PWA Independente (`GADAP Field`)**: Aplicativo blindado para celulares de Mestres de Obras e Apontadores, disponível em **[https://gadap-field.vercel.app/](https://gadap-field.vercel.app/)**, conectado ao mesmo Supabase Auth e rotas da API, sem expor dados financeiros ou DRE do escritório.
 - **Medição Diária com Fotos, Clima & Presença Estilo WhatsApp**:
   - O mestre seleciona a obra, desliza o **Avanço do Dia (%)**, tira até **3 fotos** pela câmera e digita os nomes dos colaboradores presentes em texto livre.
   - **Clima Oficial via GPS (OpenWeatherMap)**: Detecta automaticamente Sol, Nublado, Chuva Leve ou Chuva Forte pela localização do canteiro e registra dias de paralisação por intempérie.
