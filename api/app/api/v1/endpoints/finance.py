@@ -6,7 +6,7 @@ Arquivo: api/app/api/v1/endpoints/finance.py
 """
 
 import logging
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from decimal import Decimal
 from typing import Any, Dict, List, Optional, Tuple
 from uuid import UUID, uuid4
@@ -83,7 +83,7 @@ async def _resolve_tenant_and_headers(
         "Authorization": f"Bearer {valid_jwt}",
         "Content-Type": "application/json",
     }
-    return str(tenant_id), headers
+    return tenant_id, headers
 
 
 async def _fetch_dataset(
@@ -691,7 +691,7 @@ async def pay_subcontract_with_segregation(
                             "average_unit_price": new_avg,
                             "highest_unit_price": new_highest,
                             "sample_count": new_samples,
-                            "last_updated": datetime.utcnow().isoformat(),
+                            "last_updated": datetime.now(timezone.utc).isoformat(),
                         },
                     )
                 else:
@@ -699,7 +699,7 @@ async def pay_subcontract_with_segregation(
                         f"{base_url}/rest/v1/subcontract_price_dictionary",
                         headers=headers,
                         json={
-                            "tenant_id": str(tenant_id),
+                            "tenant_id": tenant_id,
                             "standardized_service_name": extra.description,
                             "average_unit_price": current_amount,
                             "highest_unit_price": current_amount,
