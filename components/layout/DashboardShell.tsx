@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
+import { logout } from '@/app/actions/auth';
 
 interface DashboardShellProps {
   children: React.ReactNode;
@@ -16,6 +17,20 @@ export function DashboardShell({
   isSuperAdmin = false,
 }: DashboardShellProps) {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+
+  // Auto-logoff compulsório à meia-noite (00:00) para ambiente de demonstração
+  useEffect(() => {
+    const now = new Date();
+    const midnight = new Date(now);
+    midnight.setHours(24, 0, 0, 0);
+    const msUntilMidnight = midnight.getTime() - now.getTime();
+
+    const timer = setTimeout(() => {
+      logout().catch(() => null);
+    }, msUntilMidnight);
+
+    return () => clearTimeout(timer);
+  }, []);
 
   return (
     <div className="h-screen w-screen overflow-hidden flex bg-slate-950 text-slate-100">

@@ -820,3 +820,113 @@ async def export_payroll(
         "content": "\n".join(rows),
         "records_count": len(records)
     }
+
+
+# -----------------------------------------------------------------------------
+# Aprendizado Contínuo de Apelidos no Ponto de Campo (Campo -> RH)
+# -----------------------------------------------------------------------------
+_TENANT_EMPLOYEE_ALIASES: Dict[str, Dict[str, Dict[str, str]]] = {}
+
+
+class ResolveAttendanceAliasesRequest(BaseModel):
+    names: List[str] = Field(..., description="Lista de nomes ou apelidos digitados pelo mestre de obras")
+
+
+class LearnEmployeeAliasRequest(BaseModel):
+    alias: str = Field(..., min_length=2, description="Apelido usado no canteiro (ex: Tonhão)")
+    employee_id: str = Field(..., description="ID do funcionário oficial")
+    employee_name: str = Field(..., description="Nome completo oficial do funcionário")
+
+
+@router.post("/attendance/resolve-aliases")
+async def resolve_attendance_aliases(
+    payload: ResolveAttendanceAliasesRequest,
+    x_tenant_id: Optional[str] = Header(None),
+) -> Dict[str, Any]:
+    """
+    Resolve nomes/apelidos enviados pelo mestre de obras no ponto estilo WhatsApp.
+    Emite aviso automático caso algum nome não seja reconhecido, permitindo o aprendizado.
+    """
+    tenant_id_str = x_tenant_id or "default-tenant"
+    tenant_aliases = _TENANT_EMPLOYEE_ALIASES.setdefault(tenant_id_str, {})
+    employees = [
+        e for e in _MOCK_EMPLOYEES
+        if not x_tenant_id or str(e.get("tenant_id", "")) == x_tenant_id
+    ]
+
+    recognized: List[Dict[str, str]] = []
+    unrecognized: List[str] = []
+
+    for raw_name in payload.names:
+        clean = raw_name.strip()
+        if not clean:
+            continue
+        key = clean.lower()
+
+        # 1. Verifica se já foi aprendido como apelido
+        if key in tenant_aliases:
+            learned = tenant_aliases[key]
+            recognized.append({
+                "input_name": clean,
+                "employee_id": learned["employee_id"],
+                "employee_name": learned["employee_name"],
+                "match_type": "learned_alias",
+            })
+            continue
+
+        # 2. Verifica correspondência direta ou parcial com funcionários cadastrados
+        matched_emp = next(
+            (e for e in employees if key in str(e.get("full_name", "")).lower()),
+            None,
+        )
+        if matched_emp:
+            recognized.append({
+                "input_name": clean,
+                "employee_id": str(matched_emp["id"]),
+                "employee_name": str(matched_emp["full_name"]),
+                "match_type": "official_name",
+            })
+        else:
+            unrecognized.append(clean)
+
+    warning_message = None
+    if unrecognized:
+        names_str = ", ".join(unrecognized)
+        warning_message = (
+            f"Atenção: O sistema não reconheceu os seguintes nomes no ponto: {names_str}. "
+            "Vincule cada apelido ao colaborador oficial para que o sistema aprenda automaticamente."
+        )
+
+    return {
+        "recognized": recognized,
+        "unrecognized": unrecognized,
+        "has_unrecognized": len(unrecognized) > 0,
+        "warning_message": warning_message,
+    }
+
+
+@router.post("/employees/learn-alias")
+async def learn_employee_alias(
+    payload: LearnEmployeeAliasRequest,
+    x_tenant_id: Optional[str] = Header(None),
+) -> Dict[str, Any]:
+    """
+    Ensina ao sistema um novo apelido de colaborador para o tenant atual.
+    Nas próximas marcações de ponto, o apelido será reconhecido automaticamente.
+    """
+    tenant_id_str = x_tenant_id or "default-tenant"
+    tenant_aliases = _TENANT_EMPLOYEE_ALIASES.setdefault(tenant_id_str, {})
+    alias_key = payload.alias.strip().lower()
+
+    tenant_aliases[alias_key] = {
+        "employee_id": payload.employee_id,
+        "employee_name": payload.employee_name,
+    }
+
+    return {
+        "success": True,
+        "alias": payload.alias.strip(),
+        "employee_id": payload.employee_id,
+        "employee_name": payload.employee_name,
+        "message": f"Apelido '{payload.alias.strip()}' aprendido e vinculado a '{payload.employee_name}'!",
+    }

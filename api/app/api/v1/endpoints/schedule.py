@@ -8,7 +8,7 @@ Endpoints:
 """
 
 import logging
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Any, Dict, List, Optional, Tuple
 from uuid import UUID, uuid4
@@ -173,7 +173,7 @@ async def get_project_gantt_wbs(
     Retorna tanto a lista linear quanto a árvore hierárquica (WBS)
     com percentuais de avanço, datas planejadas vs reais e precedências.
     """
-    pid_str = str(project_id)
+    pid_str = project_id
     raw_tasks = _ensure_default_mock_tasks(pid_str)
 
     # Ordena tarefas
@@ -210,7 +210,7 @@ async def list_project_schedule_tasks(
     auth_data: Tuple[UUID, str] = Depends(get_current_tenant_and_token),
 ) -> List[Any]:
     tenant_id, token = auth_data
-    pid_str = str(project_id)
+    pid_str = project_id
 
     # 1. Tenta buscar no Supabase REST
     supabase_url = f"{settings.SUPABASE_URL.rstrip('/')}/rest/v1/project_tasks"
@@ -233,7 +233,7 @@ async def list_project_schedule_tasks(
     except Exception as exc:
         logger.warning("Falha ao consultar project_tasks no Supabase (%s). Usando fallback local.", exc)
 
-    return _ensure_default_mock_tasks(pid_str)
+    return _ensure_default_mock_tasks(str(pid_str))
 
 
 @router.post(
@@ -248,7 +248,7 @@ async def create_project_schedule_task(
     auth_data: Tuple[UUID, str] = Depends(get_current_tenant_and_token),
 ) -> Any:
     tenant_id, token = auth_data
-    pid_str = str(project_id)
+    pid_str = project_id
 
     if payload.end_date < payload.start_date:
         raise HTTPException(
@@ -288,7 +288,7 @@ async def create_project_schedule_task(
     except Exception as exc:
         logger.warning("Falha ao salvar no Supabase (%s). Gravando no store local.", exc)
 
-    tasks = _ensure_default_mock_tasks(pid_str)
+    tasks = _ensure_default_mock_tasks(str(pid_str))
     tasks.append(record)
     return record
 
@@ -306,8 +306,8 @@ async def update_project_schedule_task(
     auth_data: Tuple[UUID, str] = Depends(get_current_tenant_and_token),
 ) -> Any:
     tenant_id, token = auth_data
-    pid_str = str(project_id)
-    tid_str = str(task_id)
+    pid_str = project_id
+    tid_str = task_id
 
     update_dict: Dict[str, Any] = {"updated_at": datetime.now().isoformat()}
     if payload.name is not None:
@@ -343,7 +343,7 @@ async def update_project_schedule_task(
     except Exception as exc:
         logger.warning("Falha ao atualizar no Supabase (%s). Atualizando localmente.", exc)
 
-    tasks = _ensure_default_mock_tasks(pid_str)
+    tasks = _ensure_default_mock_tasks(str(pid_str))
     for t in tasks:
         if t["id"] == tid_str:
             t.update(update_dict)
@@ -366,7 +366,7 @@ async def update_task_progress_and_diary(
     Recebe o novo percentual de avanço físico E o Diário de Obra (contingente, clima, fotos e relato).
     Salva ambos de forma atômica e atualiza a WBS.
     """
-    tid_str = str(task_id)
+    tid_str = task_id
     new_progress = float(payload.get("progress_percentage", 0))
     field_diary_data = payload.get("field_report") or payload.get("field_diary") or {}
 
@@ -508,7 +508,9 @@ async def price_and_generate_amendment(
     3. Dispara o termo aditivo via WhatsApp (Evolution API) para aprovação e assinatura do cliente.
     4. Atualiza o budget_total do projeto original após homologação.
     """
-    req_item = next((r for r in _LOCAL_CHANGE_ORDERS_REQUESTS if r["id"] == payload.request_id), None)
+    req_item: Optional[Dict[str, Any]] = next(
+        (r for r in _LOCAL_CHANGE_ORDERS_REQUESTS if r["id"] == payload.request_id), None
+    )
     if not req_item:
         req_item = {
             "id": payload.request_id,
@@ -520,7 +522,7 @@ async def price_and_generate_amendment(
         _LOCAL_CHANGE_ORDERS_REQUESTS.append(req_item)
 
     req_item["priced_amount"] = float(payload.priced_amount)
-    req_item["priced_notes"] = payload.notes
+    req_item["priced_notes"] = payload.notes or ""
     req_item["status"] = "APPROVED"
 
     amendment_id = str(uuid4())
@@ -618,8 +620,8 @@ async def delete_project_schedule_task(
     auth_data: Tuple[UUID, str] = Depends(get_current_tenant_and_token),
 ) -> Dict[str, Any]:
     tenant_id, token = auth_data
-    pid_str = str(project_id)
-    tid_str = str(task_id)
+    pid_str = project_id
+    tid_str = task_id
 
     supabase_url = f"{settings.SUPABASE_URL.rstrip('/')}/rest/v1/project_tasks"
     params = {"id": f"eq.{tid_str}", "project_id": f"eq.{pid_str}"}
@@ -635,8 +637,8 @@ async def delete_project_schedule_task(
     except Exception as exc:
         logger.warning("Falha ao deletar no Supabase (%s). Deletando localmente.", exc)
 
-    tasks = _ensure_default_mock_tasks(pid_str)
-    _LOCAL_PROJECT_TASKS[pid_str] = [t for t in tasks if t["id"] != tid_str]
+    tasks = _ensure_default_mock_tasks(str(pid_str))
+    _LOCAL_PROJECT_TASKS[str(pid_str)] = [t for t in tasks if t["id"] != tid_str]
     return {"success": True, "deleted_id": tid_str}
 
 
@@ -656,7 +658,7 @@ async def get_project_curve_s(
     auth_data: Tuple[UUID, str] = Depends(get_current_tenant_and_token),
 ) -> CurveSResponse:
     tenant_id, token = auth_data
-    pid_str = str(project_id)
+    pid_str = project_id
 
     # 1. Puxa as tarefas do cronograma
     tasks = await list_project_schedule_tasks(project_id, auth_data)
@@ -747,4 +749,204 @@ async def get_project_curve_s(
         current_financial_progress=round(financial_progress_pct, 1),
         data_points=monthly_points,
     )
+
+
+@router.get(
+    "/projects/{project_id}/weather-impact-report",
+    summary="Relatório Climático, Dias Efetivos Trabalhados e Impacto no Cronograma/Medição",
+    description=(
+        "Consolida os apontamentos climáticos do PWA de campo (sol, chuva leve, chuva forte), "
+        "calcula dias efetivamente trabalhados na semana/mês, projeta o deslocamento do cronograma "
+        "por intempéries e aplica (opcionalmente) o fator climático na medição para clientes PF ou SPE."
+    ),
+)
+async def get_weather_impact_report(
+    project_id: str,
+    period: str = Query("month", description="Janela de apuração: 'week' ou 'month'"),
+    client_profile: str = Query("SPE", description="Perfil do cliente: 'PF' (residencial/piscina) ou 'SPE' (corporativo)"),
+    apply_weather_billing_factor: bool = Query(
+        False,
+        description="Se True, aplica fator de ajuste climático/mobilização na apuração da medição.",
+    ),
+    auth_info: Tuple[UUID, str] = Depends(get_current_tenant_and_token),
+):
+    tenant_id, _ = auth_info
+    planned_working_days = 6 if period == "week" else 22
+
+    # Filtra relatórios de campo locais da obra (ou usa baseline realista para demonstração)
+    reports = [
+        r for r in _LOCAL_FIELD_REPORTS
+        if str(r.get("project_id")) == project_id
+    ]
+
+    weather_lost_days = sum(float(r.get("weather_impact_days", 0.0)) for r in reports)
+    if not reports:
+        # Baseline demonstrativa quando ainda não há apontamentos em memória
+        weather_lost_days = 1.5 if period == "week" else 3.5
+
+    effective_worked_days = max(0.0, round(planned_working_days - weather_lost_days, 1))
+    efficiency_perc = round((effective_worked_days / planned_working_days) * 100, 1) if planned_working_days else 100.0
+    schedule_shift_days = round(weather_lost_days)
+
+    # Fator opcional de medição (ex: 1.0 sem ajuste ou ajuste proporcional à mobilização em chuva)
+    billing_factor = 1.0
+    billing_note = "Medição padrão por avanço físico executado."
+    if apply_weather_billing_factor and weather_lost_days > 0:
+        billing_factor = round(max(0.85, effective_worked_days / planned_working_days), 4)
+        billing_note = (
+            f"Fator climático opcional aplicado ({billing_factor}x) considerando "
+            f"{weather_lost_days} dia(s) de paralisação por intempérie."
+        )
+
+    audience_summary = (
+        f"Em {effective_worked_days} de {planned_working_days} dias úteis a equipe atuou normalmente na obra; "
+        f"houve {weather_lost_days} dia(s) de chuva que impediram concretagem/acabamento externo, "
+        f"deslocando o prazo em +{schedule_shift_days} dia(s) para manter a qualidade."
+        if client_profile.upper() == "PF"
+        else f"RDO Consolidado ({period.upper()}): {effective_worked_days}/{planned_working_days} dias produtivos "
+             f"({efficiency_perc}%). Registrados {weather_lost_days} dia(s) de força maior climática "
+             f"(Excusable Delay), com impacto de +{schedule_shift_days} dia(s) na linha de base do cronograma."
+    )
+
+    return {
+        "project_id": project_id,
+        "tenant_id": str(tenant_id),
+        "period": period,
+        "client_profile": client_profile.upper(),
+        "planned_working_days": planned_working_days,
+        "effective_worked_days": effective_worked_days,
+        "weather_lost_days": weather_lost_days,
+        "productivity_efficiency_perc": efficiency_perc,
+        "schedule_shift_days": schedule_shift_days,
+        "apply_weather_billing_factor": apply_weather_billing_factor,
+        "measurement_billing_factor": billing_factor,
+        "measurement_billing_note": billing_note,
+        "audience_summary": audience_summary,
+        "photo_evidences_count": sum(int(r.get("photos_count", 0)) for r in reports),
+        "generated_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+    }
+
+
+@router.get(
+    "/projects/weather/current",
+    summary="Consulta Meteorológica Oficial via OpenWeather (GPS do Canteiro)",
+    description="Obtém condição climática em tempo real pela latitude/longitude do canteiro para auditoria de RDO.",
+)
+async def get_current_site_weather(
+    lat: float = Query(..., description="Latitude do canteiro"),
+    lon: float = Query(..., description="Longitude do canteiro"),
+):
+    import os
+    api_key = os.getenv("OPENWEATHER_API_KEY", "")
+    if not api_key:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="OPENWEATHER_API_KEY não configurada no servidor.",
+        )
+    url = (
+        f"https://api.openweathermap.org/data/2.5/weather"
+        f"?lat={lat}&lon={lon}&appid={api_key}&units=metric&lang=pt_br"
+    )
+    async with httpx.AsyncClient(timeout=8.0) as client:
+        resp = await client.get(url)
+        if resp.status_code != 200:
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="Falha ao consultar serviço meteorológico OpenWeather.",
+            )
+        data = resp.json()
+
+    weather_main = (data.get("weather") or [{}])[0].get("main", "").lower()
+    weather_desc = (data.get("weather") or [{}])[0].get("description", "")
+    temp_c = (data.get("main") or {}).get("temp")
+    rain_1h = (data.get("rain") or {}).get("1h", 0.0)
+
+    mapped_condition = "sol"
+    suggested_impact = 0.0
+    if "thunderstorm" in weather_main or rain_1h >= 5.0:
+        mapped_condition = "chuva_forte"
+        suggested_impact = 1.0
+    elif "rain" in weather_main or "drizzle" in weather_main or rain_1h > 0:
+        mapped_condition = "chuva_leve"
+        suggested_impact = 0.5
+    elif "cloud" in weather_main:
+        mapped_condition = "nublado"
+        suggested_impact = 0.0
+
+    return {
+        "provider": "OpenWeatherMap",
+        "city": data.get("name"),
+        "temperature_c": temp_c,
+        "description_pt": weather_desc,
+        "rain_1h_mm": rain_1h,
+        "mapped_condition": mapped_condition,
+        "suggested_impact_days": suggested_impact,
+    }
+
+
+class MeasurementSuggestionRequest(BaseModel):
+    contract_value: float = Field(..., gt=0, description="Valor total do contrato da obra")
+    stage_name: str = Field(..., description="Nome da etapa da WBS (ex: Fundações)")
+    stage_weight_perc: float = Field(20.0, ge=0, le=100, description="Peso financeiro da etapa no contrato (%)")
+    current_field_progress_perc: float = Field(..., ge=0, le=100, description="% atual apurado pelo mestre no PWA")
+    last_billed_progress_perc: float = Field(0.0, ge=0, le=100, description="% já cobrado na medição anterior")
+    technical_retention_perc: float = Field(5.0, ge=0, le=30, description="Retenção técnica contratual (%)")
+    use_field_progress: bool = Field(True, description="Se False, retorna sugestão zerada para preenchimento manual")
+
+
+@router.post(
+    "/projects/{project_id}/measurement-suggestion",
+    summary="Sugestão Inteligente de Valor de Medição por Evolução Física (Delta WBS)",
+    description=(
+        "Calcula automaticamente o delta de avanço físico entre o percentual atual informado pelo "
+        "mestre de obras no PWA e a última medição faturada, aplicando a proporção financeira "
+        "alocada à etapa para sugerir o valor exato da nova cobrança."
+    ),
+)
+async def suggest_measurement_from_schedule(
+    project_id: str,
+    payload: MeasurementSuggestionRequest,
+    auth_info: Tuple[UUID, str] = Depends(get_current_tenant_and_token),
+) -> Dict[str, Any]:
+    tenant_id, _ = auth_info
+
+    if not payload.use_field_progress:
+        return {
+            "project_id": project_id,
+            "tenant_id": str(tenant_id),
+            "mode": "MANUAL",
+            "suggested_gross_amount": 0.0,
+            "suggested_retention_amount": 0.0,
+            "suggested_net_amount": 0.0,
+            "delta_progress_perc": 0.0,
+            "message": "Modo manual selecionado: informe o valor desejado diretamente na medição.",
+        }
+
+    delta_perc = max(0.0, round(payload.current_field_progress_perc - payload.last_billed_progress_perc, 2))
+    stage_allocated_budget = round(payload.contract_value * (payload.stage_weight_perc / 100.0), 2)
+    suggested_gross = round(stage_allocated_budget * (delta_perc / 100.0), 2)
+    suggested_retention = round(suggested_gross * (payload.technical_retention_perc / 100.0), 2)
+    suggested_net = round(suggested_gross - suggested_retention, 2)
+
+    return {
+        "project_id": project_id,
+        "tenant_id": str(tenant_id),
+        "mode": "AUTO_WBS_DELTA",
+        "stage_name": payload.stage_name,
+        "contract_value": payload.contract_value,
+        "stage_weight_perc": payload.stage_weight_perc,
+        "stage_allocated_budget": stage_allocated_budget,
+        "last_billed_progress_perc": payload.last_billed_progress_perc,
+        "current_field_progress_perc": payload.current_field_progress_perc,
+        "delta_progress_perc": delta_perc,
+        "suggested_gross_amount": suggested_gross,
+        "suggested_retention_amount": suggested_retention,
+        "suggested_net_amount": suggested_net,
+        "explanation": (
+            f"Etapa '{payload.stage_name}' evoluiu +{delta_perc}% "
+            f"(de {payload.last_billed_progress_perc}% para {payload.current_field_progress_perc}%). "
+            f"Sobre o orçamento alocado de R$ {stage_allocated_budget:,.2f}, sugere-se faturar "
+            f"R$ {suggested_gross:,.2f} brutos (R$ {suggested_net:,.2f} líquidos)."
+        ),
+    }
 

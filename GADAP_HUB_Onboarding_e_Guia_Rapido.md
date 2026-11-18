@@ -264,3 +264,26 @@ $$\text{Exposição\ Financeira\ a\ Descoberto} = \max(0, Total\ Pago - Total\ M
 > ### 📍 STATUS DO ROADMAP
 > **O core do negócio, a Central Financeira, a Suíte Global de QA (Prompt 77), a FASE 11: BILLING E MONETIZAÇÃO SAAS (Prompt 80: Gateway PF Asaas + Seed de Master Tenants) e a FASE 19: LOGÍSTICA DE CANTEIRO & PORTARIA DIGITAL (Prompt 81: Termos de Retirada/Recebimento com Assinatura em Touchscreen, Captura GPS, Foto de Carga, Geração de PDF ReportLab com Cláusula de Fiel Depositário e Modal de Compartilhamento Flexível para até 3 WhatsApps via Evolution API) estão 100% blindados, executados no Supabase com RLS hermético, testados via Pytest (5 passed) e homologados com sucesso no build de produção do Next.js!**
 
+
+
+---
+
+## 📱 7. GADAP Field (PWA Blindado de Canteiro), Clima & Medição por Delta WBS
+
+- **PWA Independente (`GADAP Field`)**: Aplicativo blindado para celulares de Mestres de Obras e Apontadores, conectado ao mesmo Supabase Auth e rotas da API, sem expor dados financeiros ou DRE do escritório.
+- **Medição Diária com Fotos, Clima & Presença Estilo WhatsApp**:
+  - O mestre seleciona a obra, desliza o **Avanço do Dia (%)**, tira até **3 fotos** pela câmera e digita os nomes dos colaboradores presentes em texto livre.
+  - **Clima Oficial via GPS (OpenWeatherMap)**: Detecta automaticamente Sol, Nublado, Chuva Leve ou Chuva Forte pela localização do canteiro e registra dias de paralisação por intempérie.
+- **Relatório Climático (PF e SPE)** & **Medição por Delta WBS**:
+  - `GET /api/v1/projects/{id}/weather-impact-report` apura dias úteis previstos vs. trabalhados e justifica deslocamentos de prazo por força maior climática.
+  - `POST /api/v1/projects/{id}/measurement-suggestion` calcula automaticamente a evolução entre a última medição faturada e o avanço atual do campo (ex: de 5% para 15% = +10% sobre o orçamento da etapa), sugerindo o valor exato da cobrança.
+
+---
+
+## 💡 8. Radar de Melhores Compras Regionais (30 Dias) & Caixinha da Obra
+
+- **Radar de Melhores Compras Regionais (`POST /api/v1/procurement/regional-best-prices`)**:
+  - Compara automaticamente o preço unitário da sua cotação com compras reais efetuadas na mesma cidade/UF nos últimos **30 dias**, de forma **100% anonimizada (LGPD-Safe)** — nenhuma construtora vê dados de outra.
+  - Se houver um fornecedor regional com preço significativamente menor, o sistema exibe um alerta imediato com o nome da loja e o percentual de economia potencial.
+- **Caixinha da Obra no PWA (`GADAP Field`)**:
+  - Aba dedicada para o mestre de obras lançar despesas rápidas de canteiro (pregos, discos, água, fretes de emergência) via **Pix / Reembolso** ou **Dinheiro (Fundo Fixo)**, abatendo direto no custo da obra.

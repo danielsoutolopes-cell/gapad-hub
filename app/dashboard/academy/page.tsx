@@ -26,14 +26,14 @@ export const dynamic = 'force-dynamic';
 const NEW_BIBLE_MODULES = [
   {
     id: 'pwa-field-app',
-    badge: 'Módulo de Campo • PWA Offline-First',
-    title: 'PWA - Field App & Apontamento no Canteiro',
+    badge: 'Módulo de Campo • PWA Blindado (GADAP Field)',
+    title: 'PWA - Field App, Clima OpenWeather & Medição por Delta',
     description:
-      'Capacite mestres de obras e encarregados a registrar presença de operários com Geofencing GPS (cerca virtual de 300m), Diário de Obras com upload de fotos e envio de requisições de compra com reconhecimento de voz e texto NLP.',
+      'Capacite mestres de obras a registrar o avanço diário com barra de rolagem (%), 3 fotos do canteiro, lista de presença estilo WhatsApp, detecção automática de clima via GPS (OpenWeatherMap) e ponto com Geofencing GPS, gerando relatório auditável com Hash SHA-256.',
     highlights: [
-      'Validação de ponto com tolerância GPS (Haversine) e resiliência RFC 7807',
-      'Diário de obra sincronizado com a galeria de transparência do cliente',
-      'Envio de requisições direto do canteiro sem necessidade de catálogo impresso',
+      'Clima oficial via GPS (OpenWeatherMap) com cálculo de dias perdidos por chuva no cronograma (PF e SPE)',
+      'Sugestão automática de medição por Delta WBS (evolução % da etapa vs. última medição faturada)',
+      'Caixinha da Obra (Pix/Dinheiro), ponto GPS, recebimento de materiais e Radar Regional de Preços (30 dias)',
     ],
     href: '/dashboard/obras',
     ctaLabel: 'Ver Obras & Diário',

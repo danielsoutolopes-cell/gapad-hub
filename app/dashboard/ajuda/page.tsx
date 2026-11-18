@@ -148,6 +148,18 @@ export default async function HelpCenterPage() {
       answer:
         'Para assegurar alta disponibilidade e evitar que scripts automatizados de BI sobrecarreguem a fila de CPU e memória dos demais clientes concorrentes, o gateway do GADAP Hub aplica um teto de 100 requisições por minuto por empresa para rotas de exportação volumosa (.xlsx/PDF). Se o limite for excedido, a API retorna HTTP 429 Too Many Requests com cabeçalho Retry-After: 60.',
     },
+    {
+      id: 'faq-15',
+      question: 'Como o clima (chuva) no PWA de campo impacta o cronograma e a cobrança por medição?',
+      answer:
+        'No aplicativo de campo (GADAP Field), o mestre de obras pode detectar automaticamente o clima oficial via GPS (OpenWeatherMap) e registrar dias de paralisação por intempérie. O sistema calcula o deslocamento automático do cronograma (Excusable Delay) para relatórios de clientes PF ou SPE, e permite optar por sugerir o valor da medição com base no delta de evolução física da etapa (ex: de 5% para 15% = +10% do orçamento alocado na fase).',
+    },
+    {
+      id: 'faq-16',
+      question: 'Como funciona o Radar de Melhores Compras Regionais e a Caixinha da Obra no PWA?',
+      answer:
+        'O Radar de Melhores Compras (30 dias) compara sua cotação com preços médios praticados na mesma cidade por outras compras recentes de forma 100% anonimizada (LGPD-Safe), indicando fornecedores mais baratos sem expor dados de terceiros. Já a Caixinha da Obra no GADAP Field permite ao mestre lançar pequenas despesas de emergência (Pix ou Dinheiro) diretamente no custo da obra.',
+    },
   ];
 
   return (
