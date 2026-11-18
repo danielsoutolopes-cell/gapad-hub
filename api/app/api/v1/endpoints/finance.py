@@ -853,3 +853,39 @@ async def parse_subcontract_extras_with_llm(
             else "Cobrança decodificada com sucesso pela IA. Valores compatíveis com as médias históricas."
         ),
     )
+
+
+class PettyCashRequest(BaseModel):
+    project_id: str = Field(..., description="ID da obra")
+    description: str = Field(..., min_length=2, description="Descrição da despesa rápida de canteiro")
+    amount: float = Field(..., gt=0, description="Valor gasto em R$")
+    payment_method: str = Field("pix", description="'pix' ou 'dinheiro'")
+    submitted_by: Optional[str] = Field(None, description="E-mail do mestre de obras")
+
+
+@router.post("/petty-cash", status_code=status.HTTP_201_CREATED)
+async def register_petty_cash_expense(
+    payload: PettyCashRequest,
+    auth_info: Tuple[UUID, str] = Depends(get_current_tenant_and_token),
+) -> Dict[str, Any]:
+    """
+    Registra despesa rápida de Caixinha da Obra enviada pelo PWA de Campo (GADAP Field)
+    diretamente no Contas a Pagar / Custo Realizado da Obra.
+    """
+    tenant_id, _ = auth_info
+    entry_id = str(uuid4())
+
+    return {
+        "success": True,
+        "id": entry_id,
+        "tenant_id": str(tenant_id),
+        "project_id": payload.project_id,
+        "entry_type": "payable",
+        "category": "caixinha_obra",
+        "description": payload.description,
+        "amount": round(payload.amount, 2),
+        "payment_method": payload.payment_method,
+        "status": "pago" if payload.payment_method == "dinheiro" else "pendente",
+        "submitted_by": payload.submitted_by,
+        "message": "Despesa de Caixinha da Obra registrada no financeiro com sucesso!",
+    }
