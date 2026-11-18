@@ -589,7 +589,7 @@ async def pay_subcontract_with_segregation(
         # (a) Pagamento Principal
         if payload.principal_amount > 0:
             tx_principal = {
-                "tenant_id": str(tenant_id),
+                "tenant_id": tenant_id,
                 "subcontract_id": str(payload.subcontract_id),
                 "type": "PAYMENT",
                 "payment_category": "PRINCIPAL",
@@ -608,7 +608,7 @@ async def pay_subcontract_with_segregation(
         # (b) Pagamento Aditivo Contratado
         if payload.contracted_extra_amount > 0:
             tx_contracted = {
-                "tenant_id": str(tenant_id),
+                "tenant_id": tenant_id,
                 "subcontract_id": str(payload.subcontract_id),
                 "type": "PAYMENT",
                 "payment_category": "CONTRACTED_EXTRA",
@@ -628,7 +628,7 @@ async def pay_subcontract_with_segregation(
         extras_recorded = []
         for extra in payload.field_extras:
             tx_extra = {
-                "tenant_id": str(tenant_id),
+                "tenant_id": tenant_id,
                 "subcontract_id": str(payload.subcontract_id),
                 "type": "PAYMENT",
                 "payment_category": "FIELD_EXTRA",
@@ -650,7 +650,7 @@ async def pay_subcontract_with_segregation(
 
             # Grava na tabela `subcontract_extras`
             extra_record = {
-                "tenant_id": str(tenant_id),
+                "tenant_id": tenant_id,
                 "subcontract_id": str(payload.subcontract_id),
                 "description": extra.description,
                 "amount": float(extra.amount),
